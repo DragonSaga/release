@@ -1,0 +1,81 @@
+local M = {}
+
+
+local docs = {}
+
+--左右的Doc都是定义在Game/Documents/目录下
+function M.RegisterDoc(self)
+    docs = {
+        M.XZombieDocument,
+        M.XTeamDocument,
+        M.XChristmasEventDocument,
+    }
+end
+
+function M.ReloadDoc(self)
+    --todo:修改后重新加载lua表
+    -- package.preload[modname] = nil
+end
+
+function M.OnTableLoaded(self)
+    print("<color=yellow>docs count: "..tostring(#docs).."</color>")
+    for _, doc in pairs(docs) do
+        if doc.OnTableLoaded ~= nil then
+            doc:OnTableLoaded()
+        end
+	end
+end
+
+function M.Attach(self)
+    for _, doc in pairs(docs) do
+        if doc.Attach ~= nil then
+            doc:Attach()
+        end
+	end
+end
+
+function M.Detach(self)
+    for _, doc in pairs(docs) do
+        if doc.Detach ~= nil then
+            doc:Detach()
+        end
+	end
+end
+
+function M.EnterScene(self)
+    for _, doc in pairs(docs) do
+        if doc.EnterScene ~= nil then
+            doc:EnterScene()
+        end
+	end
+end
+
+function M.EnterSceneFinally(self)
+    for _, doc in pairs(docs) do
+        if doc.EnterSceneFinally ~= nil then
+            doc:EnterSceneFinally()
+        end
+	end
+end
+
+function M.Reconnect(self)
+    for _, doc in pairs(docs) do
+        if doc.Reconnect ~= nil then
+            doc:Reconnect()
+        end
+	end
+end
+
+local getNewIndexMetaTable = {
+    __newindex = function()
+        Debugger.LogWarning("doc table is read-only!!")
+    end,
+    __index = function(self, filedName)
+        local path = "Game/Documents/"..tostring(filedName)
+        print("path: "..path)
+        local ret = require(path)
+        return ret
+    end
+}
+setmetatable(M, getNewIndexMetaTable)
+return M

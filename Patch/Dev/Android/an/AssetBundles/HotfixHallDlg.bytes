@@ -1,0 +1,780 @@
+local this = nil
+--
+--  HotfixHallDlg.lua
+--  Created by kaguraliu on 2016/06/06 17:51:15
+--  Please make sure you file start with "Hotfix" or "Lua"
+--
+
+require "XSystemActivity_pb.lua"
+--require "HotfixDocument.lua"
+require "Lua520EventDoc.lua"
+require "LuaBeiyeDoc.lua"
+require "LuaBopuDoc.lua"
+require "LuaRewardGetBackDoc.lua"
+require "LuaKnightMedalDoucument.lua"
+require "LuaHallFameDlg_Pure.lua"
+
+HallDlg = {}
+local this = HallDlg
+
+local XSys_KnightMedalBtn = nil
+local XSys_KnightMedalBtnRedPoint = nil
+
+local m_fxTab1 = {}
+local m_xFxMgr
+local m_go
+local m_trans
+local m_flag = true
+local h2_2GridComp = nil
+local relicTra, christmasTra = nil, nil
+-- local m_btn_nextday
+
+--local token = 0
+
+-- 变身相关变量
+--local m_btn_Change
+local m_sys115IsOpn = false
+local cacheHighRateSet = 0 --用于缓存第一次进游戏的高帧率设置
+
+function HallDlg.BeforeRefresh(go)
+	--Go = go
+	-- m_btn_nextday= go.transform:Find("_canvas/SecondMenuFrame/SecondMenu/SysGridV2/SysGNextDayReward").gameObject
+	-- print("hall=> "..go.name.." m_btn: "..tostring(IsNil(m_btn_nextday)))
+	--Hotfix.AttachSysRedPointRelative(46, 38, false)
+	--Hotfix.AttachSysRedPointRelative(46, 39, true)
+
+	-- m_btn_nextday= go.transform:Find("_canvas/SecondMenuFrame/SecondMenu/SysGridV2/SysGNextDayReward").gameObject
+
+	local theHideNvShengOp = tonumber(Hotfix.GetGlobalString("HideNvSheng"))
+	if theHideNvShengOp ~= nil and type(theHideNvShengOp) == "number" then
+		if theHideNvShengOp == 1 then
+			this.HideNvSheng()
+		end
+	end
+
+	this.CreateFx()
+	return false
+end
+
+local optionDefine = nil
+local fxTimeToken = 0
+local DailyDungeonRedPointToken = 0
+local HallOfFameRedPointToken = 0
+
+function HallDlg.AfterRefresh(go)
+	 if not IsNil(go) then
+	 	--LuaKnightMedalDoucument.SetHallDlg(this)
+		 local str = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx AfterRefresh=>  "..go.name
+	 	--this.RefreshNextDayIcons() --旧的
+	 	m_go = go;
+	 	m_trans = m_go.transform
+	 	print(str)
+	 	--this.ShowTimedActivities()
+	 	--LuaBackflowDocument.SetHallDlg(this)
+
+	 	--this.SetChangeLeftTime(10)
+	 	--print("xxxxxxxxxx level:"..LuaGameInfo.single.name.." coin:"..LuaGameInfo.single.coin.." energy:"..LuaGameInfo.single.energy)
+		 --this.DragonSysShowSet()
+		this.HappyCards()
+		this.GreenDragon()
+		this.DailyDungeon()
+		this.BopeTreasure()
+		this.GalaxyTreasure()
+		this.SetSys115Red()
+		this.DisposeBackFlowBtn()
+		this.RelickTreasure()
+		this.ChristmasEvent()
+
+		h2_2GridComp = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2"):GetComponent("UIGrid")
+		
+	 	this.SysShowSet("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/SysQmtl",1016,this.DragonKillingDlgShow)
+	 	local xplatGo= GameObject.Find("XGamePoint")
+		if not IsNil(xplatGo) then
+			local xpalt = xplatGo:GetComponent("XPlatform")
+			local sim = xpalt:GetSim()
+			if tostring(sim) == "MM" then
+	 			Hotfix.SetDocumentMember("AdditionRemindDocument","is3G",false,false,true)
+	 		end
+		 end
+
+		local SeasonActivityicon = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/SysAOperatingActivity_Pure")
+		if SeasonActivityicon ~= nil then
+			SeasonActivityicon.transform.parent = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2")
+			local Pure = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "IsPureVersion")
+			if Pure == true then
+				Hotfix.LuaWait(1000,this.OndeletSeasonActivity)
+			end
+			
+		end
+		
+		local Icon_520 = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysM520").gameObject
+		Hotfix.SetClickCallback(Icon_520,HallDlg.Sys520)
+		Icon_520:SetActive(false)
+		HallDlg.showSys520()
+
+		local Icon_FashionRank = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_FashionRank_Pure").gameObject
+		Hotfix.SetClickCallback(Icon_FashionRank,HallDlg.SysFashionRank)
+		Icon_FashionRank:SetActive(false)
+		HallDlg.showSysFashionRank()
+
+		local Icon_BigRisk = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_BigRisk").gameObject
+		Hotfix.SetClickCallback(Icon_BigRisk,HallDlg.SysBigRisk)
+		Icon_BigRisk:SetActive(false)
+		HallDlg.showSysBigRisk()
+
+		local SysBFriendCir = m_trans:Find("_canvas/ThirdMenuFrame/SysGridV2/SysBFriendCir")
+		if SysBFriendCir then
+			Hotfix.SetClickCallback(SysBFriendCir.gameObject, HallDlg.SysBFriendCirClick)
+		end
+		Lua520EventDoc.reRed()
+		local redpoint =  Lua520EventDoc.getRed( flag )
+		local iconr = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysM520/RedPoint")
+		if iconr ~= nil then
+			iconr:SetActive(redpoint)
+		end
+	else
+		print("AfterRefresh: HallDlg.AfterRefresh is nil lua script ")
+	end
+
+	-- Debugger.LogWarning("<color=red> HallDlg lua show: </color>")
+	-- Debugger.LogWarning("<color=red> cacheHighRateSet: </color>"..cacheHighRateSet)
+	--【OB+11hot1】正式服没有高帧率开关（将所有机型判定为低机型，ip7ip8ipX等），现需将正式服默认调整为低帧率  ID： 1042234
+	if cacheHighRateSet == 0 then
+		-- Hotfix.RemoveTimer(fxTimeToken)
+		-- fxTimeToken = Hotfix.LuaWait(2000, this.OnfxTimeToken)	
+	end
+
+	local XSys_KnightMedal = m_go.transform:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/XSys_KnightMedal")
+	if(not IsNil(XSys_KnightMedal))then
+		XSys_KnightMedalBtn=XSys_KnightMedal.gameObject
+		if( not IsNil(XSys_KnightMedalBtn))then
+			local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1520);
+			XSys_KnightMedalBtn:SetActive(isOpen)
+			if(isOpen)then
+				LuaKnightMedalDoucument.DispoesSystemRedPoint()
+			end
+		end
+	end
+
+	return false
+end
+
+function HallDlg.OnfxTimeToken(  )
+
+	Hotfix.RemoveTimer(fxTimeToken)
+
+	--【OB+11hot1】正式服没有高帧率开关（将所有机型判定为低机型，ip7ip8ipX等），现需将正式服默认调整为低帧率  ID： 1042234
+	Hotfix.CallSingleMethod("XGame",true,false,"SetHighFrameRate",false)
+	
+	if optionDefine == nil then
+		optionDefine = Hotfix.GetEnumType("XOptionsDefine","40")
+	end
+
+	local lastOpenActID = Hotfix.CallDocumentMethod("OptionsDocument", true, "GetValue", optionDefine)
+
+	-- Debugger.LogWarning("<color=green> lastOpenActID: </color>"..lastOpenActID)
+	-- Debugger.LogWarning("<color=green> optionDefine: </color>"..tostring(optionDefine))
+
+	if lastOpenActID ~= 0 then
+		Hotfix.CallDocumentMethod("OptionsDocument", true, "OnlySetValue", optionDefine, 0)
+	end
+	
+	lastOpenActID = Hotfix.CallDocumentMethod("OptionsDocument", true, "GetValue", optionDefine)
+	-- Debugger.LogWarning("<color=green> lastOpenActID: </color>"..lastOpenActID)
+	-- Debugger.LogWarning("<color=green> optionDefine: </color>"..tostring(optionDefine))
+
+	cacheHighRateSet = 1
+end
+
+
+function HallDlg.Hide(go)
+	Hotfix.RemoveTimer(DailyDungeonRedPointToken)
+	Hotfix.RemoveTimer(HallOfFameRedPointToken)
+	Hotfix.RemoveTimer(fxTimeToken)
+	
+	return false
+end
+
+function HallDlg.Unload(go)
+
+	Hotfix.SetSingleMember("UI.XMainInterface","_V3SwitchBtnState",false,false,true,false)
+
+	Hotfix.RemoveTimer(fxTimeToken)
+	optionDefine = nil
+	this.RemvFx()
+
+	m_go = nil 
+	m_trans = nil
+	m_flag = true
+	h2_2GridComp = nil
+	relicTra = nil
+	christmasTra = nil
+
+	return false
+end
+
+function HallDlg.RefreshGrid()
+	if IsNil(h2_2GridComp) then return end
+	h2_2GridComp:Reposition()
+end
+
+---------------------------------------------  --欢乐卡牌 sysid = 185  ----------------------------------------------------------
+
+function HallDlg.HappyCards()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+		
+	if IsNil(m_trans) then return end
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysGHappyFlop")
+	 local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",185);
+	 if isOpen == true then
+		tra.gameObject:SetActive(true)
+	 	Hotfix.SetClickCallback(tra.gameObject,this.HappyCardsShow)
+	 else tra.gameObject:SetActive(false)
+	 end
+end
+
+function HallDlg.HappyCardsShow(...)
+	--print("5555555")
+	LuaUIManager.Instance:Load("UI/GameSystem/HappyFlop/HappyFlopDlg")
+end
+--------------------------------------------  重置版回流 ----------------------------------------------
+local BackFlowBtnRed = nil
+
+function HallDlg.DisposeBackFlowBtn()
+	LuaRewardGetBackDoc.SetHallDlg(this)
+	local tra = m_trans:Find("_canvas/ThirdMenuFrame/SysGetBack")
+	BackFlowBtnRed=tra:Find("RedPoint")
+	Hotfix.SetClickCallback(tra.gameObject,this.ShowBackFlowUi)
+	local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1519);
+	local Pure = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "IsPureVersion")
+	if isOpen == true and Pure== true then
+		LuaRewardGetBackDoc.ReqRewardGetBackInfo(1,0,0)
+	end
+end
+
+function HallDlg.UpdateBackFlowBtnRedPoint( isShow )
+	print ("UpdateBackFlowBtnRedPoint="..tostring(isShow))
+	if(not IsNil(BackFlowBtnRed))then
+		BackFlowBtnRed.gameObject:SetActive(isShow)
+	end
+end
+
+function HallDlg.ShowBackFlowUi(...)
+	LuaUIManager.Instance:Load("UI/Hall/RewardGetBack")
+end
+
+---------------------------------------------  波普宝藏 sysid = 114  ----------------------------------------------------------
+function HallDlg.BopeTreasure()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+		
+	if IsNil(m_trans) then return end
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_PopeTreasure")
+	 local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",114);
+	 if isOpen == true then
+		tra.gameObject:SetActive(true)
+	 	Hotfix.SetClickCallback(tra.gameObject,this.PopeTreasureShow)
+	 else 
+		tra.gameObject:SetActive(false)
+	 end
+end
+
+function HallDlg.PopeTreasureShow(...)
+	--print("5555555")
+	LuaUIManager.Instance:Load("UI/GameSystem/Poptreasure/PoptreasureDlg")
+end
+
+function HallDlg.OnSystemChangedAbKnightMedal()
+	if(m_go==nil or IsNil(m_go))then
+		return
+	end
+
+	if(IsNil(XSys_KnightMedalBtn))then
+		XSys_KnightMedalBtn = m_go.transform:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/XSys_KnightMedal").gameObject
+	end
+	local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1520);
+	if(not IsNil(XSys_KnightMedalBtn))then
+		if( not IsNil(XSys_KnightMedalBtn))then
+			XSys_KnightMedalBtn:SetActive(isOpen)
+			if(isOpen)then
+				LuaKnightMedalDoucument.DispoesSystemRedPoint()
+			end
+		end
+	end
+	if(not isOpen)then
+		Hotfix.CallSingleMethod("XOperatingActivityView", true, false, "SetVisible", false)
+		LuaUIManager.Instance:Destroy("UI/OperatingActivity/KnightMedalReward")
+	end
+
+end
+
+---------------------------------------------  --银河探秘 sysid = 1525  ----------------------------------------------------------
+
+function HallDlg.GalaxyTreasure()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+		
+	if IsNil(m_trans) then return end
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysGGalaxyTreasure")
+	 local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1525)
+	 if isOpen == true then
+		tra.gameObject:SetActive(true)
+	 	Hotfix.SetClickCallback(tra.gameObject,this.GalaxyTreasureShow)
+	 else 
+		tra.gameObject:SetActive(false)
+	 end
+	 m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2"):GetComponent("XUIList"):Refresh()
+end
+
+function HallDlg.GalaxyTreasureShow(...)
+	LuaUIManager.Instance:Load("UI/GameSystem/GalaxyTreasure/GalaxyTreasureDlg")
+end
+---------------------------------------------  遗迹宝藏 sysid = 117  ----------------------------------------------------------
+function HallDlg.RelickTreasure()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+
+	if IsNil(m_trans) then return end	
+	
+	relicTra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_RelicTreasure")
+	
+	if relicTra == nil or IsNil(relicTra) then return end
+
+	local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",117);
+	if isOpen == true then
+		relicTra.gameObject:SetActive(true)
+	 	Hotfix.SetClickCallback(relicTra.gameObject, this.RelicTreasureShow)
+	else 
+		relicTra.gameObject:SetActive(false)
+		local relicTreasureDoc = require "LuaRelicTreasureDoc.lua"
+		relicTreasureDoc:CloseRelicMainDlg()
+	end
+end
+---------------------------------------------  圣诞活动 sysid = 1102  ----------------------------------------------------------
+function HallDlg.ChristmasEvent()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+
+	if IsNil(m_trans) then return end
+	
+	christmasTra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/SyszzChristmaxEvent")
+	
+	if christmasTra == nil or IsNil(christmasTra) then return end
+
+	local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",XSysDefine.XSys_ChristmasEvent)
+	print("isOpen: "..tostring(isOpen))
+	if isOpen == true then
+		christmasTra.gameObject:SetActive(true)
+	 	Hotfix.SetClickCallback(christmasTra.gameObject, this.ChristmasEventOnClick)
+	else 
+		christmasTra.gameObject:SetActive(false)
+		--todo:CloseDlg
+	end
+end
+function HallDlg.ChristmasEventOnClick(go)
+	XGameSysMgr.Opensystem(XSysDefine.XSys_ChristmasEvent)
+end
+
+----------名人堂
+function HallDlg.HallOfFame_Pure()
+    local isIsVisible = Hotfix.CallSingleMethod('UI.XMainInterface', true, false, 'IsVisible')
+    if isIsVisible == false then
+        return
+    end
+
+    if IsNil(m_trans) then
+        return
+    end
+    local tra = m_trans:Find('_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/Sys_zHallOfFame_Pure')
+	local isOpen = Hotfix.CallSingleMethod('XGameSysMgr', true, false, 'IsSystemOpen', XSys_HallOfFame)
+	local Pure = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "IsPureVersion")
+	Hotfix.SetClickCallback(tra.gameObject, this.ShowHallOfFame)
+	if isOpen == true and Pure == true then
+        tra.gameObject:SetActive(true)
+    else
+        tra.gameObject:SetActive(false)
+    end
+end
+function HallDlg.ShowHallOfFame(...)
+    LuaUIManager.Instance:Load('UI/GameSystem/HallFameDlg_Pure')
+end
+function HallDlg.HallOfFameRedPointTimer()
+	Hotfix.RemoveTimer(HallOfFameRedPointToken)
+	HallOfFameRedPointToken = 0
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+	if IsNil(m_trans) then return end
+
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/Sys_zHallOfFame_Pure/RedPoint")
+	if not IsNil(tra) then
+		local redGo = tra.gameObject;
+		local red =  Hotfix.GetSysRedPointState(XSys_HallOfFame)
+		local red = true
+		redGo:SetActive(red)
+	end
+end
+
+function HallDlg.HallOfFameRedPoint(isremove)
+	local isIsVisible = Hotfix.CallSingleMethod('UI.XMainInterface', true, false, 'IsVisible')
+	if isIsVisible == false then
+		return
+	end
+	if IsNil(m_trans) then
+		return
+	end
+
+	local tra = m_trans:Find('_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/Sys_zHallOfFame_Pure/RedPoint')
+	if not IsNil(tra) then
+		local redGo = tra.gameObject
+		redGo:SetActive(not isremove)
+	end
+end
+
+
+function HallDlg.RelicTreasureRedPoint()
+	if m_trans == nil then return end
+	if relicTra == nil then
+		relicTra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_RelicTreasure")
+	end
+	if relicTra == nil or IsNil(relicTra)  then return end
+	local redPointObj = relicTra:Find("RedPoint").gameObject
+	local relicTreasureDoc = require "LuaRelicTreasureDoc.lua"
+	if not IsNil(redPointObj) and relicTreasureDoc ~= nil then
+		local isShow = relicTreasureDoc:IsAnyRelicPRCanGet()
+		if isShow and not redPointObj.activeSelf then
+			redPointObj:SetActive(true)
+		end
+		if not isShow and redPointObj.activeSelf then
+			redPointObj:SetActive(false)
+		end
+	end
+	
+end
+
+function HallDlg.RelicTreasureShow(go)
+	LuaUIManager.Instance:Load("UI/GameSystem/RelicTreasure/RelicTreasureDlg")
+end
+
+---------------------------------------------  --日常副本 sysid = 1010  ----------------------------------------------------------
+
+function HallDlg.DailyDungeon()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+		
+	if IsNil(m_trans) then return end
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysGPrepare")
+	 local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1010);
+	 if isOpen == true then
+		tra.gameObject:SetActive(true)
+		Hotfix.SetClickCallback(tra.gameObject,this.DailyDungeonShow)
+		DailyDungeonRedPointToken = Hotfix.LuaWait(2000, this.DailyDungeonRedPoint)	
+		
+	 else tra.gameObject:SetActive(false)
+	 end
+end
+
+function HallDlg.DailyDungeonShow(...)
+	LuaUIManager.Instance:Load("UI/GameSystem/DailyActivity/DailyDungeonDlg")
+end
+
+function HallDlg.DailyDungeonRedPoint(...)
+	Hotfix.RemoveTimer(DailyDungeonRedPointToken)
+	DailyDungeonRedPointToken = 0
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+	if IsNil(m_trans) then return end
+
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysGPrepare/RedPoint")
+	if not IsNil(tra) then
+		local redGo = tra.gameObject;
+		local red =  Hotfix.GetSysRedPointState(1010)
+		redGo:SetActive(red)
+		-- print("DailyDungeon ... Redpoint ..." .. tostring(red))
+	end
+	
+end
+---------------------------------------------  绿龙来袭 186 --------------------------------------------------------------------
+function HallDlg.GreenDragon()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then return end
+		
+	if IsNil(m_trans) then return end
+	local tra = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysGGreenDrago")
+	 local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",186);
+	 if isOpen == true then
+		tra.gameObject:SetActive(true)
+		 Hotfix.SetClickCallback(tra.gameObject,this.GreenDragonShow)
+		 --local is_fx = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysGGreenDrago/UI_shouchong_01(Clone)")
+	 else tra.gameObject:SetActive(false)
+	 end
+end
+
+function HallDlg.GreenDragonShow(...)
+	-- print("5555555")
+	LuaUIManager.Instance:Load("UI/GameSystem/GreenDragonDlg")
+end
+---------------------------------------------  sysid = 542  已移植到了c#  ----------------------------------------------------------
+function HallDlg.DragonSysShowSet()
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then
+		return
+	end
+	if IsNil(m_trans) then return end
+	local dragon = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysLimitDragon")
+	if IsNil(dragon) then return end
+	 local dragonIsOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",542);
+	 if dragonIsOpen == true then
+	 	dragon.gameObject:SetActive(true)
+	 	Hotfix.SetClickCallback(dragon.gameObject,this.DragonSysShow)
+	 else dragon.gameObject:SetActive(false)
+	 end
+end
+
+function HallDlg.SysShowSet(path,sysid,callback)
+	local isIsVisible = Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"IsVisible")
+	if isIsVisible == false then
+		return
+	end 
+	if callback == nil then return end
+	if IsNil(m_trans) then return end
+	local icon = m_trans:Find(path)
+	if IsNil(icon) then return end
+	local IsOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",sysid);
+	if IsOpen == true then
+		icon.gameObject:SetActive(true)
+		Hotfix.SetClickCallback(icon.gameObject,callback)
+	else icon.gameObject:SetActive(false)
+	end
+end
+
+function HallDlg.DragonSysShow(...)
+	Hotfix.CallSingleMethod("XGameSysMgr",true,false,"Opensystem",542)
+end
+
+function HallDlg.DragonKillingDlgShow()
+	LuaUIManager.Instance:Load("UI/OperatingActivity/DragonkillingDlg")
+end
+
+function HallDlg.OnClickNil(go)
+	print("HallDlg.OnClickNil")
+end
+--
+function HallDlg.OnLoginRewardRep(data,length)
+--print("--------req      tttttttttttttttttttttt------------ ")
+	local msg = ParseProtoBufToTable("LoginRewardRet",data)--XSystemActivity_pb.LoginRewardRet()
+	if nil ~= msg then
+
+
+		local _redpoint = false
+
+		for i = 1,#msg.rewards do
+			local item = msg.rewards[i]
+			if nil ~= item then
+				if 2 == item.state then
+					_redpoint = true
+					break
+				end
+			end
+		end 
+		
+		--Hotfix.ForceUpdateSysRedPointImmediately(460, _redpoint)
+
+	end
+end
+
+
+function HallDlg.OnLoginRewardErr(data)
+	print("Lua Get Login Reward List Error")
+end
+
+function  HallDlg.TimeOut( ... )
+	print("time out")
+	--Hotfix.RemoveTimer(token)
+end
+
+function  HallDlg.HideNvSheng( ... )
+ -- body
+ local root = GameObject.Find("Scene/DN_nvshenxiang")
+ if IsNil(root) then return end
+ local obj1 = root.transform:Find("Object01")
+ -- local obj2 = root.transform:Find("Object008aaa")
+ -- local obj3 = root.transform:Find("objNew_Sainthaven_06Aaaa")
+ local obj4 = root.transform:Find("objNew_Sainthaven_Statue")
+ -- local obj5 = root.transform:Find("objNew_Sainthaven_Statue_Back")
+ -- local obj6 = root.transform:Find("objNew_Sainthaven_Statue_Sphere")
+ if not IsNil(obj1) then obj1.gameObject:SetActive(false) end
+ -- if not IsNil(obj2) then obj2.gameObject:SetActive(false) end
+ -- if not IsNil(obj3) then obj3.gameObject:SetActive(false) end
+ if not IsNil(obj4) then obj4.gameObject:SetActive(false) end
+ -- if not IsNil(obj5) then obj5.gameObject:SetActive(false) end
+ -- if not IsNil(obj6) then obj6.gameObject:SetActive(false) end
+end
+
+function HallDlg.XSys_KnightMedal( ... )
+	Debugger.LogWarning("<color=red> XSys_KnightMedal in lua </color>")
+	local sysid = Hotfix.GetEnumType("XSysDefine","1520")
+	Hotfix.CallSingleMethod("XOperatingActivityView", true, false, "Show",sysid)
+end
+
+function HallDlg.Sys520( ... )
+	Debugger.LogWarning("<color=red> Sys520 in lua </color>")
+	LuaUIManager.Instance:Load("UI/GameSystem/520EventMainDlg")
+end
+
+function HallDlg.SysFashionRank( ... )
+	Debugger.LogWarning("<color=red> Sys520 in lua </color>")
+	LuaUIManager.Instance:Load("UI/GameSystem/FashionRankDlg_pure")
+end
+
+function HallDlg.SysBigRisk( ... )
+	Debugger.LogWarning("<color=red> Sys520 in lua </color>")
+	LuaUIManager.Instance:Load("UI/BigRisk/BigRiskDlg")
+end
+
+function HallDlg.showSys520( ... )
+	local icon = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysM520")
+	if not IsNil(icon) then
+		local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",803)
+		icon:SetActive(isOpen)
+		if isOpen == true then
+			local row = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"GetSysData",803)
+			if row ~= nil then
+				local atlas = Hotfix.ParseStringSeqList(row.NoticeIcon, 0, 0)
+				local name = Hotfix.ParseStringSeqList(row.NoticeIcon, 0, 1)
+				 if atlas ~= "" and name ~= "" then
+					iconSpr = icon.transform:Find("P"):GetComponent("XUISprite")
+					if not IsNil(iconSpr) then
+						iconSpr:SetSprite(name,atlas)
+					end
+				 end
+
+				atlas = Hotfix.ParseStringSeqList(row.NoticeText, 0, 0)
+				name = Hotfix.ParseStringSeqList(row.NoticeText, 0, 1)
+				if atlas ~= "" and name ~= "" then
+					iconSpr = icon.transform:Find("Name"):GetComponent("XUISprite")
+					if not IsNil(iconSpr) then
+						iconSpr:SetSprite(name,atlas)
+						--iconSpr:MakePixelPerfect()
+					end
+				 end
+			end
+		end
+	end
+	Lua520EventDoc.reRed()
+	local redpoint =  Lua520EventDoc.getRed( flag )
+	local iconr = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysM520/RedPoint")
+	if iconr ~= nil then
+		iconr:SetActive(redpoint)
+	end
+end
+
+
+function HallDlg.showSysFashionRank( ... )
+	local icon = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_FashionRank_Pure")
+	if icon ~= nil then
+		local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",163)
+		icon:SetActive(isOpen)
+	end
+end
+function HallDlg.showSysBigRisk( ... )
+	local icon = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_BigRisk")
+	if icon ~= nil then
+		local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1524)
+		icon:SetActive(isOpen)
+	end
+	local redpoint =  LuaBeiyeDoc.GetTaskState( )
+	local iconr = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_BigRisk/RedPoint")
+	if iconr ~= nil then
+		iconr:SetActive(redpoint)
+	end
+	LuaBeiyeDoc.CloseUI()
+end
+
+function HallDlg.showSys520Red( isOpen )
+	-- if IsOpen == false then
+	-- 	return
+	-- end
+	local icon = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysM520/RedPoint")
+	if icon ~= nil then
+		icon:SetActive(not(isOpen))
+	end
+end
+
+function HallDlg.showSys115Red( isOpen )
+	m_sys115IsOpn = isOpen
+	this.SetSys115Red()
+end
+
+function HallDlg.SetSys115Red()
+	--m_sys115IsOpn = isOpen
+	--local icon = GameObject.Find("UIRoot(Clone)/HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysEOperatingActivity/RedPoint")
+	--if icon ~= nil then
+	--	local isHadReddot = Hotfix.CallDocumentMethod("XOperatingActivityDocument",true,"IsHadRedDot")
+		
+	--	icon:SetActive(isHadReddot == true or m_sys115IsOpn == true)
+	--end
+end
+
+function HallDlg.SysBFriendCirClick( )
+	local xplatGo= GameObject.Find("XGamePoint")
+	local xpalt = xplatGo:GetComponent("XPlatform")
+	local str = Hotfix.GetGlobalString("FriendsCircleUrl")
+	xpalt:SendExtDara("open_url","{\"url\":\"" .. str .. "\",\"screendir\":\"SENSOR\"}")
+end
+
+function HallDlg.CreateFx()
+	if m_xFxMgr == nil then
+		m_xFxMgr = CS.XUtliPoolLib.XFxMgr
+	end
+	m_fxTab1 = {}
+end
+
+function HallDlg.RemvFx()
+	-- body
+	if  m_xFxMgr ~= nil and  m_fxTab1 ~= nil then
+		for i=1,#m_fxTab1 do
+			if not IsNil(m_fxTab1[i]) then
+				m_xFxMgr.singleton:DestroyFx(m_fxTab1[i],true)
+				m_fxTab1[i] = nil
+			end
+		end
+		m_fxTab1 = {}
+	end
+end
+
+function HallDlg.OndeletSeasonActivity()
+	local isred = Hotfix.GetSysRedPointState(1515) and (Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1515))
+	isred = isred or (Hotfix.GetSysRedPointState(1516) and (Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",1516)))
+	--print("Hotfix.GetSysRedPointState(1515) : "..tostring(Hotfix.GetSysRedPointState(1515)))
+	--print("Hotfix.GetSysRedPointState(1516) : "..tostring(Hotfix.GetSysRedPointState(1516)))
+	if IsNil(m_trans) then return end
+	local red = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/SysAOperatingActivity_Pure/RedPoint")
+	if isred == true then
+		Hotfix.SetDocumentMember("FirstPassDocument","m_isHadOutRedDot",true,true,false)
+		if not IsNil(red) then 
+			red.gameObject:SetActive(true)
+			local spr = red:GetComponent("XUISprite")
+			spr:SetAlpha(1)
+		end
+	end
+	local SeasonActivityicon = m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2/Sys_PureSeasonActivity")
+	if SeasonActivityicon ~= nil then
+		SeasonActivityicon.gameObject:SetActive(false)
+		SeasonActivityicon.parent = SeasonActivityicon.parent.parent.parent
+		--m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2"):GetComponent("XUIList"):SetAnimateSmooth(true)
+		m_trans:Find("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_2"):GetComponent("XUIList"):Refresh()
+
+	end
+end
+
+function HallDlg.Unload()
+	--LuaKnightMedalDoucument.SetHallDlg(nil)
+end
+
+--function HallDlg.UpdateKnightMedalBtnRedPoint(state )
+	--if(XSys_KnightMedalBtnRedPoint~=nil and not IsNil(XSys_KnightMedalBtnRedPoint))then
+		--XSys_KnightMedalBtnRedPoint.gameObject:SetActive(state)
+	--end
+--end
+return this

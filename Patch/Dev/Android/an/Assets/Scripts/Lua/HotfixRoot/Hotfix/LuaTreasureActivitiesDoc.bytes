@@ -1,0 +1,447 @@
+local this = nil
+require "XTreasureActivities_pb.lua"
+require "LuaSecretTreasureDropBoxTable.lua"
+require "LuaSecretTreasureCountTable.lua"
+require "LuaSecretTreasureLuckyTable.lua"
+---@class LuaTreasureActivitiesDoc
+LuaTreasureActivitiesDoc = {}
+local this = LuaTreasureActivitiesDoc
+
+local print = Debugger.LogWarning
+
+local m_Curtotal_count = nil
+local m_Curreset_count = nil 
+local m_CurBoxList = {}
+local MySelectList = {}
+local m_Curtotal_taken_list = {}
+local TreasureCostList = {}
+local TreasureResetManual = nil
+local TreasureResetManualCost = {}
+local TreasureDropNum = {}
+local IfTreasureShow = nil
+local MY_Treansure_List = {}
+
+local TreasureFrame = nil
+
+local LuckyTable = nil
+local DropBoxTable = nil
+local CountTable = nil
+
+local TreasureActivitiesFrame = nil
+local TreasureItemDlgFrame = nil
+
+XSys_TreasureActivities = 1023		--龙魂秘宝的系统id
+XSys_TreasureActivities_Item = 1024  --自选奖池界面 id
+
+local m_OperatingActivityDlg = nil
+
+function LuaTreasureActivitiesDoc.RefreshRedPoint(RedState)
+	Hotfix.ForceUpdateSysRedPointImmediately(XSys_TreasureActivities, RedState)
+	if m_OperatingActivityDlg ~= nil then
+		m_OperatingActivityDlg.RefreshRedPoint()
+	end
+end
+
+
+function LuaTreasureActivitiesDoc.EnterScene()
+	this.InitLocalTable() --初始化读取表格
+	this.InitReadSettings() --读取配置
+	this.ArgTreasureInfo() --我的奖池数据
+end
+
+function LuaTreasureActivitiesDoc.Detach()
+	print("LuaTreasureActivitiesDoc.Detach")
+    TreasureActivitiesFrame = nil
+
+	theRedBagFrame = nil
+	
+    m_Curtotal_count = nil
+	m_Curreset_count = nil 
+    m_CurBoxList = {}
+    m_Curtotal_taken_list = {}
+    TreasureCostList = {}
+	TreasureResetManual = nil
+	TreasureResetManualCost = {}
+	TreasureDropNum = {}
+	IfTreasureShow = nil
+	MY_Treansure_List = {}
+
+	TreasureFrame = nil
+
+	LuckyTable = nil
+	DropBoxTable = nil
+	CountTable = nil
+
+	TreasureActivitiesFrame = nil
+	TreasureItemDlgFrame = nil
+
+	MySelectList = {}
+end
+
+function LuaTreasureActivitiesDoc.SetOperatingActivityDlg(dlg)
+	m_OperatingActivityDlg = dlg
+end
+
+function LuaTreasureActivitiesDoc.InitLocalTable()
+	DropBoxTable = ReadSecretTreasureDropBoxTable("Table/SecretTreasureDropBox")
+	CountTable = ReadSecretTreasureCountTable("Table/SecretTreasureCount")
+	LuckyTable = ReadSecretTreasureLuckyTable("Table/SecretTreasureLucky")
+end
+function LuaTreasureActivitiesDoc.InitReadSettings()
+	TreasureCostList = this.GetGlobalSeqList("TreasureCost")
+	TreasureResetManual = Hotfix.CallSingleMethod("XGlobalConfig",true,false,"GetInt","TreasureResetManual")
+	TreasureResetManualCost = this.GetGlobalSeqList("TreasureResetManualCost")
+	TreasureDropNum = this.GetGlobalSeqList("TreasureDropNum")
+	IfTreasureShow = Hotfix.CallSingleMethod("XGlobalConfig",true,false,"GetInt","IfTreasureShow")
+end
+
+function LuaTreasureActivitiesDoc.GetGlobalSeqList(key)
+ 	local xit =  Hotfix.GetGlobalString(key)
+	local strs = Split(xit,'|')
+	local List = {}
+ 	for i=1,#strs do
+		local sp = Split(strs[i],'=')
+		sp[1] = tonumber(sp[1])
+		sp[2] = tonumber(sp[2])
+		List[i] = sp
+	 end
+	 return List
+end
+
+
+--获取自选奖池道具总表
+function LuaTreasureActivitiesDoc.GetDropBoxTable()
+    return DropBoxTable
+end
+function LuaTreasureActivitiesDoc.GetLuckyTable()
+    return LuckyTable
+end
+--获取重置数据
+function LuaTreasureActivitiesDoc.GetTreasureResetManual()
+	return TreasureResetManual
+end
+function LuaTreasureActivitiesDoc.GetTreasureResetManualCost()
+	return TreasureResetManualCost
+end	
+--获取累计探宝奖励表
+function LuaTreasureActivitiesDoc.GetCountTable()
+    return CountTable
+end
+function LuaTreasureActivitiesDoc.GetTreasureDropNum()
+    return TreasureDropNum
+end
+function LuaTreasureActivitiesDoc.GetIfTreasureShow()
+    return IfTreasureShow
+end
+function LuaTreasureActivitiesDoc.Getm_Curreset_count()
+    return m_Curreset_count
+end
+function LuaTreasureActivitiesDoc.Getm_CurBoxList()
+    return m_CurBoxList
+end
+
+function LuaTreasureActivitiesDoc.Getm_MySelectList()
+    return MySelectList
+end
+function LuaTreasureActivitiesDoc.Setm_MySelectList(List)
+    MySelectList = List
+end
+
+
+function LuaTreasureActivitiesDoc.GetTreasureCostList()
+    return TreasureCostList
+end
+function LuaTreasureActivitiesDoc.SetRollCost()
+	local now = #m_CurBoxList - #m_Curtotal_taken_list
+	local pair = TreasureCostList[#m_Curtotal_taken_list + 1]
+	if now <= 0 then
+		--无法探宝
+		TreasureActivitiesFrame.SetRollCost(false,0,0)
+	else 
+		TreasureActivitiesFrame.SetRollCost(true,pair[1],pair[2])
+	end
+end
+
+
+
+function LuaTreasureActivitiesDoc.SetTreasureActivitiesFrame(theFrame)
+    TreasureActivitiesFrame = theFrame
+end
+function LuaTreasureActivitiesDoc.SetTreasureActivitiesFrame_transform(theFrame)
+    TreasureActivitiesFrame_transform = theFrame
+end
+function LuaTreasureActivitiesDoc.GetTreasureActivitiesFrame_transform(theFrame)
+    return TreasureActivitiesFrame_transform
+end
+function LuaTreasureActivitiesDoc.UnloadTreasureActivitiesFrame()
+    TreasureActivitiesFrame = nil
+end
+
+function LuaTreasureActivitiesDoc.SetTreasureItemDlgFrame(theFrame)
+    TreasureItemDlgFrame = theFrame
+end
+function LuaTreasureActivitiesDoc.UnloadTreasureItemDlgFrame()
+    TreasureItemDlgFrame = nil
+end
+
+function LuaTreasureActivitiesDoc.RefreshDlgShow( )
+	if TreasureActivitiesFrame ~= nil then
+		TreasureActivitiesFrame.OnShow()
+	end
+end
+
+---------------------------------------------------------work request---------------------------------------------------------
+--请求基本info
+function LuaTreasureActivitiesDoc.ArgTreasureInfo()
+	local  msg = GetProtoBufSendTable("SpActSecretInfoArg")
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 52551"
+		Hotfix.SendLuaByteRPC(52551, pb_data, this.ResTreasureInfo, this.ResErr)
+	end
+end
+function LuaTreasureActivitiesDoc.ResTreasureInfo(data,length)
+	local  msg = ParseProtoBufToTable("SpActSecretInfoRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		return 
+	end
+	
+	m_Curtotal_count = msg.total_count
+	m_Curreset_count = msg.reset_count
+	m_CurBoxList = msg.box_list
+	m_Curtotal_taken_list = msg.total_taken_list
+
+	if TreasureActivitiesFrame ~= nil then
+		TreasureActivitiesFrame.Refreshdata(m_Curtotal_count,m_Curreset_count,m_CurBoxList,m_Curtotal_taken_list,true)
+	else
+		--可以考虑显示外部红点
+		--TreasureActivitiesFrame.Refreshdata(m_Curtotal_count,m_Curreset_count,m_CurBoxList,m_Curtotal_taken_list,true)
+	end
+	-- optional uint32 total_count = 2;
+	-- optional uint32 reset_count = 3;
+	-- repeated SpActSecretBox box_list = 4;
+	-- repeated uint32 total_taken_list = 5;
+end
+function LuaTreasureActivitiesDoc.senddatatoFrame()
+	TreasureActivitiesFrame.Refreshdata(m_Curtotal_count,m_Curreset_count,m_CurBoxList,m_Curtotal_taken_list,true)
+end
+--探宝1次
+function LuaTreasureActivitiesDoc.ArgTreasureRollArg()
+	local  msg = GetProtoBufSendTable("SpActSecretRollArg")
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 32749"
+		Hotfix.SendLuaByteRPC(32749, pb_data, this.ResTreasureRoll, this.ResErr)
+	end
+end
+function LuaTreasureActivitiesDoc.ResTreasureRoll(data,length)
+	Hotfix.CallDocumentMethod("ShowGetItemDocument", true, "ClearItemQueue")
+	local  msg = ParseProtoBufToTable("SpActSecretRollRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		if msg.result == 43 and TreasureActivitiesFrame ~= nil then 
+			TreasureActivitiesFrame.showitemAcess()
+		end
+		Hotfix.LuaShowSystemTipErrCode(msg.result)
+		return 
+	end
+	Hotfix.CallDocumentMethod("ShowGetItemDocument", true, "ClearItemQueue")
+	if TreasureActivitiesFrame ~= nil then
+		TreasureActivitiesFrame.ShowResult(msg.box_id,msg.luck_id)
+	end
+	-- optional uint32 box_id = 2;
+	-- optional uint32 luck_id = 3;
+end
+
+--探宝记录
+function LuaTreasureActivitiesDoc.ArgTreasureLogArg()
+	local  msg = GetProtoBufSendTable("SpActSecretLogArg")
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 60754"
+		Hotfix.SendLuaByteRPC(60754, pb_data, this.ResTreasureLog, this.ResErr)
+	end
+end
+function LuaTreasureActivitiesDoc.ResTreasureLog(data,length)
+	local  msg = ParseProtoBufToTable("SpActSecretLogRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		if msg.result ~= ERR_UNKNOWN then
+			Hotfix.LuaShowSystemTipErrCode(msg.result)
+		end
+		return 
+	end
+	
+	if msg.log == nil then 
+		return 
+	end
+	if TreasureActivitiesFrame ~= nil then
+		TreasureActivitiesFrame.ShowMyLog(msg.log)
+	end
+	-- repeated SpActSecretLog log = 2;
+end
+
+
+--自选16个奖池
+function LuaTreasureActivitiesDoc.ArgTreasureAddBoxArg(myTreasureBoxList)
+	local  msg = GetProtoBufSendTable("SpActSecretAddBoxArg")
+	local box_info_List = {}
+	for i = 1, #myTreasureBoxList do 
+		local add = false
+		for j = 1, #box_info_List do
+			if myTreasureBoxList[i].Level == box_info_List[j].level then
+				add = true
+				box_info_List[j].box_id_List[#box_info_List[j].box_id_List + 1] = myTreasureBoxList[i].ID
+			end
+		end
+		if add == false then
+			pair = {}
+			box_id_List = {}
+			pair.level = myTreasureBoxList[i].Level
+			box_id_List[1] = myTreasureBoxList[i].ID
+			pair.box_id_List = box_id_List
+			box_info_List[#box_info_List + 1] = pair
+		end
+	end
+	info_List = {}
+	for i = 1, #box_info_List do
+		pair = GetProtoBufSendTable("SpActSecretAddBox")
+		pair.level = box_info_List[i].level
+		pair.box_id = {}
+		for j = 1, #box_info_List[i].box_id_List do
+			table.insert(pair.box_id , box_info_List[i].box_id_List[j])
+		end
+		--pair.box_id = box_info_List[i].box_id_List
+		info_List[#info_List + 1] = pair
+	end
+
+	msg.box_info = {}
+	for i = 1, #info_List do
+		table.insert(msg.box_info , info_List[i])
+	end
+	--msg.box_info = info_List--16个箱子
+
+	--预存一份
+	MY_Treansure_List = box_info_List
+
+
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 42774"
+		Hotfix.SendLuaByteRPC(42774, pb_data, this.ResTreasureAddBox, this.ResErr)
+	end
+end
+function LuaTreasureActivitiesDoc.ResTreasureAddBox(data,length)
+	local  msg = ParseProtoBufToTable("SpActSecretAddBoxRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		if msg.result ~= ERR_UNKNOWN then
+			Hotfix.LuaShowSystemTipErrCode(msg.result)
+		end
+		return 
+	end
+
+	if msg.result == 0 then 
+		TreasureActivitiesFrame.ShowMyTreasure(MY_Treansure_List)
+	end
+
+	--刷新
+	this.ArgTreasureInfo()
+end
+function LuaTreasureActivitiesDoc.ShowMyTreasure(MY_Treansure_List)
+	--先关了TreasureItemDlg
+	TreasureItemDlgFrame.CloseUI()
+
+	
+	TreasureActivitiesFrame.ShowMyTreasure(MY_Treansure_List)
+end
+
+--领取left
+function LuaTreasureActivitiesDoc.ArgTreasureTotalArg(total_id)
+	local  msg = GetProtoBufSendTable("SpActSecretTotalArg")
+	msg.total_id = total_id
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 27237"
+		Hotfix.SendLuaByteRPC(27237, pb_data, this.ResTreasureTotal, this.ResErr)
+	end
+end
+function LuaTreasureActivitiesDoc.ResTreasureTotal(data,length)
+	local  msg = ParseProtoBufToTable("SpActSecretTotalRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		if msg.result ~= ERR_UNKNOWN then
+			Hotfix.LuaShowSystemTipErrCode(msg.result)
+		end
+		return 
+	end
+	-----------????????????????????????????????????????????
+	-- optional uint32 total_id = 2;
+	-- if TreasureActivitiesFrame ~= nil then
+	-- 	TreasureActivitiesFrame.refreshAboutRankInfo(myRank, theRankTable)
+	-- end
+end
+
+
+--重置
+function LuaTreasureActivitiesDoc.ArgTreasureResetArg()
+	local  msg = GetProtoBufSendTable("SpActSecretLogArg")
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 17140"
+		Hotfix.SendLuaByteRPC(17140, pb_data, this.ResTreasureReset, this.ResErr)
+	end
+end
+function LuaTreasureActivitiesDoc.ResTreasureReset(data,length)
+	local  msg = ParseProtoBufToTable("SpActSecretTotalRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		if msg.result ~= ERR_UNKNOWN then
+			Hotfix.LuaShowSystemTipErrCode(msg.result)
+		end
+		return 
+	end
+	if TreasureActivitiesFrame ~= nil then
+		TreasureActivitiesFrame.Reset()
+	end
+	if TreasureItemDlgFrame ~= nil then 
+		TreasureItemDlgFrame.Reset()
+	end
+end
+
+
+function LuaTreasureActivitiesDoc.ResErr()
+
+end
+return this

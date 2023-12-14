@@ -1,0 +1,358 @@
+local this = nil
+require 'XGalaxyTreasure_pb.lua'
+require 'LuaGalaxyJackPotRewardTable.lua'
+require 'LuaGalaxyJackPotTable.lua'
+LuaGalaxyTreasureSpecialDoc = {}
+local this = LuaGalaxyTreasureSpecialDoc
+
+GALAXY_SPECIAL_REWARD_ITEM_COUNT = 20
+galaxy_open_treasure_type = {normal = 0, manualBig = 1,autoBig=2}
+
+local XSys_GalaxyTreasure = 1525
+local rpc_num_ClimbingTower = 17408
+local rpc_num_GalaxyQuestReset = 44010
+local rpc_num_QueryGalaxyQuest = 17354
+local rpc_num_OpenGalaxyTreasure = 44800
+
+local m_baseData = {}
+local m_handler = {}
+local m_galaxyJackPotTable = {}
+local m_galaxyJackPotRewardTable = {}
+local m_tableData = {items = {}, FinalReward = nil}
+local m_remainListAll = {}
+local m_remainList = {}
+local m_curTreasureIndex
+local m_curTreasureItem
+local m_openTreasureMsg
+local m_treasureItems
+local m_lastOpenTreasureType
+local m_lastTreasureIndex
+local m_isShowBig
+
+local m_showRewardType = 0
+-------------------------------------------------------------------public functions start
+-------------------------------------------------------------------
+
+function LuaGalaxyTreasureSpecialDoc.ReqBaseData()
+    local  msg = GetProtoBufSendTable("GalaxyQuestArg")
+    local pb_data = msg:SerializeToString()
+    pb_data = pb_data
+    if pb_data ~= nil then
+        Hotfix.SendLuaByteRPC(rpc_num_QueryGalaxyQuest, pb_data, this.OnGetBaseData, this.OnErr)
+        LuaGalaxyTreasureSpecialDlg.RefreshUIResetEff()
+    else
+        print('test proto data is nil')
+    end
+end
+
+function LuaGalaxyTreasureSpecialDoc.ReqOpenGalaxyTreasure(type)
+    local  msg = GetProtoBufSendTable("OpenGalaxyTreasurArg")
+    if type == galaxy_open_treasure_type.normal then
+        msg.type=0
+    else 
+        msg.type=1
+    end
+    m_lastOpenTreasureType = type
+    local pb_data = msg:SerializeToString()
+    pb_data = pb_data
+    if pb_data ~= nil then
+        Hotfix.SendLuaByteRPC(rpc_num_OpenGalaxyTreasure, pb_data, this.OnOpenGalaxyTreasure, this.OnErr)
+    else
+        print('test proto data is nil')
+    end
+end
+
+function LuaGalaxyTreasureSpecialDoc.LoadAllTable()
+    m_galaxyJackPotTable = ReadGalaxyJackPotTable('Table/GalaxyJackPot')
+    m_galaxyJackPotRewardTable = ReadGalaxyJackPotRewardTable('Table/GalaxyJackPotReward')
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetBaseData()
+    return m_baseData
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetTableData()
+    return m_tableData
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetRemainListAll()
+    return m_remainListAll
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetRandomRemainList()
+    return m_remainList
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetCurTreasureIndex()
+    return m_curTreasureIndex
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetCurTreasureItem()
+    return m_curTreasureItem
+end
+
+function LuaGalaxyTreasureSpecialDoc.SetShowRewardType(type)
+    m_showRewardType = type
+end
+function LuaGalaxyTreasureSpecialDoc.GetShowRewardType()
+    return m_showRewardType
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetShowReward()
+    if m_lastOpenTreasureType > galaxy_open_treasure_type.normal then
+        local items = {[1] = {itemid = 0, count = 0}}
+        items[1].itemid = m_treasureItems[1]
+        items[1].count = m_treasureItems[2]
+        return items
+    else
+        local items = table.clone(m_treasureItems)
+        for key, value in pairs(m_treasureItems) do
+            for i = 1, #m_tableData.items, 1 do
+                if m_tableData.items[i].RewardID == value.itemid then
+                    items[key].itemid = m_tableData.items[i].JackpotReward
+                    items[key].count = m_tableData.items[i].ItemCount
+                end
+            end
+        end
+        return items
+    end
+end
+
+function LuaGalaxyTreasureSpecialDoc.GetLastTreasureIndex()
+    return m_lastTreasureIndex
+end
+function LuaGalaxyTreasureSpecialDoc.GetIsShowBig()
+    return m_isShowBig
+end
+function LuaGalaxyTreasureSpecialDoc.SetIsShowBig(bool)
+    m_isShowBig = bool
+end
+
+--设置主界面
+function LuaGalaxyTreasureSpecialDoc.SetMainHandler(handler)
+    m_handler = handler
+end
+
+--关闭自己
+function LuaGalaxyTreasureSpecialDoc.DestroySelf()
+    if m_handler ~= nil then
+        m_handler.DestroySelf()
+    end
+end
+
+--断线重连
+function LuaGalaxyTreasureSpecialDoc.Reconnect()
+    --this.ResetOperationStatus()
+end
+
+function LuaGalaxyTreasureSpecialDoc.GenerateRandomRemainList()
+    local j = 1
+    m_remainList = {}
+    for i = 1, #m_remainListAll, 1 do
+        if m_remainListAll[i] == 1 then
+            m_remainList[j] = i
+            j = j + 1
+        end
+    end
+    this.GenerateRandomList(m_remainList, os.time())
+end
+
+function LuaGalaxyTreasureSpecialDoc.GenerateRandomList(list, seed)
+    math.randomseed(seed)
+    for i = 1, #list, 1 do
+        local index = math.random(1, #list - i + 1)
+        local temp = list[#list]
+        list[#list] = list[index]
+        list[index] = temp
+    end
+    return list
+end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------public functions end
+
+-------------------------------------------------------------------------- process data start ----------------------------------------------------------------------
+--设置基本数据
+function LuaGalaxyTreasureSpecialDoc.SetBaseData(msg)
+    m_baseData.galaxyJackpotID = msg.galaxyBaseData.galaxyJackpotID
+    m_baseData.treasureNum = msg.galaxyBaseData.treasureNum
+    m_baseData.tresaureGetItems = msg.galaxyBaseData.tresaureGetItems
+    if m_baseData.tresaureGetItems == nil then
+        m_baseData.tresaureGetItems = {}
+    end
+    m_baseData.kingTicket = msg.galaxyBaseData.kingTicket
+end
+
+function LuaGalaxyTreasureSpecialDoc.SetTableDataByID(id)
+    local index = 1
+    for i = 1, #m_galaxyJackPotTable, 1 do
+        if id == m_galaxyJackPotTable[i].ID then
+            m_tableData.FinalReward = m_galaxyJackPotTable[i].FinalReward
+            index = i
+        end
+    end
+    for i = 1, GALAXY_SPECIAL_REWARD_ITEM_COUNT, 1 do
+        m_tableData.items[i] = m_galaxyJackPotRewardTable[i + (index - 1) * GALAXY_SPECIAL_REWARD_ITEM_COUNT]
+        m_tableData.items[i].itemData = Hotfix.CallDocumentStaticMethod('XBagDocument', true, 'GetItemConf', m_tableData.items[i].JackpotReward)
+    end
+
+    this.SortTableData()
+    this.SetRemainItem()
+end
+
+function LuaGalaxyTreasureSpecialDoc.SortTableData() --让同一品质物品尽量不扎堆分布
+    local indexes = {}
+    local maxQuality = 6
+    for i = 1, maxQuality, 1 do
+        indexes[i] = 0
+    end
+
+    local partitionNum = 4
+    local eachAmount = GALAXY_SPECIAL_REWARD_ITEM_COUNT / partitionNum
+    local points = {1, 6, 11, 16}
+    local list = {0, 1, 2, 3, 4}
+    local arr1 = this.GenerateRandomList(list, m_baseData.galaxyJackpotID)
+    local arr2 = this.GenerateRandomList(table.clone(list), m_baseData.galaxyJackpotID)
+    local arr3 = this.GenerateRandomList(table.clone(list), m_baseData.galaxyJackpotID)
+    local arr4 = this.GenerateRandomList(table.clone(list), m_baseData.galaxyJackpotID)
+    local randomDeltaList = {[1] = arr1, [2] = arr2, [3] = arr3, [4] = arr4}
+    local randomDeltaListIndex = {0, 0, 0, 0}
+    table.sort(m_tableData.items, this.SortByQuality)
+    local idx = 0
+    for i = 1, #m_tableData.items, 1 do
+        local quality = m_tableData.items[i].itemData.ItemQuality + 1
+        idx = (idx + 1) % partitionNum
+        randomDeltaListIndex[idx + 1] = randomDeltaListIndex[idx + 1] + 1
+        m_tableData.items[i].index = points[idx + 1] + randomDeltaList[idx + 1][randomDeltaListIndex[idx + 1]]
+    end
+end
+function LuaGalaxyTreasureSpecialDoc.SortByQuality(item1, item2)
+    return item1.itemData.ItemQuality > item2.itemData.ItemQuality
+end
+
+function LuaGalaxyTreasureSpecialDoc.SetRemainItem()
+    for i = 1, #m_tableData.items, 1 do
+        m_remainListAll[i] = 1
+    end
+
+    m_lastTreasureIndex = nil
+    for i = 1, #m_baseData.tresaureGetItems, 1 do
+        for j = 1, #m_remainListAll, 1 do
+            if m_baseData.tresaureGetItems[i] == m_tableData.items[j].RewardID then
+                m_remainListAll[m_tableData.items[j].index] = 0
+                if i == #m_baseData.tresaureGetItems then
+                    m_lastTreasureIndex = m_tableData.items[j].index
+                end
+                break
+            end
+        end
+    end
+end
+
+-------------------------------------------------------------------------- process data end ------------------------------------------------------------------------
+-------------------------------------------------------------------------- rpc start ------------------------------------------------------------------------
+
+function LuaGalaxyTreasureSpecialDoc.OnGetBaseData(data, length)
+    local  msg = ParseProtoBufToTable("GalaxyQuestRes",data)
+    if msg == nil then
+        return
+    end
+
+
+
+    print('errorcode is: ' .. tostring(msg.result))
+    if msg.result ~= 0 then
+        if msg.result ~= ERR_INVALID_REQUEST then
+            Hotfix.LuaShowSystemTipErrCode(msg.result)
+        end
+    else
+        this.SetBaseData(msg)
+        this.SetTableDataByID(msg.galaxyBaseData.galaxyJackpotID)
+        m_handler.RefreshUI(true)
+        m_handler.RefreshUIBigBtn()
+        m_handler.RegisterItemEvent()
+    end
+end
+
+function LuaGalaxyTreasureSpecialDoc.OnOpenGalaxyTreasure(data, length)
+    local  msg = ParseProtoBufToTable("OpenGalaxyTreasureRes",data)
+    if msg == nil then
+        return
+    end
+
+
+
+    if msg.result ~= 0 then
+        if msg.result ~= ERR_INVALID_REQUEST then
+            Hotfix.LuaShowSystemTipErrCode(msg.result)
+        end
+    else
+        m_baseData.treasureNum = msg.treasureNum
+        m_baseData.kingTicket = msg.kingTicket
+        m_openTreasureMsg = msg
+        for i = 1, #m_tableData.items, 1 do
+            for j = 1, #m_openTreasureMsg.items, 1 do
+                if m_tableData.items[i].RewardID == m_openTreasureMsg.items[1].itemid then
+                    m_curTreasureIndex = m_tableData.items[i].index
+                    m_curTreasureItem = m_tableData.items[i]
+                    break
+                end
+            end
+        end
+
+        this.GenerateRandomRemainList()
+
+        if m_lastOpenTreasureType == galaxy_open_treasure_type.normal then
+            m_treasureItems = msg.items
+            LuaGalaxyTreasureSpecialDlg.StartEff()
+        else
+            m_treasureItems = m_tableData.FinalReward
+            if m_lastOpenTreasureType == galaxy_open_treasure_type.autoBig then
+                LuaGalaxyTreasureSpecialDoc.SetIsShowBig(true)
+            end
+            if m_lastOpenTreasureType == galaxy_open_treasure_type.manualBig then
+                this.ShowBig()
+            end
+        end
+    end
+end
+
+function LuaGalaxyTreasureSpecialDoc.ShowBig()
+    LuaGalaxyTreasureSpecialDlg.ShowOpenBigEff()
+    Hotfix.CallSingleMethod('XAudioMgr', true, false, 'PlayUISound', 'Audio/New_UI/GalaxyTreasureSpecialDlg_03')
+    LuaGalaxyTreasureSpecialDoc.SetShowRewardType(2)
+    Hotfix.LuaWait(1000, LuaGalaxyTreasureSpecialDlg.ShowReward)
+    LuaGalaxyTreasureSpecialDlg.SetBigBtnActive(false)
+    this.ReqBaseData()
+end
+function LuaGalaxyTreasureSpecialDoc.RemoveGotItemInRemainListAll()
+    for i = 1, #m_tableData.items, 1 do
+        for j = 1, #m_openTreasureMsg.items, 1 do
+            if m_tableData.items[i].RewardID == m_openTreasureMsg.items[j].itemid then
+                m_remainListAll[m_tableData.items[i].index] = 0
+                m_lastTreasureIndex = m_tableData.items[i].index
+                break
+            end
+        end
+    end
+
+    if m_baseData.kingTicket == 1 then
+        m_lastTreasureIndex = nil
+    end
+
+    local openBig = true
+    for key, value in pairs(m_remainListAll) do
+        if value == 1 then
+            openBig = false
+        end
+    end
+    if openBig then
+        this.ReqOpenGalaxyTreasure(galaxy_open_treasure_type.autoBig)
+    end
+end
+
+function LuaGalaxyTreasureSpecialDoc.OnErr(...)
+    print('lua LuaGalaxyTreasureSpecialDoc OnErr!')
+end
+-------------------------------------------------------------------------- rpc end ------------------------------------------------------------------------
+return this

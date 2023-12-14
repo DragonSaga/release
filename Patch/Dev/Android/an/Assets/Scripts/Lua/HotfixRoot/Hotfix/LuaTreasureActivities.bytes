@@ -1,0 +1,910 @@
+local this = nil
+require "HotfixGlobal.lua"
+require "LuaTreasureActivitiesDoc.lua"
+
+local animTimeList_add = {0.6, 0.4, 0.2, 0.1, 
+0.04, 0.04, 0.04,
+0.02, 0.02, 0.02} --10
+local animTime_mid = 0.02 --
+local animTime_del = {0.02, 0.02, 0.02,
+0.04, 0.04,
+0.2, 0.4, 0.6, 0.8, 1}--10
+local Transform_Selct = {} --16个格子Transform
+
+local _Play = nil
+local star = nil
+local endP = nil
+local m_CurLuckyID
+---@class LuaTreasureActivities
+LuaTreasureActivities = {}
+local this = LuaTreasureActivities
+
+local print = Debugger.LogWarning
+
+---@type UnityEngine.GameObject
+local selfObj = nil
+
+---@type UnityEngine.Transform
+local selfTrans = nil
+
+local timetoken = 0
+--data
+
+local item_Pool = nil
+local DropBoxTable = nil
+local m_CurBoxList = nil
+local m_Curtotal_count = nil
+local m_Curtotal_taken_list = nil
+local m_Curreset_count = nil
+local nowRedState = false
+local m_Log = nil
+local m_LogClose = nil
+local m_Select = nil
+local Loglist_pool = nil
+local m_CurHaveTaken_num = nil
+local TreasureResetManual = nil
+local TreasureResetManualCost = nil
+local flag_Cancel_Anim = false
+
+local m_TreasureCostList = {}
+--拿到所有UI节点 并填充
+function LuaTreasureActivities.Init()
+	if IsNil(selfObj) or IsNil(selfTrans) then
+		return
+	end
+	math.randomseed(tostring(os.time()):reverse():sub(1, 7))
+	--选择奖池  弹窗
+	showattr = selfTrans:Find("Main/ShowAttr").gameObject
+	if not IsNil(showattr) then
+		Hotfix.SetClickCallback(showattr, this.showattrOnClick)
+	end
+
+	--显示记录  弹窗
+	recordBtn = selfTrans:Find("Main/RecordBtn").gameObject
+	if not IsNil(recordBtn) then
+		Hotfix.SetClickCallback(recordBtn, this.recordBtnOnClick)
+	end
+	m_Log = selfTrans:Find("Log").gameObject
+	m_LogClose = selfTrans:Find("Log/Bg/Close").gameObject
+	Hotfix.SetClickCallback(m_LogClose,this.LogClose)
+
+	local TList = selfTrans:Find("Log/Bg/Tlist").gameObject
+	local ListTpl = selfTrans:Find("Log/Bg/Tlist/ListTpl").gameObject
+	m_Log:SetActive(false)
+	--记录池
+	if TList ~= nil and ListTpl ~= nil then
+		Loglist_pool = Hotfix.SetupPool(TList,ListTpl,16)
+	end
+	Loglist_pool = Hotfix.SetupPool(TList,ListTpl,10)
+
+	--探宝roll 播放动画
+	viewRewardBtn = selfTrans:Find("ViewRewardBtn").gameObject
+	if not IsNil(viewRewardBtn) then
+		Hotfix.SetClickCallback(viewRewardBtn, this.viewRewardBtnOnClick)
+	end
+	m_Select = selfTrans:Find("Main/RightList/Select").gameObject
+
+	--重置奖池  弹窗
+	resetBtn = selfTrans:Find("Main/Btn").gameObject
+	--按钮显示
+	if not IsNil(resetBtn) then
+		Hotfix.SetClickCallback(resetBtn, this.resetBtnOnClick)
+	end
+	
+	local RightList = selfTrans:Find("Main/RightList").gameObject
+	local itemTpl = selfTrans:Find("Main/RightList/ItemTpl").gameObject
+	--Right道具池
+	if RightList ~= nil and itemTpl ~= nil then
+		item_Pool = Hotfix.SetupPool(RightList,itemTpl,16)
+	end
+
+	--Left累计奖励
+	m_scrollViewdsa = selfTrans:Find("Main/LeftList"):GetComponent("UIScrollView")
+    m_wrapContentdsa = selfTrans:Find("Main/LeftList/wrap"):GetComponent("UIWrapContent")
+	m_wrapContentGodsa = m_wrapContentdsa.gameObject
+	Hotfix.InitWrapContent(m_wrapContentGodsa, this.WrapContentRankUpdateddsa)
+
+
+	--Result
+	m_TreasureATFiveOpen = selfTrans:Find("TreasureATFiveOpen").gameObject
+	m_Result_item = selfTrans:Find("TreasureATFiveOpen/Bg/ResultFrame/ResultTpl/ItemTpl").gameObject
+	m_Result_OkButton = selfTrans:Find("TreasureATFiveOpen/Bg/ResultFrame/OkButton").gameObject
+	Hotfix.SetClickCallback(m_Result_OkButton,this.ResultClose)
+	m_TreasureATFiveOpen:SetActive(false)
+
+	--luck
+	m_luck_reward = selfTrans:Find("Reward")
+	m_luck_reward_speed = selfTrans:Find("Reward/SpeedFrame/SpeedBtn")
+	m_luck_reward_close = selfTrans:Find("Reward/Close")
+	if not IsNil(m_luck_reward) then
+		m_luck_reward.gameObject:SetActive(false)
+	end
+	
+	if not IsNil(m_luck_reward_speed) then
+		Hotfix.SetClickCallback(m_luck_reward_speed.gameObject,this.luck_Reward_Close)
+	end
+	if not IsNil(m_luck_reward_close) then
+		Hotfix.SetClickCallback(m_luck_reward_close.gameObject,this.luck_Reward_Close)
+	end
+
+	--取消动画按钮
+	m_Cancle_Anim = selfTrans:Find("Main/Cancle")
+	m_Cancle_Anim_OK = selfTrans:Find("Main/Cancle/OK")
+	flag_Cancel_Anim = false
+	if not IsNil(m_Cancle_Anim_OK) then
+		m_Cancle_Anim_OK.gameObject:SetActive(false)
+	end
+	if not IsNil(m_Cancle_Anim) then
+		Hotfix.SetClickCallback(m_Cancle_Anim.gameObject,this.Cancel_Anim)
+	end
+
+	--拿表格
+	DropBoxTable = LuaTreasureActivitiesDoc.GetDropBoxTable()
+	CountTable = LuaTreasureActivitiesDoc.GetCountTable()
+	LuckyTable = LuaTreasureActivitiesDoc.GetLuckyTable()
+	--遮罩
+	m_Blocks = selfTrans:Find("Blocks").gameObject
+	m_Blocks:SetActive(false)
+end
+--------------------------------------------------取消动画--------------------------------------------------------
+function LuaTreasureActivities.Cancel_Anim()
+	if flag_Cancel_Anim == true then
+		flag_Cancel_Anim = false
+		if not IsNil(m_Cancle_Anim_OK) then
+			m_Cancle_Anim_OK.gameObject:SetActive(false)
+		end
+	else
+		flag_Cancel_Anim = true
+		if not IsNil(m_Cancle_Anim_OK) then
+			m_Cancle_Anim_OK.gameObject:SetActive(true)
+		end
+	end
+end
+--------------------------------------------------UI显示----------------------------------------------------------
+function LuaTreasureActivities.RefreshTextShow()
+	--tips
+	local _tips = selfTrans:Find("Main/Time/Sprite").gameObject
+	Hotfix.SetClickCallback(_tips,this.ShowSystemTip)
+	--time
+	local Time_Show = selfTrans:Find("Main/Time"):GetComponent("UILabel")
+	TreasureTime = Hotfix.GetGlobalString("TreasureTime")
+	Time_Show.text = tostring(TreasureTime)
+	--reset、cost
+	local resetDaliy = selfTrans:Find("Main/Btn/Time").gameObject
+	local resetText = selfTrans:Find("Main/Btn/T"):GetComponent("UILabel")
+	TreasureResetManualCost = LuaTreasureActivitiesDoc.GetTreasureResetManualCost()
+	TreasureResetManual = LuaTreasureActivitiesDoc.GetTreasureResetManual() --可以重置总次数
+	local isResetNoLimit = Hotfix.GetGlobalString("isResetNoLimit")
+	if isResetNoLimit ~= nil and isResetNoLimit == "1" then
+		resetText.text = Hotfix.GetStringTable("TEAMTOWER_RESET")
+	else
+		resetText.text = Hotfix.GetStringTable("TreasureResetShow", tostring(m_Curreset_count), tostring(TreasureResetManual))
+	end
+	
+	TreasureResetDaily = LuaTreasureActivitiesDoc.GetGlobalSeqList("TreasureResetDaily")
+	if TreasureResetDaily[1][1] == 1 then --是否有自动重置
+		resetDaliy:SetActive(true)
+	else
+		resetDaliy:SetActive(false)
+	end
+
+	--roll、cost
+	m_TreasureCostList = LuaTreasureActivitiesDoc.GetTreasureCostList()
+	if m_CurHaveTaken_num < 16 then
+		this.SetRollCost(true, m_TreasureCostList[m_CurHaveTaken_num+1][1], m_TreasureCostList[m_CurHaveTaken_num+1][2])
+	else 
+		this.SetRollCost(true, m_TreasureCostList[m_CurHaveTaken_num][1], 1)
+	end
+	--LuaTreasureActivitiesDoc.SetRollCost()
+end
+function LuaTreasureActivities.showitemAcess()
+	m_TreasureCostList = LuaTreasureActivitiesDoc.GetTreasureCostList()
+	if m_CurHaveTaken_num < 16 and m_CurHaveTaken_num >= 0 then
+		Hotfix.CallSingleMethod("UI.UiUtility", true, false, "ShowItemAccess",m_TreasureCostList[m_CurHaveTaken_num+1][1])
+	end
+end
+function LuaTreasureActivities.SetRollCost(flag,itemid,itemnum)
+	if flag == false then 
+		selfTrans:Find("ViewRewardBtn"):GetComponent("XUIButton"):SetEnable(false)
+		return
+	else 
+		selfTrans:Find("ViewRewardBtn"):GetComponent("XUIButton"):SetEnable(true)
+	end
+	local Icon = selfTrans:Find("ViewRewardBtn/Icon"):GetComponent("UISprite")
+	local Num = selfTrans:Find("ViewRewardBtn/Num"):GetComponent("UILabel")
+	local itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", itemid)
+	local theAtlasPath = "atlas/UI/"..itemData.ItemAtlas[0]
+	Icon:SetAtlas(theAtlasPath)
+	Icon.spriteName = itemData.ItemIcon[0]
+	Num.text = itemnum
+end
+function LuaTreasureActivities.ShowSystemTip()
+	--
+	Hotfix.CallSingleMethod("UI.XCommonHelpTipView",true,false,"ShowHelp",XSys_TreasureActivities)
+end
+--Result
+function LuaTreasureActivities.ResultClose()
+	m_TreasureATFiveOpen:SetActive(false)
+	if m_CurLuckyID ~= 0 then
+		this.Show_luck()
+	end
+end
+function LuaTreasureActivities.Show_luck()
+	if IsNil(m_luck_reward) then
+		return
+	end
+	m_luck_reward.gameObject:SetActive(true)
+	local _Item_luck = m_luck_reward:Find("List/Item")
+	local data = nil 
+	for i = 1, #LuckyTable do
+		if LuckyTable[i].ID == m_CurLuckyID then
+			data = LuckyTable[i]
+		end
+	end
+	if data == nil then
+		print("lucky data not find")
+		return
+	end
+	this.DrawItem(_Item_luck.gameObject,data.Reward[1],data.Reward[2])
+end
+function LuaTreasureActivities.luck_Reward_Close()
+	m_luck_reward.gameObject:SetActive(false)
+end
+--------------------------------------------------探宝记录--------------------------------------------------------
+function LuaTreasureActivities.ShowMyLog(Log)
+	m_Log:SetActive(true)
+	m_Log_List = {}
+	for i = math.max(1,#Log - 100),#Log do
+		if Log[i].roll_log ~= nil then 
+			if Log[i].roll_log.time ~= 0 then
+				pair = {}
+				pair.type = "roll"
+				pair.time = Log[i].roll_log.time
+				pair.item_id = Log[i].roll_log.item_id
+				pair.item_num = Log[i].roll_log.item_num
+				pair.level = Log[i].roll_log.level
+				m_Log_List[#m_Log_List + 1] = pair
+			end
+		end
+
+		if Log[i].log_lucky ~= nil then 
+			if Log[i].log_lucky.time ~= 0 then
+				pair = {}
+				pair.type = "lucky"
+				pair.time = Log[i].log_lucky.time
+				pair.item_id = Log[i].log_lucky.item_id
+				pair.item_num = Log[i].log_lucky.item_num
+				pair.level = Log[i].log_lucky.level
+				m_Log_List[#m_Log_List + 1] = pair
+			end
+		end
+
+		if Log[i].log_reset ~= nil then 
+			if Log[i].log_reset.time ~= 0 then
+				pair = {}
+				pair.type = "reset"
+				pair.time = Log[i].log_reset.time
+				pair.item_id = Log[i].log_reset.item_id
+				pair.item_num = Log[i].log_reset.item_num
+				pair.level = Log[i].log_reset.level
+				m_Log_List[#m_Log_List + 1] = pair
+			end
+		end
+	end
+	--sort()
+	Loglist_pool:FakeReturnAll()
+	for i = 1, #m_Log_List do
+		local list = Loglist_pool:FetchGameObject()
+		local T = list.transform:Find("T"):GetComponent("UILabel")
+		if m_Log_List[i].type == "reset" then
+			local ti = this.getTimeStamp(m_Log_List[i].time)
+			T.text = Hotfix.GetStringTable("TreasureLogReset", ti)
+		end
+		if m_Log_List[i].type == "lucky" then
+			local item = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", tonumber(m_Log_List[i].item_id))
+			local name = item.ItemName[0]
+			local ti = this.getTimeStamp(m_Log_List[i].time)
+			T.text = Hotfix.GetStringTable("TreasureLogLuck", ti, this.Color(item.ItemQuality,name), tostring(m_Log_List[i].item_num))
+		end
+		if m_Log_List[i].type == "roll" then
+			local item = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", tonumber(m_Log_List[i].item_id))
+			local name = item.ItemName[0]
+			local ti = this.getTimeStamp(m_Log_List[i].time)
+			T.text = Hotfix.GetStringTable("TreasureLogroll", ti, this.Color(item.ItemQuality,name), tostring(m_Log_List[i].item_num))
+		end
+		list.transform.localPosition =  item_Pool.TplPos + Vector3(0,-(i-1)*74,0)
+	end
+	Loglist_pool:ActualReturnAll()
+	
+end
+function LuaTreasureActivities.Color(itemid,name)
+	local c = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "GetItemQualityColorStr", itemid)
+	return tostring("["..c.."]"..name.."[-]")
+end
+function LuaTreasureActivities.LogClose()
+	m_Log:SetActive(false)
+end
+function LuaTreasureActivities.getTimeStamp(t)--时间戳转化
+	t = tonumber(t)
+    return os.date("%Y-%m-%d %H:%M:%S",t)
+end
+--------------------------------------------------展示探宝结果--------------------------------------------------
+function LuaTreasureActivities.ShowResult(boxid,luckid)
+	if boxid == nil then return end
+	if luckid == nil then luckid = 0 end
+
+	boxid = tonumber(boxid)
+	luckid = tonumber(luckid)
+	--print("LuaTreasureActivities.ShowResult boxid: "..boxid.." luckid"..luckid)
+
+	m_CurLuckyID = luckid
+	--屏蔽飘字
+	Hotfix.CallDocumentMethod("ShowGetItemDocument", true, "ClearItemQueue")
+	
+	--Icon
+	--Hotfix.CallDocumentMethod("ShowGetItemDocument", true, "ClearItemQueue")
+	endP = nil
+	for i = 1, #m_CurBoxList do
+		--print("ShowResult i = "..i.." m_CurBoxList[i].box_id:"..m_CurBoxList[i].box_id)
+		if tonumber(m_CurBoxList[i].box_id) == boxid then
+			--print("dsadsaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+			endP = i
+		end
+	end
+	if endP == nil then
+		print("LuaTreasureActivities.ShowResult data error")
+		return
+	end 
+	star = this.CalStarByendP()
+	--print("animTimeList_add : "..#animTimeList_add)
+	--print("animTime_del : "..#animTime_del)
+	--print("Time.deltaTime: "..UnityEngine.Time.deltaTime)
+	--协程
+	if _Play ~= nil then 
+		_Play = nil
+	end
+	_Play = coroutine.create(this.PlayRoll)
+	this.Play()
+	--发送飘字
+end
+function LuaTreasureActivities.CalStarByendP()
+	return math.random(1,16)
+end
+function LuaTreasureActivities.Play()
+	if flag_Cancel_Anim == true then --屏蔽
+		m_Select.gameObject:SetActive(true)
+		m_Select.transform.localPosition = Transform_Selct[endP].transform.localPosition
+		LuaTreasureActivitiesDoc.ArgTreasureInfo()  ---如果要屏蔽动画 先把这个挑出来~~~~~~~~~~~~~~~~~~~
+		local wait_time = 1
+		while (wait_time > 0)
+		do
+			wait_time = wait_time - UnityEngine.Time.deltaTime
+		end
+		this.ShowResult_final()
+		return
+	end
+	flag,star = coroutine.resume(_Play)
+	if coroutine.status(_Play) == "dead" then
+		this.ShowResult_final()
+		return 
+	end
+	Hotfix.LuaWait(100, this.Play)
+end
+function LuaTreasureActivities.PlayRoll()
+	m_Blocks:SetActive(true)
+	--print("LuaTreasureActivities.PlayRoll: "..star.." end: "..endP)
+	m_Select.gameObject:SetActive(true)
+	m_Select.transform.localPosition = Transform_Selct[star].transform.localPosition
+	--print("animTimeList_add : "..#animTimeList_add)
+	for i = 1, #animTimeList_add do --时间序列
+		--print("animTimeList_add in: "..i)
+		coroutine.yield(this.move())
+		local wait_time = animTimeList_add[i]
+		while (wait_time > 0)
+		do
+
+			wait_time = wait_time - UnityEngine.Time.deltaTime
+		end
+	end
+	local mid = 0
+	mid = (3 * 16 + endP - 26 - star)
+	--print("mid "..mid)
+	for i = 1, mid do
+		--print("mid in: "..i)
+		coroutine.yield(this.move())
+		local wait_time = animTime_mid
+		while (wait_time > 0)
+		do
+			wait_time = wait_time - UnityEngine.Time.deltaTime
+		end
+	end
+	--print("animTime_del: "..#animTime_del)
+	for i = 1, #animTime_del do --时间序列
+		--print("animTime_del in: "..i)
+		coroutine.yield(this.move())
+		local wait_time = animTime_del[i]
+		while (wait_time > 0)
+		do
+			wait_time = wait_time - UnityEngine.Time.deltaTime
+		end
+	end
+
+	LuaTreasureActivitiesDoc.ArgTreasureInfo()  ---如果要屏蔽动画 先把这个挑出来~~~~~~~~~~~~~~~~~~~
+
+	local wait_time = 1
+	while (wait_time > 0)
+	do
+		wait_time = wait_time - UnityEngine.Time.deltaTime
+	end
+	m_Blocks:SetActive(false)
+end
+function LuaTreasureActivities.move()
+	--body
+	--print("LuaTreasureActivities.move")
+	local next = star + 1
+	if star == 16 then 
+		next = 1
+	end
+	m_Select.transform.localPosition = Transform_Selct[next].transform.localPosition
+	return next
+end
+function LuaTreasureActivities.ShowResult_final()
+	--body
+	Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", false, true, true)
+	--print("LuaTreasureActivities.ShowResult_final"..endP)
+	--Hotfix.SetDocumentMember("XOperatingActivityDocument", "isStarDragoning", false, true, true)
+	local find = nil
+	for i = 1, #DropBoxTable do
+		if DropBoxTable[i].ID == m_CurBoxList[endP].box_id then
+			find = DropBoxTable[i]
+		end
+	end
+	local isJustShowTips = Hotfix.GetGlobalString("TreasureIsJustShowTips")
+	local strs = Split(isJustShowTips,'|')
+	local _List = {}
+	local isTips = false
+ 	for i=1,#strs do 
+		if find.Level == tonumber(strs[i]) then
+			isTips = true
+		end
+	 end
+	if find ~= nil then
+		if isTips ~= true then
+			m_TreasureATFiveOpen:SetActive(true)
+			this.DrawItem(m_Result_item, find.ItemID, find.ItemNum)
+		else  
+			local item = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", tonumber(find.ItemID))
+			local name = item.ItemName[0]
+			local text = Hotfix.GetStringTable("TreasureRewardTips", this.Color(item.ItemQuality,name), tostring(find.ItemNum))
+
+			Hotfix.CallSingleMethod("UI.XShowGetItemView",true,false,"ShowTip",text)
+
+			if m_CurLuckyID ~= 0 then
+				this.Show_luck()
+			end
+		end
+	else
+
+	end
+end
+-----------------------------------------------------------------------------------------------------------------------
+function LuaTreasureActivities.Refreshdata(Curtotal_count,Curreset_count,CurBoxList,Curtotal_taken_list,_in)
+	if m_CurBoxList == nil or #m_CurBoxList == 0 then
+	   m_CurBoxList = CurBoxList
+	   table.sort(m_CurBoxList,this.SortFunction) --乱序
+		m_CurBoxList = this.luanxu(m_CurBoxList)
+	else
+		for i = 1,#m_CurBoxList do
+			for j = 1,#CurBoxList do
+				if CurBoxList[j].box_id == m_CurBoxList[i].box_id then
+					m_CurBoxList[i] = CurBoxList[j]
+				end
+			end
+		end
+	end
+
+	m_Curtotal_count = Curtotal_count
+	m_Curtotal_taken_list = Curtotal_taken_list
+	m_Curreset_count = Curreset_count
+	if _in == true then
+		this.RefreshFirstUI()
+	end
+end
+
+function LuaTreasureActivities.RefreshFirstUI()
+	this.RefreshRightList(m_CurBoxList)
+	this.RefreshLeftList()
+	this.RefreshTextShow()
+end
+function LuaTreasureActivities.RefreshLeftList()
+	if CountTable == nil then
+		CountTable = LuaTreasureActivitiesDoc.GetCountTable()
+	end
+	if #CountTable == 0 then
+		print("No CountTable!!")
+		return
+	end
+	local _Cnewlist = {}
+	for i = 1, #CountTable do --领取下移
+		local taked = false
+		for j = 1, #m_Curtotal_taken_list do
+			if tonumber(CountTable[i].Count) == m_Curtotal_taken_list[j] then
+				taked = true
+			end
+		end
+		if taked == false then
+			_Cnewlist[#_Cnewlist+1] = CountTable[i]
+		end
+	end
+	for i = 1, #CountTable do --领取下移
+		local taked = false
+		for j = 1, #m_Curtotal_taken_list do
+			if tonumber(CountTable[i].Count) == m_Curtotal_taken_list[j] then
+				taked = true
+			end
+		end
+		if taked == true then
+			_Cnewlist[#_Cnewlist+1] = CountTable[i]
+		end
+	end
+	CountTable = _Cnewlist
+	nowRedState = false
+	if not IsNil(m_wrapContentGodsa) then
+		Hotfix.InitWrapContent(m_wrapContentGodsa, this.WrapContentRankUpdateddsa)
+		Hotfix.SetWrapContentCount(m_wrapContentGodsa, #CountTable, true)
+	end
+	LuaTreasureActivitiesDoc.RefreshRedPoint(nowRedState)
+end
+function LuaTreasureActivities.RefreshRightList(CurBoxList)
+	item_Pool:FakeReturnAll()
+	local cc = 0
+	m_CurHaveTaken_num = 0
+	for i = 0, 15 do
+		local go = item_Pool:FetchGameObject()
+		if CurBoxList == nil or #CurBoxList == 0 then
+			local Add = go.transform:Find("Add"):GetComponent("UISprite")
+			Hotfix.SetClickCallback(Add.gameObject,this.showattrOnClick)
+			go.transform:Find("Icon").gameObject:SetActive(false)
+			go.transform:Find("Quality").gameObject:SetActive(false)
+			go.transform:Find("Num").gameObject:SetActive(false)
+			go.transform:Find("p").gameObject:SetActive(false)
+			go.transform:Find("Tag").gameObject:SetActive(false)
+		else 
+			go.transform:Find("Icon").gameObject:SetActive(true)
+			go.transform:Find("Quality").gameObject:SetActive(true)
+			go.transform:Find("Num").gameObject:SetActive(true)
+			ITEM = this.FinditemIDinListByID(CurBoxList[i+1].box_id) --可以先测试
+			this.DrawItem(go,ITEM[2],ITEM[3])
+			if CurBoxList[i+1].has_taken == true then
+				go.transform:Find("p").gameObject:SetActive(true)
+				go.transform:Find("Tag").gameObject:SetActive(true)
+				m_CurHaveTaken_num = m_CurHaveTaken_num + 1
+			else
+				go.transform:Find("p").gameObject:SetActive(false)
+				go.transform:Find("Tag").gameObject:SetActive(false)
+			end
+		end
+		if ((cc+1) * 4) < (i + 1) then 
+			cc = cc + 1
+		end
+		go.transform.localPosition = item_Pool.TplPos + Vector3(((i) % 4) * 100, -cc * 95, 0);
+		Transform_Selct[i+1] = go
+	end
+	item_Pool:ActualReturnAll()
+end
+function LuaTreasureActivities.cantaken(IDs)
+	for i = 1,#m_Curtotal_taken_list do
+		if tonumber(m_Curtotal_taken_list[i]) == tonumber(IDs) then
+			return false
+		end
+	end
+	return true
+end
+function LuaTreasureActivities.showattrOnClick()
+	--body
+	LuaUIManager.Instance:Load("UI/OperatingActivity/TreasureItemDlg")
+end
+function LuaTreasureActivities.recordBtnOnClick()
+	--body
+	LuaTreasureActivitiesDoc.ArgTreasureLogArg()
+end
+function LuaTreasureActivities.viewRewardBtnOnClick()
+	--body
+	Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", true, true, true)
+	if m_CurHaveTaken_num == 16 then 
+		Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", false, true, true)
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("TreasureDone"))
+		return
+	end
+	if #m_CurBoxList == 0 then
+		Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", false, true, true)
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("TreasureNoItemRoll"))
+		return 
+	end
+	-- m_TreasureCostList = LuaTreasureActivitiesDoc.GetTreasureCostList()
+	-- local itemcount = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemCount", tonumber(m_TreasureCostList[m_CurHaveTaken_num+1][1]))
+	-- local item = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", tonumber(m_TreasureCostList[m_CurHaveTaken_num+1][1]))
+	-- if itemcount < m_TreasureCostList[m_CurHaveTaken_num+1][2] then
+	-- 	Hotfix.LuaShowSystemTip("您的<color=Red>"..item.ItemName[0].."</color>不足，无法进行探宝")
+	-- 	return 
+	-- end
+	LuaTreasureActivitiesDoc.ArgTreasureRollArg()
+end
+function LuaTreasureActivities.resetBtnOnClick()
+	--body
+	if #m_CurBoxList == 0 then
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("TreasureNoItem"))
+		return 
+	end
+	--二级弹窗
+	TreasureResetManualCost = LuaTreasureActivitiesDoc.GetTreasureResetManualCost()
+	TreasureResetManual = LuaTreasureActivitiesDoc.GetTreasureResetManual() --可以重置总次数
+	--m_Curreset_count --目前剩余次数
+	local Number = TreasureResetManual - m_Curreset_count + 1
+	if Number > TreasureResetManual then
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("TreasureNoResetCount"))
+		return 
+	end
+	local itemid = TreasureResetManualCost[Number][1]
+	local itemnum = TreasureResetManualCost[Number][2]
+	local item = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", tonumber(itemid))
+	local name = item.ItemName[0]
+	local str = Hotfix.GetStringTable("TreasureBuyReset", tostring(itemnum), name) 
+	Hotfix.LuaMessageBoxConfirm(str,this.OnOK,this.OnCancel)
+	local modal = Hotfix.GetSingleMember("UI.ModalDlg","uiBehaviour",true,false,false)
+	if not IsNil(modal.gameObject) then
+		local oklable = modal.gameObject.transform:Find("Bg/OK/Label"):GetComponent("UILabel")
+		local canlable = modal.gameObject.transform:Find("Bg/Cancel/Label"):GetComponent("UILabel")
+		oklable.text = Hotfix.GetStringTable("COMMON_OK") 
+		canlable.text = Hotfix.GetStringTable("COMMON_CANCEL") 
+	end
+end
+function LuaTreasureActivities.OnOK( ... )
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	LuaTreasureActivitiesDoc.ArgTreasureResetArg()
+end
+function LuaTreasureActivities.OnCancel( ... )
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+end
+function LuaTreasureActivities.DrawItem(go,id,num)
+	Hotfix.DrawItemView(go,id,num,false)
+	local icon = go.transform:Find("Icon"):GetComponent("UISprite")
+	icon.sid = tostring(id)
+	Hotfix.SetClickCallback(icon.gameObject,this.OnClickItem)
+end
+function LuaTreasureActivities.OnClickItem(go)
+	local spr = go.transform:GetComponent("UISprite")
+	Hotfix.LuaShowItemTooltipDialog(tonumber(spr.sid), go)
+end
+function LuaTreasureActivities.FinditemIDinListByID(ID)
+	--body
+	if DropBoxTable == nil then
+		DropBoxTable = LuaTreasureActivitiesDoc.GetDropBoxTable()
+	end
+	if DropBoxTable == nil then
+		print("No DropBoxTable!!")
+		return
+	end
+
+	local _ITEM = {}
+	for i = 1, #DropBoxTable do
+		if DropBoxTable[i].ID == ID then
+			_ITEM[1] = DropBoxTable[i].ID
+			_ITEM[2] = DropBoxTable[i].ItemID
+			_ITEM[3] = DropBoxTable[i].ItemNum
+			_ITEM[4] = DropBoxTable[i].Level
+			_ITEM[5] = DropBoxTable[i].ResetCount
+			return  _ITEM
+		end
+	end
+	return _ITEM
+end
+
+function LuaTreasureActivities.WrapContentRankUpdateddsa(t,index)
+	if index + 1 > #CountTable then
+		print("<color=Red> the index had out of tab Count index+1 = "
+				..tostring(index + 1).."  count = "..tostring(#CountTable).."</color>")
+		return
+	end
+
+	this.FillSingleWrap(t,index + 1)
+end
+
+function LuaTreasureActivities.FillSingleWrap(tra,index)
+	if IsNil(tra) then return end
+
+	local data = CountTable[index]
+	--print("aaaaaaaaaaaaaaaaaaaaaaaaaa  data.Count = "..tostring(data.Count).."    m_Curtotal_count = "..tostring(m_Curtotal_count))
+	if data == nil then return end
+	if m_Curtotal_count == nil then return end
+	local T = tra:Find("T")
+	if not IsNil(T) then
+		T:GetComponent("UILabel").text = Hotfix.GetStringTable("TreasureRollCount", tostring(math.min( m_Curtotal_count,data.Count)), tostring(data.Count))
+	end
+	local test = tra:Find("Item1")
+	if IsNil(test) then
+		return
+	end
+	tra:Find("Item1").gameObject:SetActive(false)
+	tra:Find("Item2").gameObject:SetActive(false)
+	
+	if #data.Reward == 2 then
+		tra:Find("Item1").gameObject:SetActive(true)
+		this.DrawItem(tra:Find("Item1").gameObject,data.Reward[1],data.Reward[2])
+		tra:Find("Item1").gameObject.transform:Find("RedPoint").gameObject:SetActive(false)
+		tra:Find("Bg_fx").gameObject:SetActive(false)
+		tra:Find("Item1").gameObject.transform:Find("Mask").gameObject:SetActive(false)
+		tra:Find("Ok").gameObject:SetActive(false)
+		if tak == false then
+			tra:Find("Ok").gameObject:SetActive(true)
+			tra:Find("Item1").gameObject.transform:Find("Mask").gameObject:SetActive(true)
+		end
+		local tak = this.cantaken(data.Count)
+		if m_Curtotal_count >= data.Count and tak == true  then
+			local icon = tra:Find("Item1").gameObject.transform:Find("Icon"):GetComponent("UISprite")
+			icon.sid = tostring(data.Count)
+			tra:Find("Item1").gameObject.transform:Find("RedPoint").gameObject:SetActive(true)
+			nowRedState = true
+			Hotfix.SetClickCallback(icon.gameObject,this.GettotalOnClick)
+			tra:Find("Bg_fx").gameObject:SetActive(true)
+		end
+	end
+	if #data.Reward == 4 then
+		tra:Find("Item1").gameObject:SetActive(true)
+		this.DrawItem(tra:Find("Item1").gameObject,data.Reward[1],data.Reward[2])
+		tra:Find("Item2").gameObject:SetActive(true)
+		this.DrawItem(tra:Find("Item2").gameObject,data.Reward[3],data.Reward[4])
+		tra:Find("Item1").gameObject.transform:Find("RedPoint").gameObject:SetActive(false)
+		tra:Find("Item2").gameObject.transform:Find("RedPoint").gameObject:SetActive(false)
+		tra:Find("Bg_fx").gameObject:SetActive(false)
+		tra:Find("Ok").gameObject:SetActive(false)
+		tra:Find("Item1").gameObject.transform:Find("Mask").gameObject:SetActive(false)
+		tra:Find("Item2").gameObject.transform:Find("Mask").gameObject:SetActive(false)
+		local tak = this.cantaken(data.Count)
+		if tak == false then
+			tra:Find("Ok").gameObject:SetActive(true)
+			tra:Find("Item1").gameObject.transform:Find("Mask").gameObject:SetActive(true)
+			tra:Find("Item2").gameObject.transform:Find("Mask").gameObject:SetActive(true)
+		end
+		if m_Curtotal_count >= data.Count and tak == true then
+			local icon = tra:Find("Item1").gameObject.transform:Find("Icon"):GetComponent("UISprite")
+			icon.sid = tostring(data.Count)
+			tra:Find("Item1").gameObject.transform:Find("RedPoint").gameObject:SetActive(true)
+			Hotfix.SetClickCallback(icon.gameObject,this.GettotalOnClick)
+			local icon2 = tra:Find("Item2").gameObject.transform:Find("Icon"):GetComponent("UISprite")
+			icon2.sid = tostring(data.Count)
+			nowRedState = true
+			tra:Find("Item2").gameObject.transform:Find("RedPoint").gameObject:SetActive(true)
+			Hotfix.SetClickCallback(icon2.gameObject,this.GettotalOnClick)
+			tra:Find("Bg_fx").gameObject:SetActive(true)
+		end
+	end 
+end
+function LuaTreasureActivities.GettotalOnClick(go)
+	local spr = go.transform:GetComponent("UISprite")
+	local inde = tonumber(spr.sid)
+	LuaTreasureActivitiesDoc.ArgTreasureTotalArg(inde)
+	LuaTreasureActivitiesDoc.ArgTreasureInfo()
+end
+-----------------------------------------------------自选拿到奖池----------------------------------------------------
+function LuaTreasureActivities.ShowMyTreasure(MY_Treansure_List)
+	--body
+	local newlist = {}
+	for i = 1, #MY_Treansure_List do
+		for j = 1, #MY_Treansure_List[i].box_id_List do
+			pair = {}
+			pair.box_id = MY_Treansure_List[i].box_id_List[j]
+			pair.has_taken = false
+			newlist[#newlist + 1] = pair
+		end
+	end
+	--考虑乱序
+
+	----再刷新列表
+	m_CurBoxList = newlist
+	table.sort(m_CurBoxList,this.SortFunction)
+	m_CurBoxList = this.luanxu(m_CurBoxList)
+
+	this.RefreshRightList(newlist)
+end
+function LuaTreasureActivities.SortFunction(a,b)
+	local x = this.FinditemIDinListByID(a.box_id)
+	local y = this.FinditemIDinListByID(b.box_id)
+	--return a.box_id + (tonumber(x)) + b.box_id < b.box_id + (tonumber(y)) + a.box_id--乱序
+	return x[2] < y[2]--星级排序。星级高的在上面
+end
+function LuaTreasureActivities.luanxu(t)
+	if type(t)~="table" then
+        return
+    end
+    local tab={}
+    local index=1
+    while #t~=0 do
+        local n=math.random(0,#t)
+        if t[n]~=nil then
+            tab[index]=t[n]
+            table.remove(t,n)
+            index=index+1
+        end
+    end
+    return tab
+end
+-----------------------------------------------------Refresh----------------------------------------------------
+function LuaTreasureActivities.RefreshUIAndData()
+	this.RefreshFirstUI()
+	--body
+end
+
+function LuaTreasureActivities.Reset()
+	--播放特效
+	--print("LuaTreasureActivities Reset()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	local fx = selfTrans:Find("Bg/Tex1")
+	if not IsNil(fx) then
+		fx.gameObject:SetActive(false)
+		fx.gameObject:SetActive(true)
+	end
+
+	--重新获取信息
+	m_Curreset_count = m_Curreset_count - 1 --自行减少次数 
+	LuaTreasureActivitiesDoc.ArgTreasureInfo()--同步
+	m_CurBoxList = {}
+	m_Select:SetActive(false)
+	this.RefreshFirstUI()
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaTreasureActivities.Awake(go)
+	selfObj = go
+
+	selfTrans = selfObj.transform
+	LuaTreasureActivitiesDoc.SetTreasureActivitiesFrame(this)
+	LuaTreasureActivitiesDoc.SetTreasureActivitiesFrame_transform(selfTrans)
+	this.Init()
+end
+function LuaTreasureActivities.OnShow()
+	LuaTreasureActivitiesDoc.ArgTreasureInfo()
+	LuaTreasureActivitiesDoc.senddatatoFrame()
+	--Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", true, true, true)
+end
+function LuaTreasureActivities.OnHide()
+	Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", false, true, true)
+	local sys = Hotfix.GetEnumType("XSysDefine","XSys_OperatingActivity")
+	Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetTitanItems", sys)
+end
+function LuaTreasureActivities.Start()
+
+end
+
+function LuaTreasureActivities.OnEnable()
+	print("LuaTreasureActivities.OnEnable")
+	local sys = Hotfix.GetEnumType("XSysDefine","XSys_Dance18")
+	Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetTitanItems", sys)
+
+	Hotfix.LuaWait(10,function()
+		local sys = Hotfix.GetEnumType("XSysDefine","XSys_Dance18")
+		Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetTitanItems", sys)
+	end
+	
+	)
+end
+function LuaTreasureActivities.OnDisable()
+	--print("LuaTreasureActivities.OnDisable")
+	local sys = Hotfix.GetEnumType("XSysDefine","XSys_OperatingActivity")
+	Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetTitanItems", sys)
+end
+
+function LuaTreasureActivities.OnDestroy()
+	--对象池
+	if item_Pool ~= nil then
+		item_Pool:ReturnAllDisable()
+	end
+	if Loglist_pool ~= nil then
+		Loglist_pool:ReturnAllDisable()
+	end
+	m_CurBoxList = { }
+	m_Curtotal_taken_list = {}
+	--UI
+	LuaTreasureActivitiesDoc.UnloadTreasureActivitiesFrame()
+	Hotfix.RemoveTimer(timetoken)
+	Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", false, true, true)
+end
+return this

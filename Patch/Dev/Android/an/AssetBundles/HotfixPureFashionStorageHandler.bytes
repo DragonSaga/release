@@ -1,0 +1,182 @@
+local this = nil
+--
+--  HotfixSettingDlg.lua.lua
+--  Created by Administrator on 2016/09/30 09:16:37
+--  Please make sure you file start with "Hotfix" or "Lua"
+--
+require "LuaPureFashionCompoundDlg.lua"
+require "LuaFashionRankDoc.lua"
+require "HotfixPureSeasonDocument.lua"
+
+PureFashionStorageHandler={}
+local this = PureFashionStorageHandler
+local  m_goCompose
+local pos
+local Go
+
+local m_equipRecord
+local OutLook
+local FashionRecord
+
+
+local Attribute
+local fashionList
+local snapShot
+local bg
+local select
+local EquipFrame
+local selectSp
+local selectLabel
+
+local m_equipRecordselectsp
+local m_equipRecordselectlabel
+local OutLookselectsp
+local OutLooklabel
+local FashionRecordsp
+local FashionRecordlabel
+local FashionValue
+
+
+PureFashionStorageHandler.Go=nil
+function PureFashionStorageHandler.BeforeHandlerShow(go)
+	if not IsNil(go) then
+		Go=go
+		local str = "BeforeRefresh=>  "..go.name
+		print(str)
+		local Pure = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "IsPureVersion")
+		FashionValue = go.transform:Find("PowerPoint"):GetComponent("UILabel")
+		if Pure == true then
+			LuaFashionRankDoc.upSView(this)
+			LuaFashionRankDoc.ReqFashionValue()
+		else
+			FashionValue.gameObject:SetActive(false)
+		end
+	else
+		print("BeforeRefresh: There is nil lua script ")
+	end
+	return false
+end
+
+
+function PureFashionStorageHandler.AfterHandlerShow(go)
+	if not IsNil(go) then
+		local str = "AfterRefresh=>  "..go.name
+		print(str)
+
+		this.Go=go
+
+		if IsNil(m_goCompose) then
+
+			m_goCompose = go.transform:Find("Compose").gameObject
+			pos = m_goCompose.transform.localPosition
+			local isOpen = Hotfix.CallSingleMethod("XGameSysMgr", true, false, "IsSystemOpen", 162)
+			
+			if not isOpen then
+				--m_goCompose.transform.localPosition = Vector3(98, 211)
+				m_goCompose.transform.localPosition = Vector3(1000,1000,0)
+			end
+
+			if not IsNil(m_goCompose) then 
+				Hotfix.SetClickCallback(m_goCompose,this.OnComposeClick)
+			end
+			
+			--local tab=go.transform.parent.parent:Find("Tabs")
+			--local XSys_Design_Designation=tab.transform:Find("XSys_Design_Designation").gameObject
+
+			--Hotfix.SetClickCallback(XSys_Design_Designation,this.CancelComposeClick)
+
+			--[[m_equipRecordselectsp = go.transform:Find("Navigation/EquipRecord/Selected").gameObject
+			m_equipRecordselectlabel = go.transform:Find("Navigation/EquipRecord/SelectedTextLabel").gameObject
+			OutLookselectsp = go.transform:Find("Navigation/OutLook/Selected").gameObject
+			OutLooklabel = go.transform:Find("Navigation/OutLook/SelectedTextLabel").gameObject
+			FashionRecordsp = go.transform:Find("Navigation/FashionRecord/Selected").gameObject
+			FashionRecordlabel = go.transform:Find("Navigation/FashionRecord/SelectedTextLabel").gameObject]]--
+
+
+			--OutLook = go.transform:Find("Navigation/OutLook").gameObject
+
+
+			--FashionRecord = go.transform:Find("Navigation/FashionRecord").gameObject
+		end
+
+  		local isPure = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'IsPureVersion')
+		if isPure then
+			local doc = Hotfix.GetDocument("PureSeasonDocument")
+
+			local TipAdd = go.transform:Find("AttrTotal/ToolTip/TipAdd")
+			local Tip1 = go.transform:Find("AttrTotal/ToolTip/Tip1")
+
+			local curSeasonId = doc.CurrSeasonId
+			print("aaaaa"..curSeasonId)
+			local curSeasonAchiLv = doc.CurrSeasonAchiLv
+			print(curSeasonAchiLv)
+
+			local attrPercent = HotfixPureSeasonDocument.GetCurAchiLvAttrPercent(curSeasonId, curSeasonAchiLv)
+			if attrPercent == nil then attrPercent = 0 end
+			local text = "当前属性加成生效"..attrPercent.."%"
+			
+			if not IsNil(TipAdd) then
+				TipAdd:GetComponent("XUILabel"):SetText(text)
+			end
+
+			local data = HotfixPureSeasonDocument.GetOneHundredAttrPercentAchiLv(curSeasonId)
+			local str = ""
+			if nil ~= data then
+				str = Hotfix.CallSingleMethod("XLabelSymbolHelper", true, true, "FormatAnimation", data.titleAtlas, data.titleIcon, 0)
+				if not IsNil(Tip1) then
+					Tip1:GetComponent("XUILabelSymbol").InputText = "升至"..str.."可以100%激活属性加成"
+					Tip1:Find("Sprite").localPosition = Vector3(-110,0,0)
+				end
+			end
+		end
+
+	end
+
+
+	--[[Attribute=go.transform:Find("Attribute").gameObject 
+	fashionList=go.transform:Find("FashionList").gameObject
+
+	bg=go.transform:Find("Bg").gameObject
+	snapShot=go.transform:Find("Snapshot").gameObject
+	select=go.transform:Find("Select").gameObject
+	EquipFrame=go.transform:Find("EquipFrame").gameObject
+	selectSp=go.transform:Find("Navigation/Compose/Selected").gameObject
+	selectLabel= go.transform:Find("Navigation/Compose/SelectedTextLabel").gameObject;]]--
+	return false
+end
+
+
+
+function PureFashionStorageHandler.OnComposeClick( ... )
+	-- body
+	--Go:SetActive(false)
+
+	--[[Attribute:SetActive(false)
+	fashionList:SetActive(false)
+
+	snapShot:SetActive(false)
+	bg:SetActive(false)
+	select:SetActive(false)
+	EquipFrame:SetActive(false)
+
+	m_equipRecordselectsp:SetActive(false)
+	m_equipRecordselectlabel:SetActive(false)
+	OutLookselectsp:SetActive(false)
+	OutLooklabel:SetActive(false)
+	FashionRecordsp:SetActive(false)
+	FashionRecordlabel:SetActive(false)
+	selectSp:SetActive(true)
+	selectLabel:SetActive(true)]]--
+
+
+	--LuaUIManager.Instance:Load("UI/GameSystem/Exterior/PureFashionCompoundDlg")
+
+	LuaUIManager.Instance:Load("UI/GameSystem/FashionCompoundDlg")
+	
+end
+
+function PureFashionStorageHandler.SetFashionValue( msg )
+	FashionValue.text = " " .. msg.allnum 
+end
+
+return this

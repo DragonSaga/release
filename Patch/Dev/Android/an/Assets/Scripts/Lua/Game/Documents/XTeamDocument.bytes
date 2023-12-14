@@ -1,0 +1,99 @@
+local M= {}
+
+local soloMatchType = 0
+
+--获取匹配类型
+function M:GetSoloMatchType()
+    return soloMatchType
+end
+
+--保存服务器ptc下发数据, 同时派发事件
+function M:SavePTCInfo(msg)
+
+    print(msg.errorcode)
+
+    local matchType = msg.matchtype
+    print("<color=red>XTeamDoc match type: </color>"..matchType)
+    soloMatchType = matchType
+    DispatchEvent(XEventDefine.XEvent_RoleMatchStateNtf)
+end
+
+--通用单人匹配请求
+---@param theMatchType number(KKSG.KMatchType)
+function M:DoSoloMatchReq(theMatchType)
+    assert(type(theMatchType) == "number", "param must be enum Value")
+    --todo:控制在枚举最大值判断,或者也可以不需要，最后还是交给服务器来验证判断
+    
+    print("now req match Type: "..theMatchType)
+
+    local theOp = GetNumberByPBEnum("KMatchOp","KMATCH_OP_START")
+    if theMatchType == soloMatchType then
+        theOp = GetNumberByPBEnum("KMatchOp","KMATCH_OP_STOP")
+    else
+        theOp = GetNumberByPBEnum("KMatchOp","KMATCH_OP_START")
+    end
+
+    print("zombie Match Op: "..theOp)
+    print("soloMatchType: "..soloMatchType)
+    M:ReqMatchStateChange(theMatchType, theOp, false)
+end
+
+
+---@param type          KKSG.KMatchType
+---@param op            KKSG.kmATCHoP
+---@param isTeamMatch   bool
+function M:ReqMatchStateChange(type, op, isTeamMatch)
+    local msg = GetProtoBufSendTable("KMatchCommonArg")
+    msg.type = type
+    msg.op = op
+    msg.isteam = isTeamMatch
+
+    local pb_data = msg:SerializeToString()
+    if pb_data ~= nil then
+        Hotfix.SendLuaByteRPC(RPC.C2M_KMatchCommonReq, pb_data, M.OnGetInfo, M.OnErr)
+    else
+        print("pb encode data is nil !!")
+    end
+end
+
+function M.OnGetInfo(data, length)
+    print("OnGetInfo back success")
+    local msg = ParseProtoBufToTable("KMatchCommonRes",data)
+    if msg ~= nil then
+        -- print("errorcode is: "..tostring(msg.errorcode))
+        if msg.errorcode ~= nil and msg.errorcode ~= 0 then
+            print("msg.errorcode: "..msg.errorcode)
+            --stringtable ERR_GUILDACMPPATY_NOTOPEN
+            local theId = tonumber(msg.errorcode)
+            Hotfix.LuaShowSystemTipErrCode(theId)--(804)
+        end
+    end
+end
+
+function M.OnErr()
+	print("lua LuaBuyActivityDoc OnErr!")
+end
+
+
+--<Override
+function M.OnTableLoaded(self)
+end
+
+function M.Attach(self)
+end
+
+function M.Detach(self)
+    
+end
+
+function M.EnterScene(self)
+end
+
+function M.EnterSceneFinally(self)
+end
+
+function M.Reconnect(self)
+end
+-->
+
+return M

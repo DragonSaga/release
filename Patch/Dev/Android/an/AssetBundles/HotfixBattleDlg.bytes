@@ -1,0 +1,391 @@
+local this = nil
+require "LuaFastSignalDlg.lua"
+
+BattleDlg={}
+local this = BattleDlg
+BattleDlg.ChanllengeRewards = nil;
+BattleDlg.BoxObj = nil;
+BattleDlg.CurOutputLabel = nil;
+BattleDlg.CurLevelStandard = nil;
+BattleDlg.NextLevelStandard = nil;
+BattleDlg.SelfRank = 1;
+BattleDlg.DamageRewards = nil;
+BattleDlg.IsVisible = false
+BattleDlg.Roguelike = nil
+BattleDlg.RoguelikeTips = nil
+--BattleDlg.cur
+
+local mGo = nil
+local mTrans = nil
+
+--噩梦庭院
+        local NigSceneStr = "SCENE_NIGMARE: 78"
+	local NigToken = 0
+	local NigCdTotalTime = 360
+	local NigCdTime = 360
+	local NigCdLb = nil
+	local NigRedSpr = nil
+	local NigBossCdTips1 = nil
+	local NigBossCdTips2 = nil
+--end噩梦庭院
+
+local farfarAwayPos = Vector3(100000, -121, 0)
+--圣诞乱斗
+	local ChristmaseventRootTrans, killerNtfRootTrans = nil, nil
+	local ChriKillerNameLb,ChriDeaderNameLb, CurLeftNumLb, ChriBeKillerNameLb = nil, nil, nil, nil
+	local killTotalRootObj, killerRootObj, killoutRootObj = nil, nil, nil
+	-- local ChriTweenScale,ChriTweenAlpha = nil, nil
+	function BattleDlg.ChristmasEventHandler()
+		if mTrans == nil or mGo == nil then return end		
+		ChristmaseventRootTrans = mTrans:Find("_canvas/Christmasevent")
+		killerNtfRootTrans = mTrans:Find("_canvas/Christmasevent/Bg")
+		if ChristmaseventRootTrans == nil then return end
+		local sceneid = Hotfix.GetSingleMember("XScene", "SceneID", true, false, false)
+		if sceneid ~= 50089 then  	--todo:走globalconfig配置
+			ChristmaseventRootTrans.localPosition = farfarAwayPos
+		else
+			ChristmaseventRootTrans.localPosition = Vector3.zero
+			killerNtfRootTrans.localPosition = farfarAwayPos
+		end
+
+		-- ChriTweenScale = ChristmaseventRootTrans:Find("Bg"):GetComponent("TweenScale")
+		-- ChriTweenAlpha = ChristmaseventRootTrans:Find("Bg"):GetComponent("TweenAlpha")
+		killTotalRootObj = ChristmaseventRootTrans:Find("Bg").gameObject
+		killerRootObj = ChristmaseventRootTrans:Find("Bg/killer").gameObject
+		killoutRootObj = ChristmaseventRootTrans:Find("Bg/killout").gameObject
+		ChriKillerNameLb = ChristmaseventRootTrans:Find("Bg/killer/bname"):GetComponent("UILabel")
+		ChriDeaderNameLb = ChristmaseventRootTrans:Find("Bg/killer/Rname"):GetComponent("UILabel")
+		ChriBeKillerNameLb = ChristmaseventRootTrans:Find("Bg/killout/Rname"):GetComponent("UILabel")
+		CurLeftNumLb = ChristmaseventRootTrans:Find("kill/bname"):GetComponent("UILabel")
+		local CurLeftNum = tonumber(Hotfix.GetGlobalString("ChristmasJoinNum"))
+		this.ShowCurLeftNum(CurLeftNum)
+	end
+
+	function BattleDlg.ShowChrismasKiller(killerName,deaderName, isRoleKiller)
+		if killerName == nil or deaderName == nil then return end
+		if type(killerName) ~= "string" or type(deaderName) ~= "string" then return end 
+		if ChriKillerNameLb == nil or ChriDeaderNameLb == nil then return end
+
+		killerNtfRootTrans.localPosition = Vector3.zero
+
+		killTotalRootObj:SetActive(false)
+
+		if isRoleKiller then
+			killerRootObj:SetActive(true)
+			killoutRootObj:SetActive(false)
+			ChriKillerNameLb.text = killerName
+			ChriDeaderNameLb.text = deaderName
+		else
+			killerRootObj:SetActive(false)
+			killoutRootObj:SetActive(true)
+			ChriBeKillerNameLb.text = deaderName.."被装置击杀"
+		end
+		
+		killTotalRootObj:SetActive(true)
+		-- if ChriTweenScale == nil or ChriTweenAlpha == nil then return end
+		-- ChriTweenScale.enabled = true
+		-- ChriTweenScale:ResetToBeginning(true)
+
+		-- ChriTweenAlpha.enabled = true
+		-- ChriTweenAlpha:ResetToBeginning(true)
+	end
+
+	function BattleDlg.ShowCurLeftNum(leftNum)
+		if CurLeftNumLb == nil or leftNum == nil or type(leftNum) ~= "number" then return end
+		CurLeftNumLb.text = tostring(leftNum)--Hotfix.GetStringTable("CHICKEN_DINNER_SURVIVE_COUNT",leftNum)
+	end
+--end圣诞乱斗
+
+function BattleDlg.RefreshRewards()
+
+end
+
+function BattleDlg.BeforeRefresh(go)
+	Hotfix.CallSingleMethod("UI.BattleQTEDlg",true,false,"UnLoad",false)
+	
+	if not IsNil(go) then
+
+		mGo = go
+		mTrans = go.transform
+
+		BattleDlg.ChanllengeRewards = go.transform:Find("_canvas/CareerChallenges");
+
+		if IsNil(BattleDlg.ChanllengeRewards) then 
+			return
+		end
+		BattleDlg.ChanllengeRewards.gameObject:SetActive(true)
+		if not IsNil(BattleDlg.ChanllengeRewards) then
+			local scene = Hotfix.GetSingleMember("XScene", "SceneID", true, false, false)
+			if tonumber(Hotfix.GetGlobalString("ProfessionChallengeSceneID")) ~=  scene then
+				BattleDlg.ChanllengeRewards.gameObject:SetActive(false)
+				BattleDlg.IsVisible = false
+				return false
+			end
+		end
+		BattleDlg.IsVisible = true
+		BattleDlg.ChanllengeRewards.gameObject:SetActive(true)
+		BattleDlg.BoxObj = go.transform:Find("_canvas/CareerChallenges/InfoBack/BOX").gameObject;
+		BattleDlg.CurOutputLabel = go.transform:Find("_canvas/CareerChallenges/InfoBack/Level/T"):GetComponent("UILabel")
+		BattleDlg.CurLevelStandard = go.transform:Find("_canvas/CareerChallenges/InfoBack/Difficulty"):GetComponent("UILabel")
+		BattleDlg.NextLevelStandard = go.transform:Find("_canvas/CareerChallenges/InfoBack/NextDifficulty"):GetComponent("UILabel")
+
+	else
+		print("BeforeRefresh: There is nil lua script ")
+		return false
+	end
+	
+	--Hotfix.SetClickCallback(BattleDlg.BoxBtn, BattleDlg.OnClickBox)
+	local damgeReward = Hotfix.GetGlobalString("ProfessionChallengeRewards")
+	BattleDlg.DamageRewards = {} 
+	BattleDlg.DamageRewards.damages = {}
+	BattleDlg.DamageRewards.rewards = {}
+	local items = damgeReward:split("|")
+	for	i = 1,#items do
+		local strArray = items[i]:split("=")
+		--for j=1,#strArray do 
+		BattleDlg.DamageRewards.damages[#BattleDlg.DamageRewards.damages + 1] = tonumber(strArray[1])
+		BattleDlg.DamageRewards.rewards[#BattleDlg.DamageRewards.rewards + 1] ={}
+		BattleDlg.DamageRewards.rewards[#BattleDlg.DamageRewards.rewards].itemid = tonumber(strArray[2])
+		BattleDlg.DamageRewards.rewards[#BattleDlg.DamageRewards.rewards].itemCount = tonumber(strArray[3])
+		print(BattleDlg.DamageRewards.rewards[#BattleDlg.DamageRewards.rewards].itemCount)
+		--end
+	end
+	
+	return false
+end
+
+function BattleDlg._OnItemClick(go)
+	Hotfix.LuaShowItemTooltipDialog(go:GetComponent("UISprite").uid,go)
+end
+
+function BattleDlg.DoItemDisplay(rank)
+
+    Hotfix.DrawItemView(BattleDlg.BoxObj,BattleDlg.DamageRewards.rewards[rank].itemid,BattleDlg.DamageRewards.rewards[rank].itemCount,true)
+
+    local ispObj = BattleDlg.BoxObj.transform:Find("Icon").gameObject
+    local isp = ispObj:GetComponent("UISprite")
+	isp.uid = BattleDlg.DamageRewards.rewards[rank].itemid
+    Hotfix.SetClickCallback(ispObj,BattleDlg._OnItemClick)
+end
+
+function BattleDlg.OnClickBox()
+	-- local rank = 1
+	--礼包道具
+	--local chestConfig = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetChestConf", m_GiftCardTable[i].ItemID)
+	-- local dropList = chestConfig.DropID
+	-- 		if dropList ~= nil then
+	-- 			--print("dropList.leng = "..tostring(dropList.Length))
+	-- 			for k = 0, dropList.Length - 1 do
+	--end
+	--end
+	-- local theGiftList = boxTable[theIndex].LoveGift
+	-- LuaItemIconListData.SetDataTable(theGiftList)
+	-- LuaItemIconListData.SetTargetPos(go.transform.position)
+	-- LuaUIManager.Instance:Load("UI/GameSystem/ItemIconListDlgForLua")
+end
+
+function BattleDlg.OnPressTreasure(go,press)
+	local riftSceneData = Hotfix.GetDocumentMember("XDnRogueLikeDocument", "riftSceneData", true, true)
+	if not IsNil(riftSceneData) then
+		local treasurelist = riftSceneData.features
+		if treasurelist.Count > 0 then
+			local showStr = {}
+			for i = 1, treasurelist.Count do
+				local data = Hotfix.CallDocumentStaticMethod("XDnRogueLikeDocument", true, "GetRogueEffectTableData", treasurelist[i-1].buffID, 0)
+				if data then
+					local curstr = data.RogueEffectName .. '\n' .. data.RogueEffectDesc
+					table.insert(showStr,curstr)
+				end
+			end
+			BattleDlg.RoguelikeTips.text = table.concat(showStr,'\n')
+			BattleDlg.RoguelikeTips.gameObject:SetActive(press == true)
+		end
+	end
+end
+
+function BattleDlg.OnPressMech(go,press)
+	local buffList = Hotfix.GetDocumentMember("XDnRogueLikeDocument", "buffList", true, true)
+	if not IsNil(buffList) then
+		local showStr = {}
+		for i = 1, buffList.Count do
+			local data = Hotfix.CallDocumentMethod("MysterioursDocument", true, "GetBuffSuitRow", buffList[i-1].buffID, 1)
+			local curstr = Hotfix.CallSingleMethod("UI.UiUtility", false, false, "ReplaceReturn", data.scription)
+			table.insert(showStr,curstr)
+		end
+		BattleDlg.RoguelikeTips.text = table.concat(showStr,'\n')
+		BattleDlg.RoguelikeTips.gameObject:SetActive(press == true)
+	end
+end
+
+function BattleDlg.AfterRefresh(go)
+	Hotfix.CallSingleMethod("UI.BattleQTEDlg",true,false,"SetVisible",true)
+	Hotfix.CallSingleMethod("UI.BattleQTEDlg",true,false,"SetVisible",false)
+	--Hotfix.CallSingleMethod("UI.BattleQTEDlg",true,false,"SetVisible",false)
+	--Hotfix.CallSingleMethod("UI.BattleQTEDlg",true,false,"UnLoad",false)
+	if BattleDlg.IsVisible then
+		Hotfix.CallDocumentMethod("SceneDamageRankDocument", true, "ReqRank")
+		BattleDlg.timeLoopToken = Hotfix.LuaWait(3000, BattleDlg.OnTimer)
+		BattleDlg.OnGetDamage(0)
+	end
+
+	BattleDlg.HotfixNigmareYardForTapdId1025624()
+	this.ChristmasEventHandler()
+	BattleDlg.Roguelike = go.transform:Find("_canvas/RoguelikeTips")
+	if not IsNil(BattleDlg.Roguelike) then
+		BattleDlg.RoguelikeTips = go.transform:Find("_canvas/RoguelikeTips/Tip"):GetComponent("UILabel")
+		Hotfix.SetPressCallback(go.transform:Find("_canvas/RoguelikeTips/PTre").gameObject,this.OnPressTreasure)
+		Hotfix.SetPressCallback(go.transform:Find("_canvas/RoguelikeTips/PMech").gameObject,this.OnPressMech)
+	end
+	local sceneType = Hotfix.GetSingleMember("XScene", "SceneType", true, false, false)
+	local dnFairyLandEnum = Hotfix.GetEnumType("KKSG.SceneType", "SCENE_DRAGON_SECRET_AREA")
+	BattleDlg.Roguelike.gameObject:SetActive(sceneType == dnFairyLandEnum)
+
+	LuaFastSignalDlg.AfterRefresh(go)
+end
+
+function BattleDlg.ReqRank()
+	-- Hotfix.RemoveTimer(BattleDlg.timeLoopToken)
+	-- Hotfix.CallDocumentMethod("SceneDamageRankDocument", true, "ReqRank")
+	-- BattleDlg.timeLoopToken = Hotfix.LuaWait(3000, BattleDlg.OnTimer)
+	-- print(BattleDlg.ReqRank())
+end
+
+function BattleDlg.OnTimer()
+	 Hotfix.RemoveTimer(BattleDlg.timeLoopToken)
+	 Hotfix.CallDocumentMethod("SceneDamageRankDocument", true, "ReqRank")
+	 BattleDlg.timeLoopToken = Hotfix.LuaWait(3000, BattleDlg.OnTimer)
+end
+
+function BattleDlg.Hide(go)
+	LuaFastSignalDlg.Hide(go)
+end
+
+function BattleDlg.Unload()
+	if BattleDlg.timeLoopToken ~= nil then
+		Hotfix.RemoveTimer(BattleDlg.timeLoopToken)
+	end
+	BattleDlg.ChanllengeRewards = nil;
+	BattleDlg.BoxBtn = nil;
+	BattleDlg.CurOutputLabel = nil;
+	BattleDlg.CurLevelStandard = nil;
+	BattleDlg.NextLevelStandard = nil;
+	BattleDlg.DamageRewards = nil;
+	BattleDlg.Roguelike = nil
+	BattleDlg.RoguelikeTips = nil
+
+	ChristmaseventRootTrans = nil
+	ChriKillerNameLb,ChriDeaderNameLb, CurLeftNumLb = nil, nil, nil
+	ChriTweenScale,ChriTweenAlpha = nil, nil
+
+	if NigToken ~= nil then
+		Hotfix.RemoveTimer(NigToken)
+	end
+
+	LuaFastSignalDlg.Unload()
+end
+
+function BattleDlg.OnGetDamage(damage)
+	local rank = 1;
+	for i = 1,#BattleDlg.DamageRewards.damages do
+		if damage < BattleDlg.DamageRewards.damages[i] then
+			break;
+		end
+		rank = i+1;
+	end
+	BattleDlg.CurOutputLabel.text = LuaCareerChallengesDoc.DamageStr(damage,"[cfff0d]")
+	if rank <= #BattleDlg.DamageRewards.damages then
+		BattleDlg.CurLevelStandard.text = LuaCareerChallengesDoc.DamageStr(BattleDlg.DamageRewards.damages[rank],"[cfff0d]")
+		--BattleDlg.CurLevelStandard.text = tostring(BattleDlg.DamageRewards.damages[rank])
+	else
+		BattleDlg.CurLevelStandard.text = LuaCareerChallengesDoc.DamageStr(BattleDlg.DamageRewards.damages[#BattleDlg.DamageRewards.damages],"[cfff0d]")
+	end
+
+	if rank + 1 <= #BattleDlg.DamageRewards.damages then
+		BattleDlg.NextLevelStandard.text = LuaCareerChallengesDoc.DamageStr(BattleDlg.DamageRewards.damages[rank + 1],"")
+	else
+		BattleDlg.NextLevelStandard.text = "MAX"
+	end
+	BattleDlg.DoItemDisplay(math.min(rank,#BattleDlg.DamageRewards.rewards))
+end
+
+
+function BattleDlg.HotfixNigmareYardForTapdId1025624()
+
+	local scene = Hotfix.GetSingleMember("XScene", "SceneType", true, false, false)
+	local str = tostring(scene)
+
+	if str == NigSceneStr then
+
+		NigCdTime = tonumber(Hotfix.GetGlobalString("NigBossRageTotalTime"))
+
+		if NigCdTime == 0 or NigCdTime == nil then
+			NigCdTime = 360
+		end
+
+		NigCdTotalTime = NigCdTime
+
+		if not IsNil(mTrans) then
+			NigCdLb = mTrans:Find("_canvas/EnergyRoot/EnergyBar/bossTip"):GetComponent("UILabel")
+
+			NigRedSpr = mTrans:Find("_canvas/EnergyRoot/EnergyBar/red"):GetComponent("UISprite")
+		end
+
+		NigBossCdTips1 = Hotfix.GetStringTable("NigBossCdTips1")
+		NigBossCdTips2 = Hotfix.GetStringTable("NigBossCdTips2")
+
+		-- BattleDlg.HotfixNigBattleOnTimer( )
+	end
+end
+function BattleDlg.HotfixNigBattleOnTimer( )
+	Hotfix.RemoveTimer(NigToken)
+
+	NigCdTime = NigCdTime - 1
+
+	-- print("remain time: "..tostring(NigCdTime))
+
+	local theMin = math.floor(NigCdTime / 60)
+	local theSencond  = NigCdTime - theMin * 60
+
+	local theMinStr = string.format("%02d", theMin)
+	local theSecondStr = string.format("%02d", theSencond)
+
+	if not IsNil(NigCdLb) and not IsNil(NigRedSpr) then
+		NigCdLb.text = NigBossCdTips1..theMinStr..":"..theSecondStr
+
+		local theValue = NigCdTotalTime - NigCdTime
+		local theLeftTimeFillRate = theValue / NigCdTotalTime
+		NigRedSpr.fillAmount = theLeftTimeFillRate
+	end
+
+	if NigCdTime <= 0 then
+		NigCdLb.text = NigBossCdTips2
+	else
+		NigToken = Hotfix.LuaWait(1000, BattleDlg.HotfixNigBattleOnTimer)	
+	end
+
+	
+end
+function BattleDlg.HotfixNigBattleSynTime(theCdTime)
+
+	if type(theCdTime) ~= "number" then
+		print("theCdTime type: "..type(theCdTime))
+		return 
+	end
+
+	print("theCdTime: "..tostring(theCdTime))
+
+	local scene = Hotfix.GetSingleMember("XScene", "SceneType", true, false, false)
+	local str = tostring(scene)
+
+	if str == NigSceneStr then
+
+		local blueObj = mTrans:Find("_canvas/EnergyRoot/EnergyBar/bule").gameObject
+		if not IsNil(blueObj) and blueObj.activeInHierarchy then
+			blueObj:SetActive(false)
+		end
+
+		NigCdTime = theCdTime
+		BattleDlg.HotfixNigBattleOnTimer( )
+	end
+end
+return this

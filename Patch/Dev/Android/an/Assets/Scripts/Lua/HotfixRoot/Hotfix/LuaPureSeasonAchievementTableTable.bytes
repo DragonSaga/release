@@ -1,0 +1,48 @@
+require "HotfixGlobal.lua"
+
+--generate by ProtoGen at date: 2020/12/1 14:47:56
+
+--读取表格
+function ReadPureSeasonAchievementTableTable(table)
+	local reader = Hotfix.LuaTableBin(table)
+	if not IsNil(reader) then
+		local rows = {}
+		Hotfix.ReadFileSize(reader)
+		local lineCount = reader:ReadInt32()
+		Hotfix.ReadDataHandle(reader)
+		local columnCount = reader:ReadByte()
+		for i = 1, columnCount, 1 
+		do
+			reader:ReadByte()
+			reader:ReadByte()
+		end
+		for i = 1, lineCount, 1 
+		do
+			Hotfix.ReadRowSize(reader)
+			rows[i] = {};	
+			rows[i].SeasonID = reader:ReadUInt32()
+			rows[i].Achievementlevel = reader:ReadUInt32()
+			rows[i].Achievementmin = reader:ReadUInt32()
+			rows[i].Achievementmax = reader:ReadUInt32()
+			rows[i].reward = ReadUIntSeqList(reader,2)
+			rows[i].Name = Hotfix.ReadString(reader)
+			rows[i].texture = Hotfix.ReadString(reader)
+			rows[i].effect = Hotfix.ReadString(reader)
+			rows[i].altas = Hotfix.ReadString(reader)
+			rows[i].icon = Hotfix.ReadString(reader)
+			rows[i].titleAtlas = Hotfix.ReadString(reader)
+			rows[i].titleIcon = Hotfix.ReadString(reader)
+			rows[i].UnLockFSpritePos = reader:ReadInt32()
+			rows[i].SmallLevel = ReadUIntSeq(reader,2)
+			rows[i].AttributesPrecent = reader:ReadUInt32()
+			rows[i].description = Hotfix.ReadString(reader)
+			rows[i].UnlockTime = reader:ReadUInt32()
+
+			Hotfix.CheckRowSize(reader,"PureSeasonAchievementTable",i)
+		end
+		Hotfix.CheckFileSize(reader,"PureSeasonAchievementTable")
+		Hotfix.ReturnableStream(reader)
+		return rows
+	end
+	return nil
+end

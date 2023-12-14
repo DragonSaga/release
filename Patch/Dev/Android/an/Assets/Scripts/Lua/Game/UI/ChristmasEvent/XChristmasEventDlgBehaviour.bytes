@@ -1,0 +1,125 @@
+--[[
+    限时活动界面 behaviour类
+]]--
+
+local M = class(UIBase)
+
+function M:Awake()
+
+    local behaviour = self.behaviour
+    local mGameObj = self.gameObject
+    local mTrans = self.transform
+
+    M.CloseBtn = behaviour:GetField("Close")
+    M.RuleBtn = behaviour:GetField("Help")
+    M._rwdRoot = behaviour:GetField("RewardRoot")
+    M.RewardShowBtn = behaviour:GetField("RewardShow")    
+    M.RewardCloseBtn = behaviour:GetField("RewardClose")    
+    M.StartMatchBtn = behaviour:GetField("BtnMatch")
+    M.DuringMatchBtn = behaviour:GetField("DuringMatchBtn")
+    -- M.StartTeamMatchBtn = behaviour:GetField("BtnTeamMatch")
+    M.OpentimeLb = behaviour:GetField("LbOpenTime")
+    M.ContentLb = behaviour:GetField("LbContent")
+    M.PartitionRwdRoot = behaviour:GetField("PartitionReward")
+    M._rankTab = behaviour:GetField("_rankTab")
+    M._patitionTab = behaviour:GetField("_patitionTab")
+
+    M.RankTitleLb = behaviour:GetField("RankTitleLb")
+
+    M.rankScoreTab = behaviour:GetField("rankScoreTab")
+    M.rankWinTab = behaviour:GetField("rankWinTab")
+
+    M.RankrwdRoot = behaviour:GetField("RankrwdRoot")
+    M.PartitionRwdRoot = behaviour:GetField("PartitionRwdRoot")
+
+    M.RankWrapContent = behaviour:GetField("RankWrapContent")
+
+    M.MyRankScoreLb = behaviour:GetField("MyRankScore")
+    M.MyRankLb = behaviour:GetField("MyRankLb")
+    M.MyRankImg = behaviour:GetField("MyRankImg")
+    M.MyRankRewardObj = behaviour:GetField("MyRankRewardObj")
+    M.MyScoreLb = behaviour:GetField("MyScoreLb")
+
+    
+    --活动奖励对象池
+        -- local rewardParent = mTrans.Find("Stage/Reward").gameObject
+        -- local reward = rewardParent.transform.Find("Item").gameObject
+        local rewardParent = behaviour:GetField("rewardParent")
+        local reward = behaviour:GetField("reward")
+        M.RewardPool = Hotfix.SetupPool(rewardParent, reward, 4)
+
+    --单个物品对象池
+        -- M._rwdRoot = mTrans.Find("Rewd").gameObject
+        -- local item = _rwdRoot.transform.Find("frames/RankRewardFrame/Bg/Bg/Item").gameObject
+        local item = behaviour:GetField("item")
+        M.ItemPool = Hotfix.SetupPool(M._rwdRoot, item, 10)
+
+    --排名奖励对象池
+        -- local rewardItemParent = _rwdRoot.transform.Find("frames/RankRewardFrame/Bg/Bg/ScrollView").gameObject
+        -- local rewardItem = rewardItemParent.transform.Find("RewardTpl").gameObject
+        local rewardItemParent = behaviour:GetField("rewardItemParent")
+        local rewardItem = behaviour:GetField("rewardItem")
+        M.RankRewardPool = Hotfix.SetupPool(rewardItemParent, rewardItem, 5)
+
+        local rewardWinItemParent = behaviour:GetField("PartitionReward")
+        local rewardWinItem = behaviour:GetField("rewardWinItem")
+        M.RankWinRewardPool = Hotfix.SetupPool(rewardWinItemParent, rewardWinItem, 5)
+    
+    print("lua awake")
+end
+
+M.CloseBtn = nil            --退出按钮
+M.RuleBtn = nil             --规则按钮
+M.RewardShowBtn = nil        --奖励弹窗打开按钮
+M.RewardCloseBtn = nil      --奖励弹窗关闭按钮
+M.StartMatchBtn = nil       --开始匹配按钮
+M.DuringMatchBtn = nil      --正在匹配中按钮
+M.StartTeamMatchBtn = nil   --组队匹配按钮
+M.OpentimeLb = nil          --活动时间Label
+M.ContentLb = nil           --活动内容Label
+M.RankWrapContentObj = nil  --排行榜无限滚动的Obj
+M.RankScrollView = nil      --排行榜ScrollView
+
+M.RankTitleLb = nil
+
+M.RankWrapContent = nil
+
+M._rwdRoot = nil
+
+M.RankrwdRoot = nil
+M.PartitionRwdRoot = nil
+
+M.MyRankScoreLb = nil
+
+M._rankTab = nil
+M._patitionTab = nil
+
+M.rankScoreTab = nil
+M.rankWinTab = nil
+
+M.RewardPool = nil
+M.ItemPool = nil
+M.RankRewardPool = nil
+M.RankWinRewardPool = nil
+
+function M:Start()
+    print("lua start")
+end
+
+function M:OnEnter()
+end
+
+function M:OnFocus(isFocus)
+    -- do return end
+    if IsNil(self.gameObject) then return end
+	self.gameObject:SetActive(isFocus)
+end
+
+function M:OnSuspend()
+
+end
+
+function M:OnSetLayerOrder(layerOrder)	
+end
+
+return M

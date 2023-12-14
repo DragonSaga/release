@@ -1,0 +1,976 @@
+require "LuaRelicTreasureTableTable.lua"	--遗迹宝藏总表
+require "LuaDigForTreasureRewardTable.lua" 	--遗迹点数奖励表
+require "LuaRelicAwardPoolTableTable.lua" 	--遗迹奖池表
+require "XRelicTreasureReq_pb.lua" 	--pb协议
+
+-- LuaRelicTreasureDoc = {}
+local M = {}--LuaRelicTreasureDoc
+
+XSys_RelicTreasure = 117	--系统id
+
+local m_relicMainView = nil	--主ui
+
+local HallSceneStr = "SCENE_HALL: 1"
+
+--localTable
+local m_relicTreasureTab = nil	--遗迹宝藏总表
+local m_relicRewardTab = nil	--遗迹点数奖励表
+
+--synServerData
+local m_reqType = 0	--请求协议的类型 1拉信息 2翻格子 3重置  4领奖
+local m_curRelicId = 0	--当前选中的遗迹id
+--当前遗迹所有格子信息，包含服务器下发的数据，横纵坐标x、y数值，是否挖开，是否大奖，是否特殊奖励
+local m_allGridSeverData = nil	
+local m_curdigtimes = 0 	--当前遗迹的挖掘次数
+local m_curResetNum = 0  --当前遗迹的剩余重置次数
+local m_totalRelicNum = 0 	--总的遗迹点数
+
+local m_titanItemId1 = 0 --泰坦条需要显示的物品id  ，抽奖道具
+local m_titanItemId2 = 0 --泰坦条需要显示的物品id  ，重置道具
+
+local relicSummaryList = {} --各个遗迹里的挖掘进度情况，包括id，总数，以挖掘数
+
+local m_needFireworksFXDataTab = nil --判定是否需要播放烟花特效用
+local m_isNeedFireworksFx = false	--是否需要烟花特效
+
+--请求挖格子的时候，横纵坐标参数
+local digPosX, digPosY = 1, 1
+local getRewardPoint = 0
+
+local curSelectCellIndex = 0
+local isAnyCellOpen = false
+local type2NeedRefreshAll = false
+
+local spLeftTopX, spLeftTopY, spTowards = 0, 0, 0
+local spRightbottomX, spRightbottomY = 0, 0
+
+
+function M:SetInputFreeze(needFreeze)
+	if type(needFreeze) ~= "boolean" then return end
+	--string className, string key, object value, bool isPublic, bool isField, bool isStatic
+	Hotfix.SetSingleMember("XInput","Freezed",needFreeze,true,false,false)
+end
+
+function M:GetReqType()
+	return m_reqType
+end
+
+--初始化读取本地遗迹宝藏配置表格
+local function ReadLocalTab()
+	if m_relicTreasureTab == nil	then
+		m_relicTreasureTab = ReadRelicTreasureTableTable("Table/RelicTreasureTable")
+	end
+	
+	if m_relicRewardTab == nil then
+		m_relicRewardTab = ReadDigForTreasureRewardTable("Table/DigForTreasureReward")
+	end
+
+	if m_relicAwardPoolTab == nil then
+		m_relicAwardPoolTab = ReadRelicAwardPoolTableTable("Table/RelicAwardPoolTable")
+	end
+end
+local function CanLoadRelicTable()
+	ReadLocalTab()
+	if m_relicTreasureTab == nil then
+		return false
+	end
+	return true
+end
+local function CanLoadRelicPointRewardTable()
+	ReadLocalTab()
+	if m_relicRewardTab == nil then
+		return false
+	end
+	return true
+end
+local function CanLoadRelicAwardPoolTable()
+	ReadLocalTab()
+	if m_relicAwardPoolTab == nil then
+		return false
+	end
+	return true
+end
+-------------------------------------------Local Config Data Get-------------------------------------------
+local function GetItemListByAwardPoolId(poolId)
+	if m_relicAwardPoolTab == nil then return nil end
+	for i = 1, #m_relicAwardPoolTab do
+		local theRow = m_relicAwardPoolTab[i]
+		if theRow.id == poolId then
+			return theRow.awardpool
+		end
+	end
+	return nil
+end
+
+local previewRewardDic = {}
+--获取奖励预览需要的数据
+function M:GetPreviewRewardDic()
+	local curRelicRowData = M:GetCurRelicRowData()
+	if curRelicRowData == nil then return nil end
+
+	local prizeWeight = curRelicRowData.prizeweight
+	if prizeWeight == nil  or type(prizeWeight) ~= "table" then return nil end
+
+	local prizeCount = #prizeWeight
+	if prizeCount % 3 ~= 0 then return nil end
+
+	previewRewardDic = {}
+
+	local allAwardLv = (prizeCount / 3 ) + 1   --+1为特殊配置的2*3格子的惊喜奖励
+
+	for i = 1, allAwardLv do
+		local tempList = {}
+		local itemid = 0
+		local itemcount = 0
+		
+		if i == 2 then
+			--特殊奖励
+			--itemid,itemcount,weight
+			tempList[1],tempList[2],tempList[3] = curRelicRowData.spitemid, 1, 1
+		else
+			--正常奖励
+			local index = i >=3 and i-1 or i
+			local idIndex = (index-1)*3 + 1  --prizeWeight里面id的索引位置
+			local poolId = prizeWeight[idIndex]
+			-- print("poolId: "..poolId)
+			tempList = GetItemListByAwardPoolId(poolId)
+		end
+
+		previewRewardDic[i] = tempList
+	end
+
+	return previewRewardDic
+end
+
+function M:GetBigRewardItemId()
+	local curRelicRowData = M:GetCurRelicRowData()
+	if curRelicRowData == nil then return 0 end
+
+	local prizeWeight = curRelicRowData.prizeweight
+	if prizeWeight == nil  or type(prizeWeight) ~= "table" then return 0 end
+
+	local prizeCount = #prizeWeight
+	if prizeCount % 3 ~= 0 then return 0 end
+
+	local poolId = prizeWeight[1]
+	-- print("poolId: "..poolId)
+	local tempList = GetItemListByAwardPoolId(poolId)
+	if tempList == nil  or type(tempList) ~= "table" then return 0 end
+
+	if #tempList < 1 then return 0 end 
+
+	-- print("big item id: "..tempList[1])
+	return tempList[1]
+end
+
+function M:GetSpecialRewardItemId()
+	local curRelicRowData = M:GetCurRelicRowData()
+	if curRelicRowData == nil then return 0 end
+	return curRelicRowData.spitemid
+end
+
+--获取本地遗迹宝藏总表
+function M:GetRelicTable()
+	if not CanLoadRelicTable() then
+		return nil
+	end
+	return m_relicTreasureTab
+end
+
+function M:GetCurRelicRowData()
+	-- print("当前遗迹id："..m_curRelicId)
+	return M:GetRelicTableRowData(m_curRelicId)
+end
+
+--获取当前遗迹的砖块图集
+function M:GetCurRelicBrickAtlas()
+	local curRowData = M:GetCurRelicRowData()
+	if curRowData ~= nil then
+		return curRowData.BrickAtlas
+	end
+
+	return nil
+end
+
+--获取当前遗迹的砖块icon名称列表
+function M:GetCurRelicBrickIconList()
+	local curRowData = M:GetCurRelicRowData()
+	if curRowData ~= nil then
+		return curRowData.BrickIcon
+	end
+	
+	return nil
+end
+
+--获取遗迹宝藏总表的单条数据
+function M:GetRelicTableRowData(relicId)
+	-- print("relicId: "..relicId)
+	if not CanLoadRelicTable() then
+		return nil
+	end
+	for i = 1,#m_relicTreasureTab do
+		local temp = m_relicTreasureTab[i]
+		if temp ~= nil then
+			-- print("temp id: "..temp.relicid)
+			if temp.relicid == relicId then
+				-- print "ok"
+				return temp
+			end
+		end
+	end
+
+	print("can not find the relicid: "..relicId)
+	return nil
+end
+
+--获取遗迹宝藏遗迹点数奖励表
+local function GetRelicPointRewardTable()
+	if not CanLoadRelicPointRewardTable() then
+		return nil
+	end
+	return m_relicRewardTab
+end
+function M:GetRelicPRRowDataByPoint(thePoint)
+	local theTable = GetRelicPointRewardTable()
+	local theTableCount = #theTable
+	for i= 1, theTableCount do 
+		local tempRow = theTable[i]
+		if tempRow.point == thePoint then
+			return tempRow
+		end
+	end
+	return nil
+end
+local rprListCount = 0
+function M:GetRelicPointListCount()
+	if rprListCount == 0 then
+		local theTable = GetRelicPointRewardTable()
+		rprListCount = theTable == nil and 0 or #theTable
+	end
+	return rprListCount
+end
+
+--获取遗迹宝藏奖池表
+function M:GetRelicAwardPoolTable()
+	if not CanLoadRelicAwardPoolTable() then
+		return nil
+	end
+	return m_relicAwardPoolTab
+end
+
+local recodeNeedCostNum = 0
+local IsCostNeedMoreShowTips = false
+--获取下次单抽需要花费的道具个数，以及是否飘字提示
+function M:GetNextDrawNeedCostNum()
+	local curRelicRowData = M:GetCurRelicRowData()
+	if m_curdigtimes == nil or curRelicRowData == nil then return end
+
+	-- print("costitem length: "..#curRelicRowData.costitemrange)
+	local costItemRange = curRelicRowData.costitemrange 
+	local dataLength = #costItemRange
+	if dataLength % 2 ~= 0 then return end
+	local unitLenght = dataLength * 0.5
+
+	-- print("当前挖掘次数： "..m_curdigtimes)
+
+	for i = 1, unitLenght do 
+		local needCostNumIndex = i * 2
+		local drawTimesIndex = needCostNumIndex - 1
+
+		local needCostNum = costItemRange[needCostNumIndex]
+		local drawTimes = costItemRange[drawTimesIndex]
+
+		-- print("上次记录要挖掘的消耗："..recodeNeedCostNum)
+		-- print("要求的挖掘次数："..drawTimes)
+
+		if m_curdigtimes < drawTimes then
+			if recodeNeedCostNum ~=0 and needCostNum > recodeNeedCostNum then
+				IsCostNeedMoreShowTips = true
+			else
+				IsCostNeedMoreShowTips = false
+			end
+			recodeNeedCostNum = needCostNum
+			
+			return needCostNum
+		end
+	end
+	return 0
+end
+--是否飘字提示下次消耗比上一次要多
+function M:IsNeedShowTipsCostNeedMore()
+	return IsCostNeedMoreShowTips
+end
+
+-------------------------------------------Server Data Get-------------------------------------------
+--设置当前所在的遗迹id
+function M:SetCurRelicId(targetId)
+	if type(targetId) ~= "number" then return end
+	if targetId <=0 then return end
+
+	if m_curRelicId == targetId then return end
+
+	recodeNeedCostNum = 0
+	m_curRelicId = targetId
+end
+
+--获取玩家当前身上总的遗迹点数
+function M:GetOwnRelicPoint()
+	return m_totalRelicNum
+end
+
+--获取当前遗迹的挖掘次数
+function M:GetCurDigTimes()
+	return m_curdigtimes
+end
+
+--获取当前遗迹的重置次数
+function M:GetCurResetNum()
+	return m_curResetNum
+end
+
+--获取各个遗迹里的挖掘进度情况，包括id，总数，以挖掘数
+function M:GetRelicSummaryList()
+	return relicSummaryList
+end
+
+--当前遗迹所有格子信息，包含服务器下发的数据，横纵坐标x、y数值，是否挖开，是否大奖，是否特殊奖励
+function M:GetAllGridSeverData()
+	return m_allGridSeverData
+end
+
+--返回当前遗迹是否有任意格子已经翻开
+function M:GetIsAnyCellOpen()
+	return isAnyCellOpen
+end
+
+--由于第一次任意格子都能翻，所以第一次翻格子的时候，翻完需要整个刷新，把原先远处可点的置灰
+function M:SetType2NeedRefreshAll(TheNeed)
+	type2NeedRefreshAll = TheNeed
+end
+
+
+--刷新整个遗迹探宝活动界面，
+--主要包括所有的格子、重置次数、tab挖掘数、遗迹列表点数更新
+local function DoRefreshMainDlg()
+	if m_relicMainView ~= nil then
+		m_relicMainView:RefreshDlg()
+	end
+end
+
+function M:CloseRelicMainDlg()
+	if m_relicMainView ~= nil then
+		m_relicMainView.OnClosed()
+	end
+end
+
+function M:UnlockWaitingFxForRelicMainDlg()
+	if m_relicMainView ~= nil then
+		m_relicMainView:SetLockSateWaitingFx(false)
+	end
+end
+
+--刷新单个格子
+local function DoRefreshSingleCell()
+	if m_relicMainView ~= nil then
+		m_relicMainView:RefreshSingleCell(curSelectCellIndex)
+	end
+end
+
+--刷新右侧遗迹点数奖励
+local function DoRefreshRelicPointList()
+	if m_relicMainView ~= nil then
+		m_relicMainView:RefreshRelicPointList()
+	end
+end
+
+local mPlayerPrefs  = UnityEngine.PlayerPrefs
+local SpRewardTipShow = "SpRewardTipShow"
+local needShowSprTips = true
+function M.ToggleSpRTipShow(theToggle)	
+	if mPlayerPrefs == nil then return end
+	if type(theToggle) ~= "boolean" then return end
+
+	print("<color=yellow>theToggle: "..tostring(theToggle).."</color>")
+	if theToggle then 
+		local gap = 5 * 3600
+		local time = os.time() - gap
+		local date = os.date("%Y-%m-%d",time)
+		print("<color=blue>save: "..SpRewardTipShow.." date:"..date.."</color>")
+		mPlayerPrefs.SetString(SpRewardTipShow, date)
+	end
+end
+
+local specialRewardList = {}
+local function DoShowFirstGetSpRewardChip()
+	if m_reqType ~= 2 then return end 	--非挖掘请求不弹出
+
+	if curSelectCellIndex < 0 or curSelectCellIndex > #m_allGridSeverData then
+		return
+	end
+
+	local CurCellData = m_allGridSeverData[curSelectCellIndex]
+	if not CurCellData.issptreasure then return end
+	
+	local chipsCount = #specialRewardList
+	if chipsCount <= 0 or chipsCount > 1 then return end
+	if mPlayerPrefs == nil or not needShowSprTips then return end	
+
+	local gap = 5 * 3600
+	local time = os.time() - gap
+	local date = os.date("%Y-%m-%d",time)
+	print("<color=yellow>get: "..SpRewardTipShow.." date:"..date.."</color>")
+	local getTheSave = mPlayerPrefs.GetString(SpRewardTipShow, "0")
+	print("<color=yellow>getTheSave: "..getTheSave.."</color>")
+	needShowSprTips = getTheSave ~= date
+	print("<color=yellow>needShowSprTips: "..tostring(needShowSprTips).."</color>")
+
+	if not needShowSprTips then return end	
+
+	local greyModalData = require "LuaGreyModalData.lua"
+	if greyModalData == nil then return end
+
+	local titleStr = "提示"
+	local contentStr = Hotfix.GetStringTable("RelicSurpriseNotice")
+	local toggleStr = Hotfix.GetStringTable("HomeTipMute")
+	greyModalData:SetTitleContentToggle(titleStr, contentStr, toggleStr)
+	greyModalData:SetToggleCallback(M.ToggleSpRTipShow)
+
+	LuaUIManager.Instance:Load("UI/Common/GreyModalDlg")
+end
+
+--0表示大奖，1表示惊喜奖励，2表示先大奖后惊喜奖励,-1表示未获取
+local isShowResultType = -1
+function M:GetIsShowResultType()
+	return isShowResultType
+end
+local function DealWithIsShowResultType()
+	if m_reqType ~= 2 then isShowResultType = -1 return end
+	if m_allGridSeverData == nil then isShowResultType = -1 return end
+
+	if curSelectCellIndex < 0 or curSelectCellIndex > #m_allGridSeverData then
+		isShowResultType = -1 
+		return
+	end
+
+	local CurCellData = m_allGridSeverData[curSelectCellIndex]
+	if CurCellData.isopen then
+		if CurCellData.isfirsttreasure then 
+			if CurCellData.issptreasure and #specialRewardList == 6 then
+				--tips:大奖是伪随机、惊喜奖励是真随机，极端情况下会有重叠 
+				--处理同时获得大奖和惊喜奖励的情况，先大奖后惊喜奖励
+				isShowResultType = 2 
+			else
+				isShowResultType = 0 
+			end
+		elseif CurCellData.issptreasure and #specialRewardList == 6 then
+			isShowResultType = 1
+		else
+			isShowResultType = -1
+		end
+		return
+	end
+end
+
+local hadBigReward = false
+local hadSpReward = false
+--设置是否有任意格子已经翻开，以及统计惊喜奖励碎片和大奖的挖掘个数
+local function SetIsAnyCellOpen()
+	if m_allGridSeverData == nil then 
+		isAnyCellOpen = false
+		return 
+	end
+
+	hadBigReward = false
+	hadSpReward = false
+	isAnyCellOpen = false	 
+	specialRewardList = {}
+	local allgridCount = #m_allGridSeverData
+	for i = 1, allgridCount do
+		local temp = m_allGridSeverData[i]
+		-- print("grid index: "..i)
+		if temp.isopen then		
+			if not isAnyCellOpen then isAnyCellOpen = true end
+
+			if temp.isfirsttreasure then 
+				-- print("<color=yellow>大奖 index: "..i.."</color>") 
+				hadBigReward = true 
+			end		
+			if temp.issptreasure then
+				local thelistIndex = #specialRewardList + 1
+				local spRewardChip = {}
+				spRewardChip.gridIndex = i 
+				-- print("<color=green>惊喜奖励 chip index: "..i.."</color>")
+				spRewardChip.x = temp.x 
+				spRewardChip.y = temp.y
+				specialRewardList[thelistIndex] = spRewardChip
+
+				if #specialRewardList >= 6 then
+					hadSpReward = true
+				end
+			end
+		end
+	end
+	-- print("已挖到惊喜奖励碎片个数："..#specialRewardList)
+	DoShowFirstGetSpRewardChip()
+	DealWithIsShowResultType()
+end
+
+--获取当前遗迹是否已经获得大奖
+function M:GetHadBigReward()
+	return hadBigReward
+end
+--是否当前遗迹已获得惊喜奖励
+function M:GetHadSpReward()
+	return hadSpReward
+end
+
+--获取当前遗迹已挖到的惊喜奖励碎片列表
+--原始图3*2，从左往右从上到下，1，2，3，4，5，6一共六个格子
+function M:GetSpRewardList()
+	return specialRewardList
+end
+
+--[[
+左上角原点(1,1)，x横向向右，y竖向向下
+原始图3*2，从左往右从上到下，1，2，3，4，5，6一共六个格子
+Towards0竖着向上，1左，2右
+]]--
+local function SpRewardCalculate()
+	local rowLength = spRightbottomX - spLeftTopX 
+	local columnLength = spRightbottomY - spLeftTopY
+
+	-- local rowWrong = spTowards == 0 and rowLength ~= 2
+	-- local columnWrong = spTowards ~= 0 and rowLength ~= 3
+	-- if rowWrong or columnWrong then 
+	-- 	print("<color=red>leftTopX: "..spLeftTopX.."</color>")
+	-- 	print("<color=red>leftTopY: "..spLeftTopY.."</color>")
+	-- 	print("<color=red>rightbottomX: "..spRightbottomX.."</color>")
+	-- 	print("<color=red>rightbottomY: "..spRightbottomY.."</color>")
+	-- 	print("<color=red>towards: "..spTowards.."</color>")
+	-- 	return 
+	-- end
+	
+	-- print("<color=yellow>-------------------------: </color>")
+	local spRchipsCount = #specialRewardList
+	if spRchipsCount <= 0 and spRightbottomX > 0 then
+		-- print("<color=red>惊喜奖励一个未翻出来，就先发来了朝向、左上角和右下角！！</color>")
+		return
+	end
+	-- print("<color=yellow>-------------------------: </color>")
+
+	--宝箱盖面向上，normal，从左往右从上到下排列
+	--1，2，3，
+	--4，5，6
+	if spTowards == 0 then
+		for i = 1, spRchipsCount do
+			local tempGrid = specialRewardList[i]
+			local tempX = tempGrid.x
+			local tempY = tempGrid.y
+
+			if tempX <= spRightbottomX and tempY <= spRightbottomY then
+				local differX = spRightbottomX - tempX
+				local differY = spRightbottomY - tempY 
+
+				if differY > 0 then
+					--1\2\3
+					tempGrid.theIndex = 3 - differX
+				else
+					--4\5\6
+					tempGrid.theIndex = 6 - differX
+				end
+			else
+				print("<color=red>不在服务器发来的左上角和右下角的范围内 </color>")
+			end
+		end
+	end
+
+
+	--宝箱盖面向左，left，从左往右从上到下排列
+	--3，6
+	--2，5
+	--1，4
+	if spTowards == 1 then
+		for i = 1, spRchipsCount do
+			local tempGrid = specialRewardList[i]
+			local tempX = tempGrid.x
+			local tempY = tempGrid.y
+
+			if tempX <= spRightbottomX and tempY <= spRightbottomY then
+				local differX = spRightbottomX - tempX
+				local differY = spRightbottomY - tempY 
+
+				if differX > 0 then
+					--3/2/1
+					tempGrid.theIndex = 1 + differY
+				else
+					--6\5\4
+					tempGrid.theIndex = 4 + differY
+				end
+			else
+				print("<color=red>不在服务器发来的左上角和右下角的范围内 </color>")
+			end
+		end
+	end
+
+	--宝箱盖面向右，right，从左往右从上到下排列
+	--4，1
+	--5，2
+	--6，3
+	-- print("<color=yellow>-------------------------: </color>")
+	if spTowards == 2 then
+		-- print("<color=yellow>-------------------------: </color>")
+		for i = 1, spRchipsCount do
+			local tempGrid = specialRewardList[i]
+			local tempX = tempGrid.x
+			local tempY = tempGrid.y
+
+			-- print("<color=green>tempX: </color>"..tempX)
+			-- print("<color=green>tempY: </color>"..tempY)
+			
+			if tempX <= spRightbottomX and tempY <= spRightbottomY then
+				local differX = spRightbottomX - tempX
+				local differY = spRightbottomY - tempY 
+
+				if differX > 0 then
+					--4\5\6
+					tempGrid.theIndex = 6- differY
+				else
+					--1/2/3
+					tempGrid.theIndex = 3 - differY
+				end
+			else
+				print("<color=red>不在服务器发来的左上角和右下角的范围内 </color>")
+			end
+		end
+	end
+end
+--获取特殊奖励碎片为5的索引点对应的grid索引值
+function M:GetGridIndexByThe5SpIndex()
+	local spRchipsCount = #specialRewardList
+	if spRchipsCount ~= 6 then return 0 end
+	for i = 1, spRchipsCount do
+		local temp = specialRewardList[i]
+		if temp.theIndex == 5 then
+			print("<color=yellow>特殊奖励为5的索引对应的grid索引为: "..temp.gridIndex.."</color>")
+			return temp.gridIndex
+		end
+	end
+	return 0
+end
+--获取奖池内惊喜宝箱中心点位置, 参数传入的index为5的格子相对位置坐标
+function M:GetSpRCenterPos(posX, posY)
+	local halfDiff = 38
+	local centerPosX, centerPosY = posX, posY
+	--0上1左2右
+	if spTowards == 0 then --x不变, y+0.5的cellHigh
+		centerPosY = centerPosY + halfDiff
+	elseif spTowards == 1 then --y不变, x-0.5的cellwidth
+		centerPosX = centerPosX - halfDiff
+	elseif spTowards == 2 then --y不变, x+0.5的cellwidth
+		centerPosX = centerPosX + halfDiff
+	end
+
+	return centerPosX, centerPosY
+end
+--获取当前惊喜奖励宝箱朝向
+function M:GetSpRewadBoxTowards()
+	return spTowards
+end
+function M:GetSpRewardSpNameIndex(theGridIndex)
+	local spRchipsCount = #specialRewardList
+	-- print("<color=green>spRchipsCount: </color>"..spRchipsCount)
+	for i = 1, spRchipsCount do
+		local tempGrid = specialRewardList[i]
+		if tempGrid.gridIndex == theGridIndex then
+			-- print("<color=green>tempGrid.gridIndex: </color>"..tempGrid.gridIndex)
+			-- print("tempGrid.theIndex: "..tempGrid.theIndex)
+			return tempGrid.theIndex
+		end
+	end
+end
+
+
+local m_relicPointAwardList = {}
+function M:GetRelicPointRList()
+	return m_relicPointAwardList
+end
+function M:IsAnyRelicPRCanGet()
+	local theCount = #m_relicPointAwardList
+	for i = 1, theCount do
+		local temp = m_relicPointAwardList[i]
+		if not temp.isopen and m_totalRelicNum >= temp.num then
+			return true
+		end
+	end
+
+	return false
+end
+-- function M:IsRelicPointRewardGeted(thePoint)
+-- 	local theCount = #m_relicPointAwardList
+-- 	for i = 1, theCount do
+-- 		local temp = m_relicPointAwardList[i]
+-- 		if temp.num == thePoint then
+-- 			return temp.isopen
+-- 		end
+-- 	end
+-- end
+local function relicPointListSort(left, right)
+	local pointL = left.num
+	local pointR = right.num
+	local getL = left.isopen and 0 or 1
+	local getR = right.isopen and 0 or 1
+
+	if getL == getR then
+		return pointL < pointR
+	end
+
+	return getL > getR
+end
+
+function M.Attach()
+	-- m_relicPointAwardList = {}
+end
+function M:EnterScene()
+	-- m_relicPointAwardList = {}
+end
+function M:Detach()
+	m_relicMainView = nil
+	m_relicPointAwardList = {}
+end
+function M:Reconnect()
+	-- m_relicPointAwardList = {}
+	M:UnlockWaitingFxForRelicMainDlg()
+	local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",117);
+	if isOpen then
+		local scene = Hotfix.GetSingleMember("XScene", "SceneType", true, false, false)
+		local str = tostring(scene)
+		if str == HallSceneStr then
+			if m_curRelicId == 0 then m_curRelicId = 1 end
+			M:ReqRelicInfo()
+		end
+	end
+end
+function M:EnterSceneFinally()
+	local isOpen = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"IsSystemOpen",117);
+	if isOpen then
+		local scene = Hotfix.GetSingleMember("XScene", "SceneType", true, false, false)
+		local str = tostring(scene)
+		if str == HallSceneStr then
+			m_relicMainView = nil
+			m_relicPointAwardList = {}
+			m_curRelicId = 1
+			M:ReqRelicInfo()	
+		end
+	end
+end
+
+function M:SetDlg(view)
+	m_relicMainView = view
+end
+
+--主城大厅界面刷红点
+function M:DoHallDlgRedPointShow()
+	-- print("<color=red>111</color>")
+	if m_relicMainView == nil then
+		-- print("<color=red>活动dlg实体未赋值</color>")
+		HallDlg.RelicTreasureRedPoint()
+	end
+end
+---------------------------------------------------------basic request---------------------------------------------------------
+local function getSpRewardPosTowardByServerData(msg)
+	if msg.leftTopX == nil then spLeftTopX = 0
+	else spLeftTopX = msg.leftTopX
+	end
+	
+	if msg.leftTopY == nil then spLeftTopY = 0
+	else spLeftTopY = msg.leftTopY
+	end
+	--print("=======================================================》 leftTopX: "..spLeftTopX)
+	--print("=======================================================》 leftTopY: "..spLeftTopY)
+
+	if msg.rightbottomX == nil then spRightbottomX = 0
+	else spRightbottomX = msg.rightbottomX
+	end
+
+	if msg.rightbottomY == nil then spRightbottomY = 0
+	else spRightbottomY = msg.rightbottomY
+	end
+	-- print("rightbottomX: "..spRightbottomX)
+	-- print("rightbottomY: "..spRightbottomY)
+	
+	spTowards = msg.towards
+	-- print("towards: "..spTowards)
+	SpRewardCalculate()
+end
+local function summaryListSort(a,b)
+	return a.treasureid < b.treasureid
+end
+local function getServerData(msg)
+	-- print("color=yellowm_relicPointAwardList："..#m_relicPointAwardList.."</color>")
+	if m_reqType == 2 or m_reqType == 4 or #m_relicPointAwardList == 0 then 
+		-- print("color=yellowm_relicPointAwardList："..#m_relicPointAwardList.."</color>")
+		m_relicPointAwardList = msg.award
+		table.sort(m_relicPointAwardList, relicPointListSort)
+	end
+	
+	if m_reqType == 4 then return end
+
+	m_curResetNum = msg.resettimes
+	m_allGridSeverData = msg.allgrid
+	SetIsAnyCellOpen()
+	m_totalRelicNum = msg.relicTotalNum
+	m_curdigtimes = msg.digtimes
+	-- print("color=yellow当前挖掘次数："..m_curdigtimes.."</color>")
+	getSpRewardPosTowardByServerData(msg)
+	relicSummaryList = msg.info
+
+	table.sort(relicSummaryList, summaryListSort)
+	-- print("<color=yellow>Summary Count: " ..#relicSummaryList.."</color>")
+	-- for i = 1, #relicSummaryList do
+	-- 	print(relicSummaryList[i].treasureid)
+	-- end
+
+	M:DoHallDlgRedPointShow()
+end
+local function OnGetDigTreasureInfo(data,length)
+	--  print("m_requireType = "..tostring(m_reqType))
+
+	 local  msg = ParseProtoBufToTable("GetDigforTreasureRes",data)
+	 if msg ~= nil then
+
+
+		-- print("errorcode is: "..tostring(msg.errorcode))
+
+		if msg.errorcode ~= 0 then
+			if msg.errorcode ~= ERR_INVALID_REQUEST then
+				Hotfix.LuaShowSystemTipErrCode(msg.errorcode)
+			end
+		else
+			if m_reqType == 1 then	
+				getServerData(msg)
+				DoRefreshMainDlg()
+
+			elseif m_reqType == 2 then
+				getServerData(msg)
+				if type2NeedRefreshAll then
+					DoRefreshMainDlg()
+					type2NeedRefreshAll = false
+				else
+					DoRefreshSingleCell()
+				end
+
+			elseif m_reqType == 3 then
+				recodeNeedCostNum = 0 --一定要在上面
+				getServerData(msg)
+				DoRefreshMainDlg()
+				
+			elseif m_reqType == 4 then	
+				getServerData(msg)
+				DoRefreshRelicPointList()
+
+			end
+		end
+	 end
+ end
+
+local function OnErr( ... )
+    print("lua LuaRelicTreasureDoc OnErr!")
+end
+
+--[[
+格子布局：如7x7的格子
+左上角原点1,1
+x横向向右
+y竖向向下
+请求协议的类型 1拉信息 2翻格子 3重置  4领奖
+--]]
+local function ReqDigforTreasure(reqType)--, ...)
+	print "<------------------------------------------>"
+	print("LuaRelicTreasureDoc.ReqRelicTreasureInfo, reqType = "..tostring(reqType))--.."  param = "..tostring(...))
+	m_reqType = reqType
+	
+    local  msg = GetProtoBufSendTable("GetDigforTreasureArg")
+
+	msg.op = reqType
+	msg.relicId = m_curRelicId
+
+	if  reqType == 2 then
+		msg.x, msg.y = digPosX, digPosY
+	elseif reqType == 4 then
+		--tips:遗迹点数领奖是总的遗迹点数，和当前所在哪个遗迹id无关
+		msg.relicPoint = getRewardPoint--...
+	end
+
+    local pb_data = msg:SerializeToString()
+    pb_data = pb_data
+	if pb_data ~= nil then
+		Hotfix.SendLuaByteRPC(8078, pb_data, OnGetDigTreasureInfo, OnErr)
+		--print("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww")
+    else
+        print("test proto data is nil")
+    end
+end
+
+---------------------------------------------------------work request---------------------------------------------------------
+
+--遗迹宝藏活动页面信息拉取
+function M:ReqRelicInfo()
+	if m_curRelicId <= 0 then return end
+	ReqDigforTreasure(1)
+end
+
+--遗迹宝藏活动页面翻格子
+function M:ReqRelicDrawCell(cellIndex)
+	if type(cellIndex) ~= "number" then return end
+
+	if m_allGridSeverData == nil then return end
+
+	local gridDataCount = #m_allGridSeverData
+	if cellIndex < 0 or cellIndex > gridDataCount then return end
+
+	local cellData =  m_allGridSeverData[cellIndex]
+
+	if cellData == nil then return end
+
+	digPosX = cellData.x
+	digPosY = cellData.y
+
+	curSelectCellIndex = cellIndex
+
+	print("x: "..digPosX.." y: "..digPosY)
+	ReqDigforTreasure(2)
+end
+
+--遗迹宝藏重置当前格子
+function M:ReqRelicReset()
+	ReqDigforTreasure(3)
+end
+
+--遗迹宝藏遗迹点数领奖请求
+function M:ReqRelicRewardGet(relicPoint)
+	getRewardPoint = relicPoint
+	ReqDigforTreasure(4)
+end
+
+
+function M:ShowResultRewardNotify(data,length)
+	-- local  msg = ParseProtoBufToTable("RelicReward",data)
+	-- if msg ~= nil then
+
+	-- 	if msg.isopen == nil then return end
+	-- 	Debugger.LogWarning("Regist2217  isopen: " ..  tostring(msg.isopen))
+	-- 	-- Debugger.LogWarning("Regist2217  reward num: " ..  tostring(msg.num))
+
+	-- 	if msg.isopen then
+			
+	-- 		if msg.itemlist ~= nil then
+				
+	-- 			-- LuaBopuDoc.SetGetedSeverReward(data,isprizeTab)
+	-- 			LuaUIManager.Instance:Load("UI/GameSystem/Poptreasure/PopeTreasureRewardDlg")
+	-- 		end		
+	-- 	end
+	-- end
+end
+
+
+return M

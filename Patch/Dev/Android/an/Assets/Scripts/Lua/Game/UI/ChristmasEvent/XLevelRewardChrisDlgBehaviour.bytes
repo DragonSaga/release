@@ -1,0 +1,53 @@
+--[[
+    限时活动界面 behaviour类
+]]--
+
+local M = class(UIBase)
+
+M.theRankLb = nil
+M.ScoreLb = nil
+M.KillLb = nil
+M.CloseBtn = nil
+M.SnapshotTrans = nil
+M.LeftTimeLb = nil
+M.WinSprTrans = nil
+M.loseSprTrans = nil
+
+function M:Awake()
+    local behaviour = self.behaviour
+    local mGameObj = self.gameObject
+    local mTrans = self.transform
+
+    M.theRankLb = behaviour:GetField("theRankLb")
+    M.ScoreLb = behaviour:GetField("ScoreLb")
+    M.KillLb = behaviour:GetField("KillLb")
+
+    M.CloseBtn = behaviour:GetField("CloseBtn")
+    M.SnapshotTrans = behaviour:GetField("SnapshotTrans")
+    M.LeftTimeLb = behaviour:GetField("LeftTimeLb")
+    M.WinSprTrans = behaviour:GetField("WinSpr")
+    M.loseSprTrans = behaviour:GetField("loseSpr")
+
+    print("lua awake~~~")
+end
+  
+function M:Start()
+    print("lua start")
+end
+
+function M:OnEnter()
+end
+
+function M:OnFocus(isFocus)
+    if self.gameObject == nil then return end
+	self.gameObject:SetActive(isFocus)
+end
+
+function M:OnSuspend()
+
+end
+
+function M:OnSetLayerOrder(layerOrder)	
+end
+
+return M

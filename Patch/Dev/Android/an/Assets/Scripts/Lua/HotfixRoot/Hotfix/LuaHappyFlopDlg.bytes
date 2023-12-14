@@ -1,0 +1,780 @@
+local this = nil
+require "LuaHappyCardsDoc.lua"
+
+local m_parentTra
+local m_closeBtn
+local m_helpBtn
+local m_previewBtn
+local m_backBtn
+local m_beginBtn
+local m_nextBtn
+local m_luckySpr
+local m_luckySpr1
+local m_gotoShopBtn
+
+local m_costSpr
+local m_costLab
+local m_luckyValueLab
+local m_luckySlider
+local m_timetipsLab
+
+--特效
+local m_xFxMgr
+local m_fxTab1 = nil
+
+--排行榜
+local m_emptyGo
+local m_toggle1
+local m_toggle2
+local m_myRankTra
+local m_wrapContent
+local m_scrollView
+
+--卡牌
+local m_resetGo
+local m_cardParentGo
+local m_cardItemPool
+local m_cardsTab
+local m_cardsTitleLab
+local m_isCanOperation = true	
+
+local m_isVisible = false
+local m_token = 0
+local m_token1 = 0
+local m_token2 = 0  --排行榜用
+
+--泰坦条
+local m_titanIcon
+local m_titanLab
+local m_titanAdd
+
+--倍数
+local m_multiplePool
+local m_color = Color.New(0.953,0.535,0,1)
+
+LuaHappyFlopDlg = {}
+local this = LuaHappyFlopDlg
+
+--初始化
+function LuaHappyFlopDlg.Init()
+
+	LuaHappyCardsDoc.SetMainHandler(this)
+	LuaHappyCardsDoc.InitRankRewardData()
+	m_closeBtn = m_parentTra:Find("Bg/Close").gameObject
+	m_helpBtn = m_parentTra:Find("Bg/Help").gameObject
+	m_previewBtn = m_parentTra:Find("Bg/BtnView").gameObject
+	m_backBtn = m_parentTra:Find("Bg/Btn/BtnBack").gameObject
+	m_beginBtn = m_parentTra:Find("Bg/Btn/BtnBegin").gameObject
+	m_nextBtn = m_parentTra:Find("Bg/Btn/BtnNext").gameObject
+	m_luckySpr = m_parentTra:Find("Bg/LuckyRewardSpr").gameObject
+	m_luckySpr1 = m_parentTra:Find("Bg/LuckyRewardSpr1").gameObject
+	m_gotoShopBtn = m_parentTra:Find("Bg/GotoShop").gameObject
+
+	m_costSpr = m_parentTra:Find("Bg/Btn/key"):GetComponent("UISprite")
+	m_costLab = m_parentTra:Find("Bg/Btn/key/Num"):GetComponent("UILabel")
+	m_luckyValueLab = m_parentTra:Find("Bg/StarBar/NowNum"):GetComponent("UILabel")
+	m_luckySlider = m_parentTra:Find("Bg/StarBar"):GetComponent("UISlider")
+	m_timetipsLab = m_parentTra:Find("Bg/TipTime"):GetComponent("UILabel")
+	m_timetipsLab.text = Hotfix.GetStringTable("HappyCardsTimeTips")--活动时间：3月12日 5:00 - 3月18日 24:00
+
+	m_resetGo = m_parentTra:Find("Bg/Flop/HappyFlopFlopHandler/Reset").gameObject
+	m_resetGo:SetActive(false)
+	m_cardsTitleLab = m_parentTra:Find("Bg/Flop/HappyFlopFlopHandler/label"):GetComponent("UILabel")
+	local tra = m_parentTra:Find("Bg/Flop/HappyFlopFlopHandler/Card")
+	m_cardParentGo = tra.gameObject
+	m_cardItemPool= Hotfix.SetupPool(tra.gameObject,tra:Find("ItemTpl").gameObject,4)
+
+	tra = m_parentTra:Find("Bg/Multiple")
+	m_multiplePool = Hotfix.SetupPool(tra.gameObject,tra:Find("Tpl").gameObject,3)
+
+	m_cardsTab = {}
+	this.CreateFx()
+	for i=1,8 do
+		local go = m_cardItemPool:FetchGameObject()
+		local line1 = math.fmod((i - 1),4)
+		local line2 = math.floor((i-1) / 4)
+		go.transform.localPosition = m_cardItemPool.TplPos + Vector3(line1 * m_cardItemPool.TplWidth ,-line2 * m_cardItemPool.TplHeight,0)
+
+		local effetParentTra = go.transform:Find("Fx")
+		m_fxTab1[i] = m_xFxMgr.singleton:CreateUIFx("Effects/FX_Particle/UIfx/AnniversaryTreasureDlg_Clip_03",effetParentTra)
+		effetParentTra.gameObject:SetActive(false)
+
+		local ts = go.transform:Find("Flop1"):GetComponent("TweenScale")
+		ts.enabled = false
+		ts = go.transform:Find("Flop2/Flop1"):GetComponent("TweenScale")
+		ts.enabled = false
+		ts = go.transform:Find("Flop2/Flop2"):GetComponent("TweenScale")
+		ts.enabled = false
+		
+		local tab = {}
+		tab.child = go
+		m_cardsTab[i] = tab
+	end
+		
+	tra = m_parentTra:Find("Bg/Rank")
+	m_emptyGo = tra:Find("EmptyRank").gameObject
+	m_toggle1 = tra:Find("TabTpl/Toggle1").gameObject
+	m_toggle2 = tra:Find("TabTpl/Toggle2").gameObject
+	m_myRankTra = tra:Find("MyRankTpl")
+	m_scrollView = tra:Find("ScrollView"):GetComponent("XUIScrollView")
+	m_wrapContent = tra:Find("ScrollView/WrapContent").gameObject
+	Hotfix.InitWrapContent(m_wrapContent, this.WrapContentItemUpdated)
+
+	tra = m_parentTra:Find("Bg/TitanFrame")
+	m_titanIcon = tra:Find("ItemTpl/icon"):GetComponent("UISprite")
+	m_titanAdd = tra:Find("ItemTpl/Bg").gameObject
+	m_titanLab = tra:Find("ItemTpl/value"):GetComponent("UILabel")
+end
+
+--事件注册
+function LuaHappyFlopDlg.RegisterEvent()
+	Hotfix.SetClickCallback(m_closeBtn,this.OnCloseClick)
+	Hotfix.SetClickCallback(m_helpBtn,this.OnHelpClick)
+	Hotfix.SetClickCallback(m_previewBtn,this.OnPreviewClick)
+	Hotfix.SetClickCallback(m_backBtn,this.OnBackClick)
+	Hotfix.SetClickCallback(m_beginBtn,this.OnBeginClick)
+	Hotfix.SetClickCallback(m_nextBtn,this.OnNextClick)
+	Hotfix.SetClickCallback(m_luckySpr,this.OnOpenLuckyClick)
+	Hotfix.SetClickCallback(m_luckySpr1,this.OnOpenLuckyClick)
+	Hotfix.SetClickCallback(m_toggle1,this.OnToggleClick)
+	Hotfix.SetClickCallback(m_toggle2,this.OnToggleClick1)
+	Hotfix.SetClickCallback(m_titanAdd,this.OnTiTanAccessClick)
+	Hotfix.SetClickCallback(m_gotoShopBtn,this.OnClickGotoSysGo)
+end
+
+
+function LuaHappyFlopDlg.Show( ... )
+	this.HideMainCity()
+	this.RefrehTitanBar()
+
+	--基本信息
+	LuaHappyCardsDoc.ReqBaseData(1,0)
+	
+	--排行榜
+	LuaHappyCardsDoc.SetCurRankType(69)
+	local tog = m_toggle1.transform:GetComponent("XUICheckBox")
+	tog.bChecked = true
+	tog:ForceSetFlag(true)
+	--LuaHappyCardsDoc.ReqRankData()
+	this.ReqRankDataOnTime() --定时请求排行榜数据
+end
+
+function LuaHappyFlopDlg.IsVisible()
+	return m_isVisible
+end
+---------------------------------------------------- doc 协议回调调用的函数 -------------------------------------------------
+--隐藏主城
+function LuaHappyFlopDlg.HideMainCity()
+	if m_isVisible == false then return end
+	Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"FakeShowSelf",false)
+end
+
+function LuaHappyFlopDlg.DestroySelf()
+	if m_isVisible == false then return end
+	LuaUIManager.Instance:Destroy("UI/GameSystem/HappyFlop/HappyFlopDlg")
+end
+
+--基本信息回来，直接展示卡牌状态  下一轮和回退也是这个
+function LuaHappyFlopDlg.RefreshBaseUI()
+	--print("LuaHappyFlopDlg.RefreshBaseUI")
+	if m_isVisible == false then return end
+	this.RefreshMain()
+	this.FillCards()
+	this.FillMultiple()
+end
+
+--开始回来，需要先播放洗牌动画，然后再展示界面
+function LuaHappyFlopDlg.PlayPresufflingFx()
+	if m_isVisible == false then return end
+	--print("LuaHappyFlopDlg.PlayPresufflingFx")
+	this.PlayPresufflingFx1()
+	this.KillToken(m_token)
+	m_token = Hotfix.LuaWait(1800, this.FillCards)
+	this.RefreshMain()
+end
+
+function LuaHappyFlopDlg.PlayPresufflingFx1()
+	m_resetGo:SetActive(false)
+	--print("LuaHappyFlopDlg.PlayPresufflingFx1")
+	local tra = m_resetGo.transform
+	for i=0,7 do
+		local child = tra:Find("Item0"..tostring(i))
+		local tp = child:GetComponent("TweenPosition")
+		tp.enabled = true
+		tp:ResetToBeginning(true)
+
+		local ta = child:Find("Fx"):GetComponent("TweenAlpha")
+		ta.enabled = true
+		ta:ResetToBeginning(true)
+	end
+	m_resetGo:SetActive(true)
+	m_cardParentGo:SetActive(false)
+end
+
+--翻牌  翻牌需要先播放当个卡牌的翻牌动画，然后再刷新界面信息,翻第四张其他的也要自动翻开
+function LuaHappyFlopDlg.TurnCards()
+	if m_isVisible == false then return end
+	--print("uaHappyFlopDlg.TurnCards")
+	
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	local index = LuaHappyCardsDoc.GetTurnCardsIndex()
+	local tra = m_cardsTab[index].child.transform
+	local max = LuaHappyCardsDoc.GetOpenMaxValue()
+
+	this.PlayTurnCardsFx(tra)
+	this.KillToken(m_token)
+	m_token = Hotfix.LuaWait(300, this.FillSingleCard)
+	this.RefreshMain()
+	
+	if data.openNum >= max then
+		this.KillToken(m_token1)
+		m_token1 = Hotfix.LuaWait(1000, this.RefreshBaseUI)
+	end
+end
+
+function LuaHappyFlopDlg.PlayTurnCardsFx(tra)--翻开单个卡牌动画
+	this.PlayTweenTs(tra)
+end
+
+function LuaHappyFlopDlg.FillSingleCard()--填充单个卡牌
+	local index = LuaHappyCardsDoc.GetTurnCardsIndex()
+	local tra = m_cardsTab[index].child.transform
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	local max = LuaHappyCardsDoc.GetOpenMaxValue()
+	this.FillCard(tra,data,index,true)
+	if data.openNum < max then
+		this.ResetStatus()
+	end
+end
+
+function LuaHappyFlopDlg.PlayLastTurnCardsFx() --自动翻开其他几张牌
+	local datas = LuaHappyCardsDoc.GetBaseInfoData()
+	for i=1,#m_cardsTab do
+		local data = datas.cardInfos[i]
+		if data ~= nil and data.isopen == true then
+			this.PlayTweenTs(m_cardsTab[i].child.transform)
+		end
+	end
+end
+
+function LuaHappyFlopDlg.PlayTweenTs(tra)--自动翻开其他几张牌 调用
+
+	local parent = tra:Find("Flop2")
+	local ts2 = parent:Find("Flop1"):GetComponent("TweenScale")
+	this.TsResetToBegin(ts2)
+	local ts3 = parent:Find("Flop2"):GetComponent("TweenScale")
+	this.TsResetToBegin(ts3)
+
+	parent.gameObject:SetActive(false)
+	parent.gameObject:SetActive(true)
+end	
+
+function LuaHappyFlopDlg.TsResetToBegin(ts)
+	ts.enabled = true
+	ts:ResetToBeginning(true)
+end
+
+--重置可操作字段的状态
+function  LuaHappyFlopDlg.ResetStatus( ... )
+	--print("LuaHappyFlopDlg.ResetStatus")
+	m_isCanOperation = true
+end
+--kill Timer
+function LuaHappyFlopDlg.KillToken(token)
+	if token~= 0 then
+		Hotfix.RemoveTimer(token)
+		token = 0
+	end
+end
+---------------------------------------------------- main 函数 -------------------------------------------------
+--泰坦条
+function LuaHappyFlopDlg.RefrehTitanBar( ... )
+
+	if m_isVisible == false then return end
+
+	--local data = LuaHappyCardsDoc.GetBaseInfoData()
+	local cost = LuaHappyCardsDoc.GetCostData(0)--data.openNum
+	local itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",cost.itemId)
+	if itemData ~= nil then
+		m_titanIcon:SetAtlas("atlas/UI/"..itemData.ItemAtlas[0])
+		m_titanIcon.spriteName = itemData.ItemIcon[0]
+	end
+	local hadNum = Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount",tonumber(cost.itemId))
+	m_titanLab.text = tostring(hadNum)
+end
+
+--刷新除排行榜外的其他信息
+function LuaHappyFlopDlg.RefreshMain( ... )
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	local cost = LuaHappyCardsDoc.GetCostData(data.openNum)
+
+	local multipleNum = LuaHappyCardsDoc.GetMultiple()
+	--print("LuaHappyFlopDlg.RefreshMain multipleNum = "..tostring(multipleNum))
+	if multipleNum == 1 then
+		m_costLab.color = Color.white
+		m_costLab.text = "x"..tostring(cost.num)
+	else
+		m_costLab.color = m_color
+		local theValue = tonumber(cost.num) * tonumber(multipleNum)
+		m_costLab.text = "x"..theValue--tostring(cost.num * multipleNum)
+	end
+
+	local itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",cost.itemId)
+	--print("cost.itemId = "..tostring(cost.itemId))
+	if itemData ~= nil then
+		--print("itemData not nil")
+		m_costSpr:SetAtlas("atlas/UI/"..itemData.ItemAtlas[0])
+		m_costSpr.spriteName = itemData.ItemIcon[0]
+	end
+
+	m_luckySpr:SetActive(data.luckyRewardNum > 0)
+	m_luckySpr1:SetActive(data.luckyRewardNum <= 0)
+
+	local maxLucky = LuaHappyCardsDoc.GetMaxLuckyValue()
+	--print("data.luckyValue = "..tostring(data.luckyValue).." maxLucky = "..tostring(maxLucky))
+	m_luckyValueLab.text = tostring(data.luckyValue).."/"..tostring(maxLucky)
+	m_luckySlider.value = data.luckyValue / maxLucky
+
+	--print("LuaHappyFlopDlg.RefreshMain data.isdisplay = "..tostring(data.isdisplay))
+	m_beginBtn:SetActive(data.isdisplay == true)
+	m_nextBtn:SetActive(data.isdisplay == false)
+
+	if data.isdisplay == true then
+		m_cardsTitleLab.text = Hotfix.GetStringTable("HappyCardsTitle1")--点击开始启动本轮卡牌
+	else
+		m_cardsTitleLab.text = Hotfix.GetStringTable("HappyCardsTitle2")--点击卡牌翻取奖励
+	end
+end
+
+function LuaHappyFlopDlg.FillCards()
+	--print("LuaHappyFlopDlg.FillCards")
+	this.ResetStatus()
+	m_cardParentGo:SetActive(true)
+	m_resetGo:SetActive(false)
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	local max = LuaHappyCardsDoc.GetOpenMaxValue()
+	--print("data.isdisplay = "..tostring(data.isdisplay))
+	local isMax = data.openNum >= max
+	for i=1,#m_cardsTab do
+		this.FillCard(m_cardsTab[i].child.transform,data,i,isMax)
+	end
+end
+
+function LuaHappyFlopDlg.FillCard(tra,info,index,isMax)
+
+	local data = info.cardInfos[index]
+	if info == nil or data == nil then return end
+
+	local itemGo = tra:Find("Item").gameObject
+	--print("name = "..itemGo.name)
+	--print("id = "..tostring(data.itemId).." count = "..tostring(data.itemcount))
+	--print("data.isopen == "..tostring(data.isopen))
+	local isShow = info.isdisplay == true or data.isopen == true or isMax == true
+	--print("isShow = "..tostring(isShow).."  info.isdisplay = "..tostring(info.isdisplay).."   data.isopen = "..tostring(data.isopen).."  isMax = "..tostring(isMax))
+	
+	local corner = tra:Find("Corner").gameObject
+	if isShow == true then
+		itemGo:SetActive(true)
+		Hotfix.DrawItemView(itemGo,data.itemId,data.itemcount,true)
+		local spr = tra:Find("Item/Icon"):GetComponent("UISprite")
+		spr.uid = data.itemId
+		Hotfix.SetClickCallback(spr.gameObject,this.OnShowTips)
+		corner:SetActive(data.isopen == true)
+
+		local multipleNum = LuaHappyCardsDoc.GetMultiple()
+		--print("FillCard multipleNum = "..tostring(multipleNum))
+		local multipleLab = tra:Find("Item/Num"):GetComponent("UILabel")
+		if multipleNum == 1 then
+			multipleLab.color =	Color.white
+		else
+			multipleLab.color =	m_color
+			multipleLab.text = tostring(data.itemcount * multipleNum)
+		end
+	else
+		itemGo:SetActive(false)
+		corner:SetActive(false)
+	end
+	
+	tra:Find("Fx").gameObject:SetActive(data.isnotice == true and isShow == true)
+
+	local flopGo1 = tra:Find("Flop1").gameObject
+	local flopGo2 = tra:Find("Flop2").gameObject
+	flopGo1.transform.localScale = Vector3(1,1,1)
+	flopGo2.transform:Find("Flop1").localScale = Vector3(1,1,1)
+	flopGo2.transform:Find("Flop2").localScale = Vector3(1,1,1)
+	if info.isdisplay == true then
+		flopGo1:SetActive(true)
+		flopGo2:SetActive(false)
+	else
+		if isMax == true then
+			flopGo1:SetActive(true)
+			flopGo2:SetActive(false)
+		else
+			flopGo1:SetActive(data.isopen == true)
+			flopGo2:SetActive(data.isopen == false)
+		end
+	end
+
+	spr = tra:GetComponent("UISprite")
+	spr.uid = tostring(index)
+	Hotfix.SetClickCallback(spr.gameObject,this.OnOpenCardsClick)
+end
+
+--设置倍数
+function LuaHappyFlopDlg.FillMultiple()
+
+	local datas = LuaHappyCardsDoc.GetMultipleTab()
+	if datas == nil then return end
+
+	local multipleNum = LuaHappyCardsDoc.GetMultiple()
+	m_multiplePool:ReturnAll()
+	for i=1,#datas do
+		local go = m_multiplePool:FetchGameObject()
+		go.transform.localPosition = m_multiplePool.TplPos + Vector3((i - 1) * m_multiplePool.TplWidth ,0,0)
+
+		local lab = go.transform:Find("T"):GetComponent("UILabel")
+		lab.text = tostring(datas[i]).."倍"
+
+		local spr = go.transform:Find("Bg"):GetComponent("UISprite")
+		spr.sid = tostring(datas[i])
+		Hotfix.SetClickCallback(spr.gameObject,this.OnClickSetMultiple)
+
+		go.transform:Find("selected").gameObject:SetActive(multipleNum == datas[i])
+	end
+end
+---------------------------------------------------- 特效 -------------------------------------------------------
+function LuaHappyFlopDlg.CreateFx( ... )
+	-- body
+	if  m_xFxMgr == nil then
+		m_xFxMgr = CS.XUtliPoolLib.XFxMgr
+	end
+
+	m_fxTab1 = {}
+end
+
+function LuaHappyFlopDlg.RemvFx()
+	-- body
+	if  m_xFxMgr ~= nil then
+		for i=1,8 do
+			if not IsNil(m_fxTab1[i]) then
+				m_xFxMgr.singleton:DestroyFx(m_fxTab1[i],true)
+				m_fxTab1[i] = nil
+			end
+		end
+		m_fxTab1 = {}
+	end
+end
+---------------------------------------------------- 排行榜 函数 -------------------------------------------------
+--定时请求排行榜数据
+function LuaHappyFlopDlg.ReqRankDataOnTime()
+	--print("LuaHappyFlopDlg.ReqRankDataOnTime  req  ")
+	LuaHappyCardsDoc.ReqRankData()
+	this.KillToken(m_token2)
+	m_token2 = Hotfix.LuaWait(10000, this.ReqRankDataOnTime)
+end
+
+--刷新排行榜
+function  LuaHappyFlopDlg.RefreshRankView( ... )
+	--print("ranklist  !!!!")
+	local data = LuaHappyCardsDoc.GetRankData()
+	if #data == nil then 
+		m_emptyGo:SetActive(true)
+		m_wrapContent.gameObject:SetActive(false)
+	else
+		m_emptyGo:SetActive(false)
+		m_wrapContent.gameObject:SetActive(true)
+		Hotfix.SetWrapContentCount(m_wrapContent, #data, false)
+		m_scrollView:ResetPosition()
+	end
+	
+	--print("myRank  !!!!")
+	local myData = LuaHappyCardsDoc.GetMyRankData()
+	this.FillRank(m_myRankTra,myData)
+end
+
+function LuaHappyFlopDlg.WrapContentItemUpdated(t,index)
+	--print("index = "..tostring(index))
+	local datas = LuaHappyCardsDoc.GetRankData()
+	--print("length = "..tostring(#datas))
+	if index+1 > #datas then return end	--越界，return
+	local data = datas[index + 1]
+	this.FillRank(t,data)
+end
+
+function LuaHappyFlopDlg.FillRank(t,data)
+	--print("data.rolename = "..tostring(data.rolename))
+	if data == nil then 
+		t.gameObject:SetActive(false)
+		return 
+	end
+	--print("LuaHappyFlopDlg.FillRank")
+	t.gameObject:SetActive(true)
+
+	this.SetRank(t,data.rank)
+	local lab = t:Find("Name"):GetComponent("UILabel")
+	lab.text = data.rolename
+
+	lab = t:Find("Times"):GetComponent("UILabel")
+	lab.text = tostring(data.totalNum)
+
+	local go = t:Find("ItemTpl").gameObject
+	if data.reward ~= nil then
+		go:SetActive(true)
+		local id = Hotfix.ParseUIntSeqList(data.reward,0,0)
+    	local num = Hotfix.ParseUIntSeqList(data.reward,0,1)
+		Hotfix.DrawItemView(go,id,num,true)
+		local spr = t:Find("ItemTpl/Icon"):GetComponent("UISprite")
+		spr.uid = tostring(id)
+		Hotfix.SetClickCallback(spr.gameObject,this.OnShowTips)
+	else
+		go:SetActive(false)
+	end
+end
+
+function LuaHappyFlopDlg.SetRank(tra,rank)
+	local rankSpr = tra:Find("Rank"):GetComponent("UISprite")
+	local rankLab = tra:Find("Rank3"):GetComponent("UILabel")
+
+	rankSpr.gameObject:SetActive(false)
+	rankLab.gameObject:SetActive(false)
+
+	if rank == 4294967295 then
+		rankLab.gameObject:SetActive(true)
+		rankLab.text = "未上榜"
+		return
+	end
+
+	if rank >= 3 then
+		rankLab.gameObject:SetActive(true)
+		rankLab.text = tostring(rank)
+	else
+		rankSpr.gameObject:SetActive(true)
+		rankSpr.spriteName = "N"..tostring(rank)
+	end
+end
+---------------------------------------------------- click 函数 -------------------------------------------------
+--关闭界面
+function LuaHappyFlopDlg.OnCloseClick(go)
+	LuaUIManager.Instance:Destroy("UI/GameSystem/HappyFlop/HappyFlopDlg")
+end
+
+--帮助界面
+function LuaHappyFlopDlg.OnHelpClick(go)
+	Hotfix.CallSingleMethod("UI.XCommonHelpTipView",true,false,"ShowHelp",SYS_HappyCards)
+end
+
+--奖励预览
+function LuaHappyFlopDlg.OnPreviewClick(go)
+	LuaUIManager.Instance:Load("UI/GameSystem/HappyFlop/HappyFlopRewardPreview")
+end
+
+--奖励回退
+function LuaHappyFlopDlg.OnBackClick(go)
+	--print("m_isCanOperation = "..tostring(m_isCanOperation))
+	if m_isCanOperation == false then return end
+	this.BackUpClick()
+end
+
+function LuaHappyFlopDlg.BackUpClick(...)
+	local max = LuaHappyCardsDoc.GetOpenMaxValue()
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	if data.openNum >= max then
+		Hotfix.LuaMessageBoxConfirm(Hotfix.GetStringTable("HappyCardsTips5",LuaHappyCardsDoc.GetReturnCostNum()),this.OnModelBackUp,this.OnCancel)--结果不满意可以回退，返还{0}张抽奖券，并刷新到下一轮
+		this.ChangeModleLabText("确定","取消")
+	else
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("HappyCardsTips4"))--翻完4张牌后不满意奖励结果可以回退哦
+	end
+end
+
+--开始
+function LuaHappyFlopDlg.OnBeginClick(go)
+	--print("m_isCanOperation = "..tostring(m_isCanOperation))
+	if m_isCanOperation == false then return end
+
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	if data.isdisplay == true then
+		m_isCanOperation = false
+		LuaHappyCardsDoc.ReqBaseData(2,LuaHappyCardsDoc.GetMultiple())
+	end
+end
+
+--翻牌
+function LuaHappyFlopDlg.OnOpenCardsClick(go)
+	--print("m_isCanOperation = "..tostring(m_isCanOperation))
+	if m_isCanOperation == false then return end
+	
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	if data.isdisplay == true then return false end
+
+	local max = LuaHappyCardsDoc.GetOpenMaxValue()
+	if data.openNum < max then
+			--消耗品不足
+		local cost = LuaHappyCardsDoc.GetCostData(data.openNum)
+		local hadNum = Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount",tonumber(cost.itemId))
+		if tonumber(cost.num) > tonumber(hadNum)  then
+			Hotfix.CallSingleMethod("UI.UiUtility", true, false, "ShowItemAccess",cost.itemId)
+			return
+		end
+	end
+
+	--翻牌数量达到最大，直接弹出进入下一轮的提示
+	if data.openNum >= max then	
+		Hotfix.LuaMessageBoxConfirm(Hotfix.GetStringTable("HappyCardsTips3"),this.OnModelGoToNext,this.BackUpClick)--本轮翻牌次数已用完，是否领取奖励并进入下一轮
+		this.ChangeModleLabText("下一轮","回退")
+		return
+	end
+
+	local index = go.transform:GetComponent("UISprite").uid
+	local result = LuaHappyCardsDoc.IsOpened(index)
+	--点击已经翻过的卡牌
+	if result == 1 then
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("HappyCardsTips6"))--此张卡牌已经翻过了哦
+		return
+	end
+
+	m_isCanOperation = false
+	LuaHappyCardsDoc.ReqBaseData(3,index)
+end
+
+--下一轮
+function LuaHappyFlopDlg.OnNextClick(go)
+	--print("m_isCanOperation = "..tostring(m_isCanOperation))
+	if m_isCanOperation == false then return end
+
+	local min = LuaHappyCardsDoc.GetMinValueGoToNext()
+	local max = LuaHappyCardsDoc.GetOpenMaxValue()
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	if data.openNum < min then
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("HappyCardsTips1",min))--需要至少翻开{0}张牌才可以刷新下一轮
+	elseif data.openNum >= min and data.openNum < max then
+		Hotfix.LuaMessageBoxConfirm(Hotfix.GetStringTable("HappyCardsTips2"),this.OnModelGoToNext,this.OnCancel)--本轮翻牌还未结束，是否领取已翻出的奖励并且刷新至下一轮？
+		this.ChangeModleLabText("下一轮","取消")
+	else
+		Hotfix.LuaMessageBoxConfirm(Hotfix.GetStringTable("HappyCardsTips3"),this.OnModelGoToNext,this.BackUpClick)--本轮翻牌次数已用完，是否领取奖励并进入下一轮
+		this.ChangeModleLabText("下一轮","回退")
+	end
+end
+
+function LuaHappyFlopDlg.ChangeModleLabText(text1,text2)
+	local modal = Hotfix.GetSingleMember("UI.ModalDlg","uiBehaviour",true,false,false)
+		local oklable = modal.gameObject.transform:Find("Bg/OK/Label"):GetComponent("UILabel")
+		local canlable = modal.gameObject.transform:Find("Bg/Cancel/Label"):GetComponent("UILabel")
+		oklable.text = text1
+		canlable.text = text2
+end
+
+function LuaHappyFlopDlg.OnModelGoToNext( ... )--确认按钮  下一轮
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	m_isCanOperation = false
+	LuaHappyCardsDoc.ReqBaseData(4,0)
+end
+function LuaHappyFlopDlg.OnModelBackUp( ... )--确认按钮  回退
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	m_isCanOperation = false
+	LuaHappyCardsDoc.ReqBaseData(5,0)
+end
+function LuaHappyFlopDlg.OnCancel( ... )--取消
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+end
+
+--幸运大奖
+function LuaHappyFlopDlg.OnOpenLuckyClick(go)
+	if m_isCanOperation == false then return end
+	LuaUIManager.Instance:Load("UI/GameSystem/HappyFlop/HappyFlopLuckyPrix")
+end
+
+--排行榜页签切换
+function LuaHappyFlopDlg.OnToggleClick(go)
+	--print("LuaHappyFlopDlg.OnToggleClick")
+	LuaHappyCardsDoc.SetCurRankType(69)
+	LuaHappyCardsDoc.ReqRankData()
+end
+
+--排行榜页签切换2
+function LuaHappyFlopDlg.OnToggleClick1(go)
+	--print("LuaHappyFlopDlg.OnToggleClick1")
+	LuaHappyCardsDoc.SetCurRankType(70)
+	LuaHappyCardsDoc.ReqRankData()
+end
+
+--泰坦条获取途径
+function LuaHappyFlopDlg.OnTiTanAccessClick(go)
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	local cost = LuaHappyCardsDoc.GetCostData(data.openNum)
+	Hotfix.CallSingleMethod("UI.UiUtility", true, false, "ShowItemAccess",cost.itemId)
+end
+
+--tips
+function LuaHappyFlopDlg.OnShowTips(go)
+	local itemId = go.transform:GetComponent("UISprite").uid
+	--print("LuaHappyFlopDlg.OnShowTips  itemid = "..tostring(itemId))
+	Hotfix.LuaShowItemTooltipDialog(itemId,go)
+end
+
+--前往别的系统
+function LuaHappyFlopDlg.OnClickGotoSysGo(go)
+	local sysId = Hotfix.GetGlobalString("HappyFlopShop")
+	--print("sysId = "..tostring(sysId))
+	Hotfix.CallSingleMethod("XGameSysMgr",true,false,"Opensystem",tonumber(sysId))
+	this.OnCloseClick(nil)
+end
+
+--设置倍数
+function LuaHappyFlopDlg.OnClickSetMultiple(go)
+
+	local data = LuaHappyCardsDoc.GetBaseInfoData()
+	if data.isdisplay == false then 
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("HappyCardsTips7"))--只有展示阶段才可以选择倍数
+		return
+	end
+
+	local spr = go.transform:GetComponent("UISprite")
+	LuaHappyCardsDoc.SetMultiple(tonumber(spr.sid))
+	this.RefreshBaseUI()
+end
+---------------------------------------------------- 脚本调用函数 -------------------------------------------------
+function LuaHappyFlopDlg.OnHide()
+
+	
+end
+
+function LuaHappyFlopDlg.OnShow()
+	this.Show()
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaHappyFlopDlg.Awake(go)
+	m_parentTra = go.transform
+	this.Init()
+	this.RegisterEvent()
+end
+
+function LuaHappyFlopDlg.Start()
+
+end
+
+function LuaHappyFlopDlg.OnEnable()
+	m_isVisible = true
+end
+
+function LuaHappyFlopDlg.OnDisable()
+	m_isVisible = false
+	this.ResetStatus()
+	Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"FakeShowSelf",true)
+	this.KillToken(m_token)
+	this.KillToken(m_token1)
+	this.KillToken(m_token2)
+end
+
+function LuaHappyFlopDlg.OnDestroy()
+	m_isVisible = false
+	if m_cardItemPool:ReturnAll() then
+		m_cardItemPool = nil
+	end
+
+	if m_multiplePool ~= nil then
+		m_multiplePool:ReturnAll()
+		m_multiplePool = nil
+	end
+	this.RemvFx()
+end
+return this

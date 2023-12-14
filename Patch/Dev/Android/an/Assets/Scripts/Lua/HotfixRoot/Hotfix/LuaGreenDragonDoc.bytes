@@ -1,0 +1,245 @@
+local this = nil
+require "LuaGreenDragonListTable.lua"
+require "LuaDesignationTableTable.lua"
+require "LuaItemToDesignationTable.lua"
+require "XEggTwistingList_pb.lua" 
+require "XGreenDragonReq_pb.lua"
+
+XSys_GreenDragon = 186
+XSys_GreenDragonStory = 187
+LuaGreenDragonDoc = {}
+local this = LuaGreenDragonDoc
+
+local m_handler = nil
+local GreenDragonTable --表格
+local m_SuperActivityTimeTable
+local m_curRankType
+local m_rankDataTab
+local m_DesignTable
+local m_curRewardTable
+local gotRewardDifficulty
+local rewardResetRestTime
+
+local print = Debugger.LogWarning
+--读取表格
+function LuaGreenDragonDoc.EnterScene()
+    print("LuaGreenDragonDoc.EnterScene")
+    GreenDragonTable = ReadGreenDragonListTable("Table/GreenDragonList")
+    m_DesignTable = ReadDesignationTableTable("Table/Designation")
+    m_ItemToDesignTable = ReadItemToDesignationTable("Table/ItemToDesignation")
+end
+
+function LuaGreenDragonDoc.InitRankRewardDataByType(type)
+    if type == 71 then type = 12 end
+    if type == 72 then type = 13 end
+    tempTab = {}
+    local index = 1
+    local tab = Hotfix.GetDocumentStaticMember("XAnniversaryTreasureDocument","m_TreasureRankReward",true,true)
+    if tab == nil then return end
+    for i = 0, tab.Table.Length-1 do
+        if tab.Table[i].type == type then
+            tempTab[index] = tab.Table[i]
+            index = index + 1
+        end
+    end
+    return tempTab
+end
+--设置主界面
+function LuaGreenDragonDoc.SetMainHandler(handler)
+    m_handler = handler
+end
+
+--关闭自己
+function LuaGreenDragonDoc.DestroySelf()
+    if m_handler ~= nil then m_handler.DestroySelf() end
+end
+
+--断线重连
+function LuaGreenDragonDoc.Reconnect()
+    this.ResetOperationStatus()
+end
+function LuaGreenDragonDoc.InitTable()
+    m_SuperActivityTimeTable = Hotfix.GetDocumentStaticMember("XTempActivityDocument", "SuperActivityTimeTable", true, false)
+end
+-------------------------------------------------------------------------- base data start ----------------------------------------------------------------------
+
+function LuaGreenDragonDoc.GetGreenDragonTable()
+    return GreenDragonTable
+end
+function LuaGreenDragonDoc.GetCurRewardTable()
+    return m_curRewardTable
+end
+function LuaGreenDragonDoc.GetDesignTable()
+    return m_DesignTable
+end
+function LuaGreenDragonDoc.GetItemToDesignTable()
+    return m_ItemToDesignTable
+end
+
+function LuaGreenDragonDoc.gotRewardDifficulty()
+    return gotRewardDifficulty
+end
+function LuaGreenDragonDoc.rewardResetRestTime()
+    return rewardResetRestTime
+end
+
+function LuaGreenDragonDoc.SetCurRankTypeAndRpc(type)
+    print("LuaGreenDragonDoc.SetCurRankTypeAndRpc : type : "..type)
+    if type <= 3 then 
+        m_curRankType = 0
+        m_curRewardTable = {}
+        m_rankDataTab = {}
+        if m_handler ~= nil then
+            m_handler.SetRankTable(m_rankDataTab)
+        end
+        return
+    end
+    m_curRankType = type - 3 + 70
+	m_curRewardTable = this.InitRankRewardDataByType(m_curRankType)
+    this.ReqRankData()
+end
+
+function LuaGreenDragonDoc.Getoffsettime()
+    local offsetDayInfos = Hotfix.GetDocumentMember("TempActivityDocument", "offsetDayInfos", false, true)
+	if offsetDayInfos == nil then
+		return
+	end
+	for i=0,offsetDayInfos.actid.Count -1 do
+		local actid = offsetDayInfos.actid[i]
+		local superActivityTimeRowData = m_SuperActivityTimeTable:GetByactid(actid)
+		if superActivityTimeRowData ~= nil then
+			if superActivityTimeRowData.systemid == XSys_GreenDragon then
+				return offsetDayInfos.offsettime[i]
+			end
+		end
+    end
+    return nil
+end
+function LuaGreenDragonDoc.gettimestageList()
+    local superActivityTimeRowData = m_SuperActivityTimeTable:GetByactid(72)
+    --ocal timestage = superActivityTimeRowData.timestage:ToString()
+    --return this.GetstringSeqList(timestage)
+    return superActivityTimeRowData.timestage
+end
+
+function LuaGreenDragonDoc.GetstringSeqList(xit)
+   local strs = Split(xit,'|')
+   local List = {}
+    for i=1,#strs do
+       local sp = Split(strs[i],'=')
+       sp[1] = tonumber(sp[1])
+       sp[2] = tonumber(sp[2])
+       List[i] = sp
+    end
+    return List
+end
+
+function LuaGreenDragonDoc.RefreshTimeLab()
+    if m_handler ~= nil then
+        m_handler.Refresh()
+    end
+end
+-------------------------------------------------------------------------- base data end ------------------------------------------------------------------------
+
+-------------------------------------------------------------------------- rank data start ------------------------------------------------------------------------
+
+-------------------------------------------------------------------------- rank data end ------------------------------------------------------------------------
+
+-------------------------------------------------------------------------- importan data start ------------------------------------------------------------------------
+
+-------------------------------------------------------------------------- importan data end ------------------------------------------------------------------------
+
+-------------------------------------------------------------------------- reward view start ----------------------------------------------------------------------
+
+-------------------------------------------------------------------------- reward view end ------------------------------------------------------------------------
+
+-------------------------------------------------------------------------- rpc start ------------------------------------------------------------------------
+
+--请求排行榜数据
+function LuaGreenDragonDoc.ReqRankData()
+    local  msg = GetProtoBufSendTable("QueryRankListLuaArg")
+	msg.rankType = m_curRankType
+	--print("RPC ID = 9895".."  rankType = "..tostring(msg.rankType))
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		Hotfix.SendLuaByteRPC(9895, pb_data, this.OnGetRankData, this.OnErr)
+	else
+		print("test proto data is nil")
+	end
+end
+
+function LuaGreenDragonDoc.OnGetRankData(data,length)
+    local  msg = ParseProtoBufToTable("QueryRankListLuaRes",data)
+	if msg ~= nil then
+
+		print("errorcode is: "..tostring(msg.errorcode))
+		if msg.errorcode ~= 0 then
+			-- exclude INVALID_REQUEST
+			if msg.errorCode ~= ERR_UNKNOWN then
+				Hotfix.LuaShowSystemTipErrCode(msg.errorcode)
+			end
+			return
+		end
+	else
+		print("RankList msg is nil")
+		return
+    end
+
+    m_rankDataTab = {}
+    if msg.ranklist.rankdata ~= nil then
+        local length = #msg.ranklist.rankdata
+        for i=1,length do
+            local data = {}
+            --print("ranklist i = "..tostring(i))
+            data.names = msg.ranklist.rankdata[i].rolenames
+            data.times = msg.ranklist.rankdata[i].time
+            data.rank = msg.ranklist.rankdata[i].rank
+            --print("拿到排行榜： times: "..tostring(msg.ranklist.rankdata.time).." rank: "..tostring(msg.ranklist.rankdata.rank).." names: "..tostring(msg.ranklist.rankdata.rolenames))
+            m_rankDataTab[#m_rankDataTab + 1] = data
+        end
+    end
+
+    if m_handler ~= nil then
+        m_handler.SetRankTable(m_rankDataTab)
+    else
+        m_handler = require"HotfixRoot/Hotfix/LuaGreenDragonDlg"
+        if m_handler ~= nil then m_handler.SetRankTable(m_rankDataTab) end
+    end
+
+end
+function LuaGreenDragonDoc.OnErr( ... )
+    print("lua LuaGreenDragonDoc OnErr!")
+end
+
+
+function LuaGreenDragonDoc.ReqCDData()
+    local  msg = GetProtoBufSendTable("GreenDragonReqArg")
+
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+    if pb_data ~= nil then
+        print "do send rpc 54625"
+		Hotfix.SendLuaByteRPC(54625, pb_data, this.OnGetCDData, this.OnErr)
+	else
+		print("test proto data is nil")
+	end
+end
+
+function LuaGreenDragonDoc.OnGetCDData(data,length)
+    local  msg = ParseProtoBufToTable("GreenDragonReqRes",data)
+	if msg ~= nil then
+
+	else
+		print("OnGetCDData msg is nil")
+		return
+    end
+    gotRewardDifficulty = msg.gotRewardDifficulty
+    rewardResetRestTime = msg.rewardResetRestTime
+    print("rewardResetRestTime : "..tostring(rewardResetRestTime))
+    if m_handler ~= nil then
+        m_handler.Refresh_CD()
+    end
+end
+-------------------------------------------------------------------------- rpc end ------------------------------------------------------------------------
+return this

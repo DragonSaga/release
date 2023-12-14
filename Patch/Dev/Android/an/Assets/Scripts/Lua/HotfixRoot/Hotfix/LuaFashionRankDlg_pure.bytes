@@ -1,0 +1,205 @@
+local this = nil
+require "LuaFashionRankDoc.lua" 
+LuaFashionRankDlg_pure={}
+local this = LuaFashionRankDlg_pure
+local m_go
+local m_bIsVisible = false
+m_WrapContent = nil
+local data
+local m_Backdummy
+local m_dummy
+local m_far
+local DummyName = "-1"
+local user = -1
+function LuaFashionRankDlg_pure.Awake(go)
+	m_go = go
+	m_WrapContent = m_go.transform:Find("Bg/Bg/Panel/FashionList").gameObject
+	m_dummy = m_go.transform:Find("Bg/Bg/CharacterInfoFrame/CharacterFrame/Snapshot"):GetComponent("UIDummy")
+	m_Backdummy = m_go.transform:Find("Bg/Bg/CharacterInfoFrame/CharacterFrame/SnapshotBackup"):GetComponent("UIDummy")
+	m_far = m_go.transform:Find("Bg/Bg/CharacterInfoFrame/CharacterFrame/far")
+	if m_WrapContent ~= nil then
+		Debugger.LogWarning("nonilnonilnonil  " )
+	else
+		Debugger.LogWarning("nilnilnil  " )
+	end
+	Close = m_go.transform:Find("Bg/Close").gameObject
+	Hotfix.SetClickCallback(Close, LuaFashionRankDlg_pure.OnCloseClicked)
+	Hotfix.InitWrapContent(m_WrapContent, LuaFashionRankDlg_pure.WrapContentUpdated)
+end
+
+function LuaFashionRankDlg_pure.Start()
+	Hotfix.EnableMainDummy(true,m_Backdummy)
+	DummyName = "-1"
+	user = -1
+end
+
+function LuaFashionRankDlg_pure.OnEnable()
+	m_bIsVisible = true
+end
+
+function LuaFashionRankDlg_pure.OnDisable()
+	m_bIsVisible = false
+end
+
+function LuaFashionRankDlg_pure.OnDestroy()
+	m_bIsVisible = false
+	LuaFashionRankDlg_pure.cleanDummy()
+	Hotfix.EnableMainDummy(false,m_Backdummy)
+end
+
+function LuaFashionRankDlg_pure.OnShow()
+	this.RefreshButton()
+	LuaFashionRankDoc.upView(this)
+	LuaFashionRankDoc.ReqRankInfo()
+	-- LuaFashionRankDlg_pure.setInfo()
+end
+
+function LuaFashionRankDlg_pure.OnHide() 
+	-- body
+end
+
+function LuaFashionRankDlg_pure.IsVisible()
+	return m_bIsVisible
+end
+
+function LuaFashionRankDlg_pure.RefreshButton(  )
+	
+end
+
+function LuaFashionRankDlg_pure.OnCloseClicked(  )
+	LuaUIManager.Instance:Destroy("UI/GameSystem/FashionRankDlg_pure")
+end
+
+function LuaFashionRankDlg_pure.setInfo( msg )
+	data = msg
+	Debugger.LogWarning("LuaFashionRankDlg_pure" .. #(msg.ranklist.rankdata))
+	if m_WrapContent ~= nil then
+		Hotfix.SetWrapContentCount(m_WrapContent, #(msg.ranklist.rankdata), true)
+	else
+		Debugger.LogWarning("nilnilnil  " .. #(msg.ranklist.rankdata))
+	end
+	local t = m_go.transform:Find("Bg/Bg/MyRankFrame/FashionList/Tpl")
+	LuaFashionRankDlg_pure.SetMyInfo(t)
+	if #(msg.ranklist.rankdata) > 0 then
+		LuaFashionRankDoc.OnGetOutlookClick(data.ranklist.rankdata[ 1 ].roleid)
+	end
+end
+
+function LuaFashionRankDlg_pure.SetMyInfo( t )
+	local v = data.rolerankdata
+	local Rank = t:Find("Rank"):GetComponent("UILabel")
+	local RankImage = t:Find("RankImage"):GetComponent("XUISprite")
+	local Name = t:Find("Name"):GetComponent("UILabel")
+	local Value = t:Find("Value"):GetComponent("UILabel")
+	if v.rank <= 3 and v.rank > 0 then
+		RankImage:SetSprite("N" .. v.rank)
+		RankImage.gameObject:SetActive(true)
+		Debugger.LogWarning("RankImage")
+		Name.text = " " .. v.rolename 
+		Value.text = " " .. v.popularnum 
+		Name.gameObject:SetActive(true) 
+		Value.gameObject:SetActive(true) 
+	elseif v.rank == 0 then
+		RankImage.gameObject:SetActive(false)
+		Rank.text = "未上榜" 
+		Name.gameObject:SetActive(false) 
+		Value.gameObject:SetActive(false) 
+	else
+		RankImage.gameObject:SetActive(false)
+		Rank.text = " " .. v.rank
+		Name.text = " " .. v.rolename 
+		Value.text = " " .. v.popularnum 
+		Name.gameObject:SetActive(true) 
+		Value.gameObject:SetActive(true) 
+	end
+end
+
+function LuaFashionRankDlg_pure.WrapContentUpdated(t, index)
+	local v = data.ranklist.rankdata[index + 1]
+	
+	if v == nil or v.rank == nil or v.titleid == nil or v.rolename == nil then return end
+
+	local Rank = t:Find("Rank"):GetComponent("UILabel")
+	local RankImage = t:Find("RankImage"):GetComponent("XUISprite")
+	if v.rank <= 3 then
+		RankImage:SetSprite("N" .. v.rank)
+		RankImage.gameObject:SetActive(true)
+	else
+		RankImage.gameObject:SetActive(false)
+		Rank.text = " " .. v.rank
+	end
+
+	-- print("title id: "..v.titleid)
+	-- print("rolename: "..v.rolename)
+	local FName = Hotfix.CallDocumentStaticMethod("XTitleDocument",true,"GetTitleWithFormat",v.titleid,v.rolename)
+
+
+	local Name = t:Find("Name"):GetComponent("XUILabelSymbol")
+	Name.InputText = " " .. FName
+	local Value = t:Find("Value"):GetComponent("UILabel")
+	Value.text = " " .. v.popularnum 
+	local item = t:Find(""):GetComponent("XUISprite")
+	item.ID = index + 1
+	Hotfix.SetClickCallback(item.gameObject, LuaFashionRankDlg_pure.AskDummy)
+end
+
+
+
+function LuaFashionRankDlg_pure.AskDummy(go)
+	-- Debugger.LogWarning("nilnilnil  " .. #(msg.ranklist.rankdata))
+	local id = go.transform:GetComponent("XUISprite").ID
+	local v = data.ranklist.rankdata[id]
+	LuaFashionRankDoc.OnGetOutlookClick(data.ranklist.rankdata[ id ].roleid)
+end
+
+function LuaFashionRankDlg_pure.showDummy(msg)
+	Hotfix.EnableMainDummy(false,m_dummy)
+	if DummyName ~= "-1" and user ~= -1  then
+		local tr = m_dummy.gameObject.transform:Find(DummyName)
+		if tr ~= nil then
+			tr:SetParent(m_far)
+			tr.localPosition = Vector3(0,0,0)
+			Hotfix.DestroyDummy(user,DummyName)
+		end
+	end
+	user = Hotfix.CallSingleMethod("X3DAvatarMgr",true, false,"AllocDummyPool","LuaFashionRankDlg_pure")
+	local pro = math.fmod(msg.pro,10)
+	local table = Hotfix.GetDocumentStaticMember("XFashionDocument","_fashionSuitTable",false,true)
+	local fashions = table:GetBySuitID(99999).FashionID
+	for i = 1,#(msg.outlook.display_fashions) do
+		fashions[i-1] = msg.outlook.display_fashions[i]
+	end
+	fashions[#(msg.outlook.display_fashions)] = 999999
+
+	DummyName = Hotfix.CreateCommonDummy( user, pro, m_dummy, 1)
+
+	for i = 1,#(msg.outlook.display_fashions) do
+		fashions[i-1] = 10000 + i
+	end
+	fashions[#(msg.outlook.display_fashions)] = 10000 + #(msg.outlook.display_fashions)
+end
+
+
+function LuaFashionRankDlg_pure.cleanDummy()
+	if DummyName ~= "-1" and user ~= -1  then
+		local tr = m_dummy.gameObject.transform:Find(DummyName)
+		if tr ~= nil then
+			tr:SetParent(m_far)
+			tr.localPosition = Vector3(0,0,0)
+			Hotfix.DestroyDummy(user,DummyName)
+		end
+	end
+	-- for i = 1,7 do
+	-- 	if dummypool[i] ~= nil then
+	-- 		local temp = dummypool[i]
+	-- 		dummypool[i].IsEnableUIRim = false;
+	-- 		dummypool[i]:SetupUIDummy(false)
+	-- 		dummypool[i] = nil
+	-- 		-- Hotfix.GetSingleMember("X3DAvatarMgr",false,false,"ResetDummy",temp,true)
+	-- 	else
+	-- 	end
+	-- end
+	-- Hotfix.SetMainDummy(true)
+
+end
+return this

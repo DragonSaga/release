@@ -1,0 +1,1092 @@
+local this = nil
+require "LuaGalaxyTreasureDoc.lua"
+require "LuaGalaxyTreasureSpecialDoc.lua"
+
+local animTimeList_add = {0.6, 0.4, 0.2, 0.1, 
+0.04, 0.04, 0.04,
+0.02, 0.02, 0.02} --10
+local animTime_mid = 0.02 --
+local animTime_del = {0.02, 0.02, 0.02,0.02,
+0.1, 0.1, 0.1,0.1,
+0.8,0.8}--10
+
+local m_parentTra
+local m_closeBtn
+local m_helpBtn
+
+local m_gotoShopBtn
+
+local print = Debugger.LogWarning
+--特效
+local m_xFxMgr
+local m_fxTab1 = nil
+
+--排行榜
+local m_emptyGo
+local m_toggle1
+local m_toggle2
+local m_myRankTra
+local m_wrapContent
+local m_scrollView
+
+--泰坦条
+local m_titanIcon
+local m_titanLab
+local m_titanAdd
+
+local m_isVisible = false
+local m_token = 0
+local m_token1 = 0
+local m_token2 = 0  --排行榜用
+local me_curtower = nil
+local doc_token = 0
+
+LuaGalaxyTreasureDlg = {}
+local this = LuaGalaxyTreasureDlg
+
+EACH_PAGE_NUM = 20  --每一页 20层塔
+
+local map = {}
+local map_go = {}
+local taskTable = {}
+local shopID = 1526  
+local me = nil
+local Dice_timer = 0
+local timeS = UnityTime
+
+local m_popawardview = nil
+local m_popawardview_close = nil
+local m_popawardviewtoggle1 = nil
+local m_popawardviewtoggle2 = nil
+local m_popawardviewtoggle3 = nil
+local m_popawardviewscrollView = nil
+local m_popawardviewwrapContent = nil
+
+local m_Galaxybtn = nil
+local m_PreViewBtn = nil
+local m_OpenBtn0 = nil
+local m_OpenBtn5 = nil
+local m_OpenBtn1 = nil
+local map_go = {}
+
+local m_start = nil
+local m_end = nil
+
+
+local Roll = nil
+local white = nil
+local NextFloorTips = nil
+
+local GalaxyRollID = 0 --消耗ID
+local m_fxTab1 = {}
+
+local GalaxyPlaytoNextPageTime = 1 --跳到下一层的时间
+local GalaxyPlayOneStepWaitTime = 0.5 --棋子跳完一颗等待时间
+local GalaxyPlayOneStepSpeed = 0.03  --棋子跳到下一颗星球速度
+local Roll_time_speed = 1 --转盘动画速度
+
+-- audio
+local MoveAudio
+local TransStartAudio
+local TransEndAudio
+local DiceQuickAudio
+local DIceNormalAudio
+local MapRefreshAudio
+local LastPos = 0
+
+local MaxFloor = 100
+
+local m_Cancle_Anim = nil
+local m_Cancle_Anim_OK = nil
+local flag_Cancel_Anim = false
+--初始化
+function LuaGalaxyTreasureDlg.Init()
+
+	Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetVisible", true)
+	LuaGalaxyTreasureDoc.SetMainHandler(this)
+	LuaGalaxyTreasureDoc.InitRankRewardData()
+	m_closeBtn = m_parentTra:Find("Bg/Close").gameObject
+	m_helpBtn = m_parentTra:Find("Bg/Help").gameObject
+	
+	m_popawardview = m_parentTra:Find("PopGiftsWindow").gameObject
+	m_popawardview:SetActive(false)
+	m_popawardview_close = m_popawardview.transform:Find("Bg/Close").gameObject
+	local tra = m_popawardview.transform
+	m_popawardviewtoggle1 = tra:Find("TabTpl/Toggle1").gameObject
+	m_popawardviewtoggle2 = tra:Find("TabTpl/Toggle2").gameObject
+	m_popawardviewtoggle3 = tra:Find("TabTpl/Toggle3").gameObject
+	m_popawardviewscrollView = tra:Find("Bg/ScrollView"):GetComponent("XUIScrollView")
+	m_popawardviewwrapContent = tra:Find("Bg/ScrollView/WrapContent").gameObject
+	Hotfix.InitWrapContent(m_popawardviewwrapContent, this.WrapContentpopawardviewUpdated)
+
+
+	m_Galaxybtn = m_parentTra:Find("Bg/MainFrame/Galaxy/tex").gameObject
+	m_PreViewBtn = m_parentTra:Find("Bg/MainFrame/ShopBtn").gameObject
+	m_OpenBtn0 =  m_parentTra:Find("Bg/MainFrame/OpenBtn0").gameObject
+	m_OpenBtn5 =  m_parentTra:Find("Bg/MainFrame/OpenBtn5").gameObject
+	m_OpenBtn1 =  m_parentTra:Find("Bg/MainFrame/OpenBtn1").gameObject
+
+	m_TipTime = m_parentTra:Find("Bg/MainFrame/Rank/TipTime"):GetComponent("UILabel")
+	m_Tip = m_parentTra:Find("Bg/MainFrame/Tip"):GetComponent("UILabel")
+
+	m_TipTime.text = Hotfix.GetGlobalString("GalaxyTimeTips")
+	m_Tip.text = Hotfix.GetGlobalString("GalaxyClimbGetTips")
+
+	tra = m_parentTra:Find("Bg/MainFrame/Rank")
+	m_emptyGo = tra:Find("EmptyRank").gameObject
+	m_toggle1 = tra:Find("TabTpl/Toggle1").gameObject
+	m_toggle2 = tra:Find("TabTpl/Toggle2").gameObject
+	m_myRankTra = tra:Find("MyRankTpl")
+	m_scrollView = tra:Find("ScrollView"):GetComponent("XUIScrollView")
+	m_wrapContent = tra:Find("ScrollView/WrapContent").gameObject
+	m_ranktiltles = tra:Find("Titles")
+	Hotfix.InitWrapContent(m_wrapContent, this.WrapContentItemUpdated)
+
+
+	m_scrollView_task = tra:Find("ScrollView_task"):GetComponent("XUIScrollView")
+	m_wrapContent_task  = tra:Find("ScrollView_task/WrapContent").gameObject
+	Hotfix.InitWrapContent(m_wrapContent_task, this.WrapContent_taskItemUpdated)
+
+	tra = m_parentTra:Find("Bg/MainFrame/Items")
+	m_ItemTplParentGo = tra.gameObject
+	m_ItemPool= Hotfix.SetupPool(tra.gameObject,tra:Find("ItemTpl").gameObject,4)
+
+	local doc_xplayerData = Hotfix.GetSingleMember("XAttributeMgr","XPlayerData",true,false,false)
+	local doc_profession = doc_xplayerData.BasicTypeID
+	me = tra.transform:Find("PlayerAvatar")
+	PlayerAvatar = tra.transform:Find("PlayerAvatar/Me"):GetComponent("XUISprite")
+	PlayerAvatar.spriteName = Hotfix.CallSingleMethod("XProfessionSkillMgr",true,false,"GetSuperRiskAvatar",doc_profession)
+	
+	NextFloorTips = tra.transform:Find("Next")
+
+	for i = 1,10 do
+		map_go[i] = m_parentTra:Find("Bg/MainFrame/Items/Item".."0"..tostring(i-1))
+	end
+	for i = 11,EACH_PAGE_NUM do
+		map_go[i] = m_parentTra:Find("Bg/MainFrame/Items/Item".."1"..tostring(i-11))
+	end
+	-- local nss = Hotfix.GetGlobalString("GalaxyTimeConfig")
+	-- local sp = nss:split("|")
+	-- speed = tonumber(sp[1])
+	-- EventTime = tonumber(sp[2])
+	MaxFloor = tonumber(Hotfix.GetGlobalString("MaxFloor"))
+	Roll = m_parentTra:Find("Bg/MainFrame/Roll")
+	Roll.gameObject:SetActive(false)
+	white = Roll:Find("white")
+	GalaxyRollID = tonumber(Hotfix.GetGlobalString("GalaxyRollID"))
+	speed = tonumber(Hotfix.GetGlobalString("GalaxyPlayerMoveSpeed"))
+	GalaxyPlaytoNextPageTime = tonumber(Hotfix.GetGlobalString("GalaxyPlaytoNextPageTime"))
+	GalaxyPlayOneStepWaitTime = tonumber(Hotfix.GetGlobalString("GalaxyPlayOneStepWaitTime"))
+	GalaxyPlayOneStepSpeed = tonumber(Hotfix.GetGlobalString("GalaxyPlayOneStepSpeed"))
+	Roll_time_speed = tonumber(Hotfix.GetGlobalString("Roll_time_speed"))
+	local itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",GalaxyRollID)
+	if itemData ~= nil then
+		m_OpenBtn1.transform:Find("nofree/key"):GetComponent("XUISprite"):SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+		m_OpenBtn5.transform:Find("key"):GetComponent("XUISprite"):SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+	end
+	ResetCost =  tostring(Hotfix.GetGlobalString("ResetCost"))
+	local tmps = ResetCost:split("=")
+	ResetCostID = tmps[1]
+	ResetCostCount = tmps[2]
+	itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",ResetCostID)
+	if itemData ~= nil then
+		m_OpenBtn0.transform:Find("key"):GetComponent("XUISprite"):SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+		m_OpenBtn0.transform:Find("Num"):GetComponent("UILabel").text = "x"..tostring(ResetCostCount)
+	end
+
+	this.CreateFx()
+	GotoShop = m_parentTra:Find("Bg/MainFrame/GotoShop").gameObject
+
+	-- audio
+	MoveAudio = m_parentTra.transform:Find("Audio/Move")
+	TransStartAudio = m_parentTra.transform:Find("Audio/TransBegin")
+	TransEndAudio = m_parentTra.transform:Find("Audio/TransEnd")
+	DiceQuickAudio = m_parentTra.transform:Find("Audio/DiceQuice")
+	DIceNormalAudio = m_parentTra.transform:Find("Audio/DiceNormal")
+	MapRefreshAudio = m_parentTra.transform:Find("Audio/MapItemRefresh")
+	-- end
+
+
+	--取消动画按钮
+	m_Cancle_Anim = m_parentTra:Find("Bg/MainFrame/TgBtn")
+	m_Cancle_Anim_OK = m_parentTra:Find("Bg/MainFrame/TgBtn/icon")
+	if not IsNil(m_Cancle_Anim_OK) and flag_Cancel_Anim == false then
+		m_Cancle_Anim_OK.gameObject:SetActive(false)
+	end
+	if not IsNil(m_Cancle_Anim) then
+		Hotfix.SetClickCallback(m_Cancle_Anim.gameObject,this.Cancel_Anim)
+	end
+end
+--------------------------------------------------取消动画--------------------------------------------------------
+function LuaGalaxyTreasureDlg.Cancel_Anim()
+	if flag_Cancel_Anim == true then
+		flag_Cancel_Anim = false
+		if not IsNil(m_Cancle_Anim_OK) then
+			m_Cancle_Anim_OK.gameObject:SetActive(false)
+		end
+	else
+		flag_Cancel_Anim = true
+		if not IsNil(m_Cancle_Anim_OK) then
+			m_Cancle_Anim_OK.gameObject:SetActive(true)
+		end
+	end
+end
+function LuaGalaxyTreasureDlg.Setme_curtower(data)
+	me_curtower = data
+end
+function LuaGalaxyTreasureDlg.GetisPlay()
+	return flag_Cancel_Anim
+end
+
+function LuaGalaxyTreasureDlg.DPfx()
+	m_fxTab1[#m_fxTab1 + 1] =  m_xFxMgr.singleton:CreateUIFx("Effects/FX_Particle/UIfx/UI_ghhb_cd_03",me.transform)
+end
+
+--事件注册
+function LuaGalaxyTreasureDlg.RegisterEvent()
+	Hotfix.SetClickCallback(m_closeBtn,this.OnCloseClick)
+	Hotfix.SetClickCallback(m_helpBtn,this.OnHelpClick)
+	Hotfix.SetClickCallback(GotoShop,this.OnGoShopClick)
+	Hotfix.SetClickCallback(m_OpenBtn0,this.OnResetClick)
+	Hotfix.SetClickCallback(m_OpenBtn5,this.OnOpen5Click)
+	Hotfix.SetClickCallback(m_OpenBtn1,this.OnOpen1Click)
+	
+	Hotfix.SetClickCallback(m_toggle1,this.OnToggleClick)
+	Hotfix.SetClickCallback(m_toggle2,this.OnToggleClick1)
+	Hotfix.SetClickCallback(m_Galaxybtn,this.OnShowGalaxySpecial)
+	Hotfix.SetClickCallback(m_PreViewBtn,this.OnShowPreView)
+	Hotfix.SetClickCallback(m_popawardview_close,this.OnShowPreView_close)
+	Hotfix.SetClickCallback(m_popawardviewtoggle1,this.popawardviewtoggle1Click)
+	Hotfix.SetClickCallback(m_popawardviewtoggle2,this.popawardviewtoggle2Click)
+	Hotfix.SetClickCallback(m_popawardviewtoggle3,this.popawardviewtoggle3Click)
+end
+
+
+function LuaGalaxyTreasureDlg.Show( ... )
+	this.HideMainCity()
+	--this.RefrehTitanBar()
+
+	--基本信息
+	LuaGalaxyTreasureDoc.ReqBaseData()
+	
+	--排行榜
+	this.RefreshLeft()
+	--this.ReqRankDataOnTime() --定时请求排行榜数据
+end
+
+function LuaGalaxyTreasureDlg.IsVisible()
+	return m_isVisible
+end
+---------------------------------------------------- doc 协议回调调用的函数 -------------------------------------------------
+--隐藏主城
+function LuaGalaxyTreasureDlg.HideMainCity()
+	if m_isVisible == false then return end
+	Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"FakeShowSelf",false)
+end
+
+function LuaGalaxyTreasureDlg.DestroySelf()
+	if m_isVisible == false then return end
+	LuaUIManager.Instance:Destroy("UI/GameSystem/GalaxyTreasure/GalaxyTreasureDlg")
+end
+
+--kill Timer
+function LuaGalaxyTreasureDlg.KillToken(token)
+	if token~= 0 and token~=nil  then
+		Hotfix.RemoveTimer(token)
+		token = 0
+	end
+end
+---------------------------------------------------- main 函数 -------------------------------------------------
+function LuaGalaxyTreasureDlg.ResetCallback(msg)
+	--print("LuaGalaxyTreasureDlg.ResetCallback ")
+	me_curtower = nil
+	
+	LuaGalaxyTreasureSpecialDoc.ReqBaseData()
+	if m_isVisible == false then return end
+	LuaGalaxyTreasureDoc.ReqBaseData()
+end
+
+--泰坦条
+function LuaGalaxyTreasureDlg.RefrehTitanBar( ... )
+
+	if m_isVisible == false then return end
+
+	--local data = LuaGalaxyTreasureDoc.GetBaseInfoData()
+	local cost = LuaGalaxyTreasureDoc.GetCostData(0)--data.openNum
+	local itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",cost.itemId)
+	if itemData ~= nil then
+		m_titanIcon:SetAtlas("atlas/UI/"..itemData.ItemAtlas[0])
+		m_titanIcon.spriteName = itemData.ItemIcon[0]
+	end
+	local hadNum = Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount",tonumber(cost.itemId))
+	m_titanLab.text = tostring(hadNum)
+end
+
+function LuaGalaxyTreasureDlg.RefreshLeft()
+	if not(m_isVisible) then
+		return
+	end 
+	--print("LuaGalaxyTreasureDlg.RefreshLeft")
+	local tog = m_toggle1.transform:GetComponent("XUICheckBox")
+	tog.bChecked = true
+	tog:ForceSetFlag(true)
+	this.OnToggleClick()
+
+	local task_red_status = LuaGalaxyTreasureDoc.GetTaskState()
+	m_toggle2.transform:Find("RedPoint").gameObject:SetActive(task_red_status)
+	LuaGalaxyTreasureDoc.RrRedpoint()
+end
+--刷新右边界面
+function LuaGalaxyTreasureDlg.calNowceng(tower)
+	if tower % EACH_PAGE_NUM ~= 0 then
+		return math.floor( tower / EACH_PAGE_NUM ) + 1
+	else
+		return math.floor( tower / EACH_PAGE_NUM )
+	end
+end
+local lastTween = 0
+function LuaGalaxyTreasureDlg.RefreshRightView()
+	--print("LuaGalaxyTreasureDlg.RefreshRightView")
+	if m_isVisible == false then return end
+	local got_towers = LuaGalaxyTreasureDoc.GetGot_Towers()
+	if me_curtower == nil then
+		me_curtower = got_towers[#got_towers]
+	end
+	local start = (this.calNowceng(me_curtower) - 1) * EACH_PAGE_NUM + 1
+	local _end = start + EACH_PAGE_NUM - 1
+	--print("LuaGalaxyTreasureDlg.RefreshRightView : start : "..tostring(start))
+	--print("LuaGalaxyTreasureDlg.RefreshRightView : _end : "..tostring(_end))
+	m_ItemPool:ReturnAll()
+	local j = 1
+	for i = 1,EACH_PAGE_NUM do
+		local go = m_ItemPool:FetchGameObject()
+
+		go.transform.localPosition = map_go[i].localPosition
+		map[start + i - 1] = go.transform
+		local lab = go.transform:Find("Times"):GetComponent("UILabel")
+		lab.text = tostring(start + i - 1)
+
+		if me_curtower == start + i - 1 then
+			me.localPosition = go.transform.localPosition
+		end
+
+		while got_towers[j] < start + i - 1 and j < #got_towers do
+			j = j + 1
+		end
+		local spr = go.transform:GetComponent("XUISprite")
+		if got_towers[j] == start + i - 1 then
+			spr:SetGrey(true)
+		else
+			spr:SetGrey(false)
+		end
+	end
+
+	local nextRewardFloor = this.FindCanAddFloor()
+	local progress = m_parentTra:Find("Bg/MainFrame/Galaxy/Progress/Bar"):GetComponent("UISlider")
+
+	progress.value = math.max(this.calNowceng(me_curtower) - 1, 0 ) /nextRewardFloor
+
+	local progress_T2 = m_parentTra:Find("Bg/MainFrame/Galaxy/Progress/T2"):GetComponent("UILabel")
+
+	progress_T2.text = Hotfix.GetStringTable("GalaxyCurAndNextFloor", math.max(this.calNowceng(me_curtower) - 1, 0 ), nextRewardFloor)
+	
+	local progress_T = m_parentTra:Find("Bg/MainFrame/Galaxy/Progress/T"):GetComponent("UILabel")
+	progress_T.text = Hotfix.GetStringTable("GalaxyNextFloorReward", nextRewardFloor)
+	local _treasure_num = m_parentTra:Find("Bg/MainFrame/Galaxy/Num"):GetComponent("UILabel")
+	_treasure_num.text = tostring("X"..LuaGalaxyTreasureDoc.GetNowtreasureNum())
+
+	local play = m_Galaxybtn.transform:GetComponent("UIPlayTween")
+
+	local firsttimefreeT = m_parentTra:Find("Bg/MainFrame/OpenBtn1/free").gameObject
+	local nofirsttimefreeT = m_parentTra:Find("Bg/MainFrame/OpenBtn1/nofree").gameObject
+	if LuaGalaxyTreasureDoc.GetisfreeNum() > 0 then
+		firsttimefreeT:SetActive(true)
+		nofirsttimefreeT:SetActive(false)
+	else
+		firsttimefreeT:SetActive(false)
+		nofirsttimefreeT:SetActive(true)
+	end
+	if me_curtower % EACH_PAGE_NUM == 0 then
+		progress_T2.text = Hotfix.GetStringTable("GalaxyCurAndNextFloor", this.calNowceng(me_curtower), nextRewardFloor)
+		progress.value = this.calNowceng(me_curtower) /nextRewardFloor
+	end
+	if this.calNowceng(me_curtower) == MaxFloor then
+		NextFloorTips.gameObject:SetActive(false)
+	else
+		NextFloorTips.gameObject:SetActive(true)
+	end
+
+	if LuaGalaxyTreasureDoc.GetNowtreasureNum() > 0 then 
+		if lastTween ~= 2 then
+			play:ResetByGroup(true,2)
+			play.tweenGroup = 2
+			play:Play(true)
+			lastTween = 2
+		end
+		
+	else
+		if lastTween ~= 1 then
+			play:ResetByGroup(true,1)
+			play.tweenGroup = 1
+			play:Play(true)
+			lastTween = 1
+		end
+	end
+	--this.RefreshLeft()
+end
+function LuaGalaxyTreasureDlg.FindCanAddFloor()
+	local str = Hotfix.GetGlobalString("FinalRewardFloor")
+	local array1 = str:split("|")
+	local got_towers = LuaGalaxyTreasureDoc.GetGot_Towers()
+	local curtower = got_towers[#got_towers]
+	if array1 == nil then return nil end
+	for i=1,#array1 do
+		local array2 = array1[i]:split("=")
+		if array2 ~= nil and #array2 >= 1 then
+			if curtower % EACH_PAGE_NUM == 0 then
+				if tonumber(array2[1]) > this.calNowceng(curtower) then
+					return tonumber(array2[1])
+				end
+			elseif tonumber(array2[1]) > (this.calNowceng(curtower) - 1) then
+				return tonumber(array2[1])
+			end
+		end
+	end
+	return this.calNowceng(curtower)
+end
+function LuaGalaxyTreasureDlg.ShowDice(dicenum,waittime)
+	m_callbacknum = 0
+	m_waittime = waittime
+
+	this.GoRoll(dicenum)
+	
+end
+function LuaGalaxyTreasureDlg.ShowDiceend()
+	if not(m_isVisible) then
+		return
+	end 
+	Roll.gameObject:SetActive(false)
+	LuaGalaxyTreasureDoc.callback(m_callbacknum)
+end
+
+local currentTime = 0
+function LuaGalaxyTreasureDlg.StartToStep(target,num,waittime)
+	if not(m_isVisible) then
+		return
+	end 
+	m_callbacknum = num
+	m_waittime = waittime
+	local got_towers = LuaGalaxyTreasureDoc.GetGot_Towers()
+	local curtower = got_towers[#got_towers]
+	currentTime = timeS.realtimeSinceStartup
+	m_start = curtower
+	--print("LuaGalaxyTreasureDlg.StartToStep : "..tostring(m_start))
+	m_end = target
+	LastPos = m_start
+	--print("LuaGalaxyTreasureDlg.StartToStep : "..tostring(m_end))
+	if m_start == m_end then
+		this.KillToken(Dice_timer)
+		Dice_timer =  Hotfix.LuaWait(m_waittime,this.ShowDiceend)
+		return
+	end
+	if m_start % EACH_PAGE_NUM == 0 then --翻页
+		this.KillToken(Anim_token)
+		Anim_token = Hotfix.LuaWait(1000 * GalaxyPlaytoNextPageTime, this.CloseMoveAnim)
+		return
+	end
+	
+	this.KillToken(Anim_token)
+	Anim_token = Hotfix.LuaLoop(1000 * GalaxyPlayOneStepSpeed, 10000 , this.MoveAnim)
+
+end
+function LuaGalaxyTreasureDlg.MoveAnim()
+	if not(m_isVisible) then
+		this.KillToken(Anim_token)
+		return
+	end 
+	
+	local timeSpace = timeS.realtimeSinceStartup  -  currentTime
+	local id,par = math.modf(timeSpace/speed)
+	if id <= 1 then
+		--print("LuaGalaxyTreasureDlg.MoveAnim ； "..tostring(m_start + id))
+		me.position =  map[m_start].position*((1 - par)) +   map[m_start + id].position*((par))
+	else
+		this.CheckStep(m_start + id)
+		this.KillToken(Anim_token)
+		this.CloseMoveAnim()
+		--Close_token =  Hotfix.LuaWait(1000 * GalaxyPlayOneStepWaitTime, this.CloseMoveAnim)
+	end
+end
+function LuaGalaxyTreasureDlg.CloseMoveAnim()
+	if not(m_isVisible) then
+		return
+	end 
+	if me_curtower % EACH_PAGE_NUM  == 0 then
+		this.RemvFx()
+		m_fxTab1[#m_fxTab1 + 1] =  m_xFxMgr.singleton:CreateUIFx("Effects/FX_Particle/UIfx/GalaxyTreasureDlg_Clip02",m_Galaxybtn.transform)
+		me_curtower = m_start + 1
+		Anim_token = Hotfix.LuaWait(1000 * GalaxyPlaytoNextPageTime, this.CloseMoveAnim)
+		return 
+	end
+	--print("LuaGalaxyTreasureDlg.CloseMoveAnim : "..tostring(me_curtower).." : "..tostring(m_start))
+	currentTime = timeS.realtimeSinceStartup
+	me_curtower = m_start + 1
+	m_start = m_start + 1
+	this.RefreshRightView()
+	this.KillToken(Anim_token)
+	if m_start < m_end then
+		if m_start % EACH_PAGE_NUM == 0 then --翻页
+			Anim_token = Hotfix.LuaWait(1000 * GalaxyPlaytoNextPageTime, this.CloseMoveAnim)
+		else
+			Anim_token = Hotfix.LuaLoop(1000 * GalaxyPlayOneStepSpeed, 10000 , this.MoveAnim)
+		end
+	else
+		this.ShowDiceend()
+	end
+end
+
+local Mx_Roll = 4
+local Roll_target_Num = nil
+local nowRollTimes = 0
+
+function LuaGalaxyTreasureDlg.GoRoll(num)
+	if not(m_isVisible) then
+		return
+	end 
+	--print("LuaGalaxyTreasureDlg.GoRoll : "..tostring(num))
+	nowRollTimes = 1
+	white.transform.rotation = Vector3(0,0,0)
+	Roll_target_Num = num
+	Roll.gameObject:SetActive(true)
+	this.KillToken(Anim_token)
+	LuaGalaxyTreasureDlg.PlayAudio("DIceNormalAudio")
+	Anim_token = Hotfix.LuaWait(30, this.Rotationwhite)
+end
+function LuaGalaxyTreasureDlg.Rotationwhite()
+	if not(m_isVisible) then
+		this.KillToken(Anim_token)
+		return
+	end 
+	if nowRollTimes > 20 and nowRollTimes%Mx_Roll == Roll_target_Num%Mx_Roll then
+		this.KillToken(Anim_token)
+		this.KillToken(Dice_timer)
+		Dice_timer =  Hotfix.LuaWait(m_waittime,this.ShowDiceend)
+		return 
+	end
+	white.transform:Rotate(0,0,-90)
+	nowRollTimes = nowRollTimes + 1
+	if nowRollTimes > 10 and nowRollTimes <= 20 then
+		this.KillToken(Anim_token)
+		Anim_token = Hotfix.LuaWait(animTime_del[nowRollTimes - 10]*1000*Roll_time_speed, this.Rotationwhite)
+		return
+	elseif  nowRollTimes > 20 then
+		this.KillToken(Anim_token)
+		Anim_token = Hotfix.LuaWait(animTime_del[#animTime_del]*1000*Roll_time_speed, this.Rotationwhite)
+		return
+	end
+	
+	this.KillToken(Anim_token)
+	Anim_token = Hotfix.LuaWait(30, this.Rotationwhite)
+end
+---------------------------------------------------- 特效 -------------------------------------------------------
+function LuaGalaxyTreasureDlg.CreateFx( ... )
+	-- body
+	if  m_xFxMgr == nil then
+		m_xFxMgr = CS.XUtliPoolLib.XFxMgr
+	end
+
+	m_fxTab1 = {}
+end
+
+function LuaGalaxyTreasureDlg.RemvFx()
+	--print("LuaGalaxyTreasureDlg.RemvFx .. "..tonumber(#m_fxTab1))
+	-- body
+	if  m_xFxMgr ~= nil then
+		for i=1,#m_fxTab1 do
+			if not IsNil(m_fxTab1[i]) then
+				m_xFxMgr.singleton:DestroyFx(m_fxTab1[i],true)
+				m_fxTab1[i] = nil
+			end
+		end
+		m_fxTab1 = {}
+	end
+end
+---------------------------------------------------- 排行榜 函数 -------------------------------------------------
+--定时请求排行榜数据
+function LuaGalaxyTreasureDlg.ReqRankDataOnTime()
+	--print("LuaGalaxyTreasureDlg.ReqRankDataOnTime  req  ")
+	LuaGalaxyTreasureDoc.ReqRankData()
+	this.KillToken(m_token2)
+	m_token2 = Hotfix.LuaWait(10000, this.ReqRankDataOnTime)
+end
+
+--刷新排行榜
+function  LuaGalaxyTreasureDlg.RefreshRankView( ... )
+	--print("ranklist  !!!!")
+	local data = LuaGalaxyTreasureDoc.GetRankData()
+	local counts = 0
+	for i = 1,#data do
+		if data[i].reward ~= nil then
+			counts = counts + 1
+		end
+	end
+	if #data == nil then 
+		m_emptyGo:SetActive(true)
+		m_wrapContent.gameObject:SetActive(false)
+	else
+		m_emptyGo:SetActive(false)
+		m_wrapContent.gameObject:SetActive(true)
+		Hotfix.SetWrapContentCount(m_wrapContent, counts, false)
+		m_scrollView:ResetPosition()
+	end
+	
+	--print("myRank  !!!!")
+	local myData = LuaGalaxyTreasureDoc.GetMyRankData()
+	this.FillRank(m_myRankTra,myData)
+end
+function LuaGalaxyTreasureDlg.GetTaskTable()
+	taskTable = {}
+	local w0 = {}
+	local w1 = {}
+	local w2 = {}
+	local task = LuaGalaxyTreasureDoc.GetTaskTable()
+	for i = 1,#task do
+		local state = Hotfix.CallDocumentMethod("TempActivityDocument" ,true , "GetActivityState" , task[i].actid , task[i].taskid)
+		if state == 0 then
+			table.insert(w0,task[i])
+		elseif state == 1 then 
+			table.insert(w1,task[i])
+		elseif state == 2 then
+			table.insert(w2,task[i])
+		end
+	end
+	for i = 1,#w1 do
+		table.insert(taskTable,w1[i])
+	end
+	for i = 1,#w0 do
+		table.insert(taskTable,w0[i])
+	end
+	for i = 1,#w2 do
+		table.insert(taskTable,w2[i])
+	end
+end
+function LuaGalaxyTreasureDlg.WrapContent_taskItemUpdated(t,index)
+	LuaGalaxyTreasureDlg.GetTaskTable()
+	local task = taskTable[index + 1]
+	local Progress = Hotfix.CallDocumentMethod("TempActivityDocument" ,true , "GetActivityProgress" , task.actid , task.taskid)
+	local title = t:Find("Risk"):GetComponent("UILabel")
+	local state = Hotfix.CallDocumentMethod("TempActivityDocument" ,true , "GetActivityState" , task.actid , task.taskid)
+	-- t.localPosition = pos + Vector3(0,-100 * (i - 1),0)
+	title.text = task.title
+	t:Find("Num"):GetComponent("UILabel").text =  Progress .. "/" .. task.cnt
+	if task.items.Count >= 1 then
+		local item1 = t:Find("Item1")
+		item1.gameObject:SetActive(true)
+		local itemID = Hotfix.ParseUIntSeqList(task.items,0,0)
+		local itemNum = Hotfix.ParseUIntSeqList(task.items,0,1)
+		local icon = item1:Find("Icon")
+		icon:GetComponent("UISprite").uid = itemID
+		Hotfix.SetClickCallback(icon.gameObject,this.OnItemClick)
+		Hotfix.DrawItemView(item1.gameObject , itemID , itemNum , true )
+	else
+		local item1 = t:Find("Item1")
+		item1.gameObject:SetActive(false)
+	end
+	if task.items.Count >= 2 then
+		local item2 = t:Find("Item2")
+		item2.gameObject:SetActive(true)
+		local itemID = Hotfix.ParseUIntSeqList(task.items,1,0)
+		local itemNum = Hotfix.ParseUIntSeqList(task.items,1,1)
+		local icon = item2:Find("Icon")
+		icon:GetComponent("UISprite").uid = itemID
+		Hotfix.SetClickCallback(icon.gameObject,this.OnItemClick)
+		Hotfix.DrawItemView(item2.gameObject , itemID , itemNum , true )
+	else
+		local item2 = t:Find("Item2")
+		item2.gameObject:SetActive(false)
+	end
+	if task.items.Count >= 3 then
+		local item3 = t:Find("Item3")
+		item3.gameObject:SetActive(true)
+		local itemID = Hotfix.ParseUIntSeqList(task.items,2,0)
+		local itemNum = Hotfix.ParseUIntSeqList(task.items,2,1)
+		local icon = item3:Find("Icon")
+		icon:GetComponent("UISprite").uid = itemID
+		Hotfix.SetClickCallback(icon.gameObject,this.OnItemClick)
+		Hotfix.DrawItemView(item3.gameObject , itemID , itemNum , true )
+	else
+		local item3 = t:Find("Item3")
+		item3.gameObject:SetActive(false)
+	end
+	local get_t = t:Find("SweepBtn/T"):GetComponent("UILabel")
+	local get = t:Find("SweepBtn"):GetComponent("XUISprite")
+	local ylq = t:Find("ylq"):GetComponent("XUISprite")
+	local sp = t:Find(""):GetComponent("XUISprite")
+	local red = t:Find("SweepBtn/RedPoint"):GetComponent("XUISprite")
+	get.ID = task.taskid
+	Hotfix.SetClickCallback(get.gameObject,this.OnTaskGetClick)
+	if state == 0 then
+		get.gameObject:SetActive(true)
+		ylq.gameObject:SetActive(false)
+		get_t.text =  "未达成"
+		red.gameObject:SetActive(false)
+		sp:SetGrey(true)
+		get:SetGrey(false)
+	elseif state == 1 then 
+		get.gameObject:SetActive(true)
+		get:SetGrey(true)
+		ylq.gameObject:SetActive(false)
+		get_t.text =  "领取"
+		red.gameObject:SetActive(true)
+		sp:SetGrey(true)
+	elseif state == 2 then
+		get.gameObject:SetActive(false)
+		ylq.gameObject:SetActive(true)
+		sp:SetGrey(false)
+	end
+
+end
+function LuaGalaxyTreasureDlg.OnItemClick(go)
+	Hotfix.LuaShowItemTooltipDialog(go:GetComponent("UISprite").uid,go)
+end
+function LuaGalaxyTreasureDlg.OnTaskGetClick(go)
+	local id = go.transform:GetComponent("XUISprite").ID
+    LuaGalaxyTreasureDoc.OnGetRewardClick(id)
+end
+function LuaGalaxyTreasureDlg.RefreshTask(  )
+	local task_red_status = LuaGalaxyTreasureDoc.GetTaskState()
+	m_toggle2.transform:Find("RedPoint").gameObject:SetActive(task_red_status)
+	local task = LuaGalaxyTreasureDoc.GetTaskTable()
+	if task == nil then 
+		print("LuaGalaxyTreasureDoc.GetTaskTable is nil")
+		return 
+	end
+	Hotfix.SetWrapContentCount(m_wrapContent_task, #(task), true)
+end
+
+function LuaGalaxyTreasureDlg.WrapContentItemUpdated(t,index)
+	--print("index = "..tostring(index))
+	local datas = LuaGalaxyTreasureDoc.GetRankData()
+	--print("length = "..tostring(#datas))
+	if index+1 > #datas then return end	--越界，return
+	local data = datas[index + 1]
+
+	this.FillRank(t,data)
+end
+
+function LuaGalaxyTreasureDlg.FillRank(t,data)
+	--print("data.rolename = "..tostring(data.rolename))
+	if data == nil then 
+		t.gameObject:SetActive(false)
+		return 
+	end
+	--print("LuaGalaxyTreasureDlg.FillRank")
+	t.gameObject:SetActive(true)
+
+	this.SetRank(t,data.rank)
+	local lab = t:Find("Name"):GetComponent("UILabel")
+	lab.text = data.rolename
+
+	lab = t:Find("Times"):GetComponent("UILabel")
+	local totalnum = data.totalNum == nil and 0 or data.totalNum
+	lab.text = tostring(totalnum)
+
+	local go = t:Find("Items/ItemTpl").gameObject
+	if data.reward ~= nil then
+		go:SetActive(true)
+		local id = Hotfix.ParseUIntSeqList(data.reward,0,0)
+    	local num = Hotfix.ParseUIntSeqList(data.reward,0,1)
+		Hotfix.DrawItemView(go,id,num,true)
+		local spr = t:Find("Items/ItemTpl/Icon"):GetComponent("UISprite")
+		spr.uid = tostring(id)
+		Hotfix.SetClickCallback(spr.gameObject,this.OnShowTips)
+	else
+		go:SetActive(false)
+	end
+end
+
+function LuaGalaxyTreasureDlg.SetRank(tra,rank)
+	local rankSpr = tra:Find("Rank"):GetComponent("UISprite")
+	local rankLab = tra:Find("Rank3"):GetComponent("UILabel")
+	local rankout = m_myRankTra.transform:Find("OutOfRange")
+	rankSpr.gameObject:SetActive(false)
+	rankLab.gameObject:SetActive(false)
+	rankout.gameObject:SetActive(false)
+
+	if rank == 4294967295 then
+		rankLab.gameObject:SetActive(true)
+		rankLab.text = ""
+		rankout.gameObject:SetActive(true)
+		return
+	end
+
+	if rank > 3 then
+		rankLab.gameObject:SetActive(true)
+		rankLab.text = tostring(rank)
+	else
+		rankSpr.gameObject:SetActive(true)
+		rankSpr.spriteName = "N"..tostring(rank)
+	end
+end
+---------------------------------------------------- click 函数 -------------------------------------------------
+--关闭界面
+function LuaGalaxyTreasureDlg.OnCloseClick(go)
+	if LuaGalaxyTreasureDoc.GetPlayStatus() == true then
+		return 
+	end
+	if Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "IsVisible") then
+		Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetVisible", false)
+	end
+	LuaUIManager.Instance:Destroy("UI/GameSystem/GalaxyTreasure/GalaxyTreasureDlg")
+end
+--请求重置
+function LuaGalaxyTreasureDlg.OnResetClick(go)
+	if LuaGalaxyTreasureDoc.GetPlayStatus() == true then
+		return 
+	end
+	local str =  Hotfix.GetStringTable("GalaxyResetTips")
+	Hotfix.LuaMessageBoxConfirm(str,this.OnOK,this.OnCancel)
+	local modal = Hotfix.GetSingleMember("UI.ModalDlg","uiBehaviour",true,false,false)
+	if not IsNil(modal.gameObject) then
+		local oklable = modal.gameObject.transform:Find("Bg/OK/Label"):GetComponent("UILabel")
+		local canlable = modal.gameObject.transform:Find("Bg/Cancel/Label"):GetComponent("UILabel")
+		oklable.text = Hotfix.GetStringTable("COMMON_OK")
+		canlable.text = Hotfix.GetStringTable("COMMON_CANCEL")
+	end
+end
+function LuaGalaxyTreasureDlg.OnOK( ... )
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	LuaGalaxyTreasureDoc.ReqReset()
+end
+function LuaGalaxyTreasureDlg.OnCancel( ... )
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+end
+
+
+--请求爬塔 1
+function LuaGalaxyTreasureDlg.OnOpen1Click(go)
+	if LuaGalaxyTreasureDoc.GetPlayStatus() == true then
+		return 
+	end
+	this.RemvFx()
+	LuaGalaxyTreasureDoc.ReqClimbingTower(0)
+end
+--请求爬塔 5
+function LuaGalaxyTreasureDlg.OnOpen5Click(go)
+	if LuaGalaxyTreasureDoc.GetPlayStatus() == true then
+		return 
+	end
+	this.RemvFx()
+	LuaGalaxyTreasureDoc.ReqClimbingTower(1)
+end
+
+--帮助界面
+function LuaGalaxyTreasureDlg.OnHelpClick(go)
+	Hotfix.CallSingleMethod("UI.XCommonHelpTipView",true,false,"ShowHelp",XSys_GalaxyTreasure)
+end
+
+--秘宝界面
+function LuaGalaxyTreasureDlg.OnShowGalaxySpecial(go)
+	if LuaGalaxyTreasureDoc.GetPlayStatus() == true then
+		return 
+	end
+	this.RemvFx()
+	me_curtower = nil
+	LuaUIManager.Instance:Hide("UI/GameSystem/GalaxyTreasure/GalaxyTreasureDlg")
+	LuaUIManager.Instance:Load("UI/GameSystem/GalaxyTreasure/GalaxyTreasureSpecialDlg")
+end
+
+--奖励预览
+function LuaGalaxyTreasureDlg.OnShowPreView(go)
+	--LuaUIManager.Instance:Load("UI/GameSystem/GalaxyTreasureRewardPreview")
+	m_popawardview:SetActive(true)
+	local tog = m_popawardviewtoggle1.transform:GetComponent("XUICheckBox")
+	tog.bChecked = true
+	tog:ForceSetFlag(true)
+	Cur_preViewList = LuaGalaxyTreasureDoc.GetNormalawardList()
+	Hotfix.SetWrapContentCount(m_popawardviewwrapContent, #(Cur_preViewList), true)
+end
+--奖励预览1
+function LuaGalaxyTreasureDlg.popawardviewtoggle1Click(go)
+	Cur_preViewList = LuaGalaxyTreasureDoc.GetNormalawardList()
+	Hotfix.SetWrapContentCount(m_popawardviewwrapContent, #(Cur_preViewList), true)
+end
+--奖励预览2
+function LuaGalaxyTreasureDlg.popawardviewtoggle2Click(go)
+	Cur_preViewList = LuaGalaxyTreasureDoc.GetMiddleawardList()
+	Hotfix.SetWrapContentCount(m_popawardviewwrapContent, #(Cur_preViewList), true)
+end
+--奖励预览3
+function LuaGalaxyTreasureDlg.popawardviewtoggle3Click(go)
+	Cur_preViewList = LuaGalaxyTreasureDoc.GetSpecilawardList()
+	Hotfix.SetWrapContentCount(m_popawardviewwrapContent, #(Cur_preViewList), true)
+end
+function LuaGalaxyTreasureDlg.WrapContentpopawardviewUpdated(t,index)
+	if index + 1 > #Cur_preViewList then
+		t.gameObject:SetActive(false)
+		print("<color=Red> the index had out of tab Count index+1 = "
+				..tostring(index + 1).."  count = "..tostring(#Cur_preViewList).."</color>")
+		return
+	end
+	t.gameObject:SetActive(true)
+	this.FillpopawardviewSingleWrap(t,index + 1)
+end
+function LuaGalaxyTreasureDlg.FillpopawardviewSingleWrap(tra,index)
+	if IsNil(tra) then return end
+
+	local data = Cur_preViewList[index]
+	if data == nil then return end
+	local icon = tra:Find("Icon")
+	icon:GetComponent("UISprite").uid = data.itemid
+	Hotfix.SetClickCallback(icon.gameObject,this.OnItemClick)
+	Hotfix.DrawItemView(tra.gameObject, data.itemid, data.count, true)
+end
+
+--奖励预览关闭
+function LuaGalaxyTreasureDlg.OnShowPreView_close(go)
+	m_popawardview:SetActive(false)
+end
+--排行榜页签切换
+function LuaGalaxyTreasureDlg.OnToggleClick(go)
+	LuaGalaxyTreasureDoc.SetCurRankType(320)
+	LuaGalaxyTreasureDoc.ReqRankData()
+	--m_emptyGo.gameObject:SetActive(true)
+	m_myRankTra.gameObject:SetActive(true)
+	m_scrollView.gameObject:SetActive(true)
+	m_ranktiltles.gameObject:SetActive(true)
+	m_scrollView_task.gameObject:SetActive(false)
+end
+
+--排行榜页签切换2
+function LuaGalaxyTreasureDlg.OnToggleClick1(go)
+	m_emptyGo.gameObject:SetActive(false)
+	m_myRankTra.gameObject:SetActive(false)
+	m_scrollView.gameObject:SetActive(false)
+	m_ranktiltles.gameObject:SetActive(false)
+	m_scrollView_task.gameObject:SetActive(true)
+
+	local task = LuaGalaxyTreasureDoc.GetTaskTable()
+	if task == nil then 
+		print("LuaGalaxyTreasureDoc.GetTaskTable is nil")
+		return 
+	end
+	Hotfix.SetWrapContentCount(m_wrapContent_task, #(task), true)
+end
+
+--泰坦条获取途径
+function LuaGalaxyTreasureDlg.OnTiTanAccessClick(go)
+	local data = LuaGalaxyTreasureDoc.GetBaseInfoData()
+	local cost = LuaGalaxyTreasureDoc.GetCostData(data.openNum)
+	Hotfix.CallSingleMethod("UI.UiUtility", true, false, "ShowItemAccess",cost.itemId)
+end
+
+--tips
+function LuaGalaxyTreasureDlg.OnShowTips(go)
+	local itemId = go.transform:GetComponent("UISprite").uid
+	--print("LuaGalaxyTreasureDlg.OnShowTips  itemid = "..tostring(itemId))
+	Hotfix.LuaShowItemTooltipDialog(itemId,go)
+end
+
+function LuaGalaxyTreasureDlg.OnGoShopClick()
+	if LuaGalaxyTreasureDoc.GetPlayStatus() == true then
+		return 
+	end
+	shopID = tonumber(Hotfix.GetGlobalString("GalaxyShopID")) 
+	if Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "IsVisible") then
+		Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetVisible", false)
+	end
+	this.OnCloseClick()
+	
+	Hotfix.CallSingleMethod("XGameSysMgr",true,false,"Opensystem",shopID)	
+end
+---------------------------------------------------- 脚本调用函数 -------------------------------------------------
+function LuaGalaxyTreasureDlg.OnHide()
+
+	Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetVisible", false)
+	
+end
+
+function LuaGalaxyTreasureDlg.OnShow()
+	print("LuaGalaxyTreasureDlg.OnShow >> >>>>>>>>>>>>>>>")
+	local row = Hotfix.CallSingleMethod("XGameSysMgr",true,false,"GetSysData",XSys_GalaxyTreasure)
+	if row ~= nil then 
+		Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetVisible", true)
+		local TitanItems = row.TitanItems
+		Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetTitanItems", TitanItems)
+	end
+	this.Show()
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaGalaxyTreasureDlg.Awake(go)
+	m_parentTra = go.transform
+	this.Init()
+	this.RegisterEvent()
+end
+
+function LuaGalaxyTreasureDlg.Start()
+
+end
+
+function LuaGalaxyTreasureDlg.IsVisible()
+	return m_isVisible
+end
+function LuaGalaxyTreasureDlg.OnEnable()
+	m_isVisible = true
+end
+
+function LuaGalaxyTreasureDlg.OnDisable()
+	m_isVisible = false
+	Hotfix.CallSingleMethod("UI.XMainInterface",true,false,"FakeShowSelf",true)
+	this.KillToken(m_token)
+end
+
+function LuaGalaxyTreasureDlg.OnDestroy()
+	Hotfix.SetDocumentMember("XAnniversaryTreasureDocument", "ShowRewardItem", false, true, true)
+	m_isVisible = false
+	this.RemvFx()
+	LuaGalaxyTreasureDoc.SetMainHandler(nil)
+	if m_ItemPool ~= nil then
+		m_ItemPool:ReturnAllDisable()
+	end
+	map_go = {}
+	me_curtower = nil
+    m_start = nil
+	m_end = nil
+	
+end
+-- 音效
+local LastAudio = nil
+function LuaGalaxyTreasureDlg.PlayAudio( name )
+	if not(m_isVisible) then
+		LastAudio = nil
+		return
+	end
+
+	if not(IsNil(LastAudio)) and not(IsNil(LastAudio.gameObject)) then 
+		LastAudio.gameObject:SetActive(false)
+	end
+	local cnt = nil
+	if name == "MoveAudio" then
+		cnt = MoveAudio
+	elseif name == "TransStartAudio" then
+		cnt = TransStartAudio
+	elseif name == "TransEndAudio" then
+		cnt = TransEndAudio
+	elseif name == "DiceQuickAudio" then
+		cnt = DiceQuickAudio
+	elseif name == "DIceNormalAudio" then
+		cnt = DIceNormalAudio
+	elseif name == "MapRefreshAudio" then
+		cnt = MapRefreshAudio
+	end
+	cnt.gameObject:SetActive(true)
+	LastAudio = cnt
+end
+function LuaGalaxyTreasureDlg.CheckStep(currentPos)
+	--print(" LuaGalaxyTreasureDlg.CheckStep : "..tostring(LastPos).." "..tostring(currentPos))
+	if LastPos ~= currentPos then
+		LuaGalaxyTreasureDlg.PlayAudio("MoveAudio")
+		LastPos = currentPos
+	end
+end
+return this

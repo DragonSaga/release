@@ -1,0 +1,257 @@
+local M = {}
+
+    local theRankType = nil
+    local theRankWinType = nil
+--localTable
+    local m_SuperActivityTimeTable = nil
+    local m_MultiActivityListTable = nil
+    local m_rankWinRewardRowTab = nil   --胜场排名奖励
+    local m_rankScoreRewardRowTab = nil     --积分排名奖励
+
+    local theTableCount = 0
+    local _curRewardTable = {}
+
+    local scoreRankRewardList = nil     --积分排名global 里面礼包
+    local winRankRewardList = nil       --胜场排名global里面的礼包
+
+    -- GetRankTableInfoByRank 
+
+    function M.GetRankRewardIdByRank(self, rank, rankType)
+        assert(rank ~= nil and type(rank) == "number","the param type must be number!!!")
+
+        local rewardGlobalList = {}
+        if rankType == theRankWinType then --胜场
+            _curRewardTable = m_rankWinRewardRowTab
+            rewardGlobalList = scoreRankRewardList
+        elseif rankType == theRankType then --积分
+            _curRewardTable = m_rankScoreRewardRowTab
+            rewardGlobalList = winRankRewardList
+        end
+
+        if theTableCount == 0 then
+            theTableCount = #_curRewardTable
+        end
+
+        if theTableCount ~= #rewardGlobalList then
+            return
+        end
+
+        for i = 1 , theTableCount do
+            local info = _curRewardTable[i]
+            local rank0 = info.rank[0]
+            print("--rank0: "..rank0)
+            local rank1 = info.rank[1]
+            print("rank1: "..rank1)
+            if rank0 <= rank and rank1 >= rank then
+                return info--rewardGlobalList[i]
+            end    
+        end
+
+        return nil
+    end
+
+    function M.GetRankTableInfoByIndex(self, index, rankType)
+        assert(index ~= nil and type(index) == "number","the param type must be number!!!")
+
+        print("Index: "..index)
+        print("rankType: "..tostring(rankType))
+        print("theRankWinType: "..tostring(theRankWinType))
+        print("theRankType: "..tostring(theRankType))
+        if rankType == theRankWinType then --胜场
+            _curRewardTable = m_rankWinRewardRowTab
+        elseif rankType == theRankType then --积分
+            _curRewardTable = m_rankScoreRewardRowTab
+        end
+
+        if index <= #_curRewardTable then
+            return _curRewardTable[index]
+        end
+
+        return nil
+    end
+
+    function M.GetRankRewardsCount(self,theRankType)
+        print("<color=yellow>theRankType: </color>"..theRankType)
+        if theRankType == theRankWinType then --胜场
+            _curRewardTable = scoreRankRewardList
+        elseif theRankType == theRankType then --积分
+            _curRewardTable = winRankRewardList
+        end
+        
+        if theTableCount == 0 then
+            theTableCount = #_curRewardTable
+        end
+        
+        return theTableCount
+    end
+
+    function M.GetScoreRankRewardTable()
+        if m_rankScoreRewardRowTab ~= nil then return m_rankScoreRewardRowTab end
+
+        m_rankScoreRewardRowTab = {}
+        local tab = Hotfix.GetDocumentStaticMember("XAnniversaryTreasureDocument","m_TreasureRankReward",true,true)
+        for i = 0, tab.Table.Length-1 do
+            if tab.Table[i].type == 99 then
+                m_rankScoreRewardRowTab[#m_rankScoreRewardRowTab + 1] = tab.Table[i]
+                --print("index = "..tostring(i))
+                print("<color=yellow>--------------rank type index = </color>"..tostring(i))
+                local rank1 = tab.Table[i].rank[0]--Hotfix.ParseUIntSeqList(tab.Table[i].rank,0,0)
+                print("rank1: "..rank1)
+            end
+        end
+    end
+    function M.GetWinRankRewardTable()
+        if m_rankWinRewardRowTab ~= nil then return m_rankWinRewardRowTab end
+
+        m_rankWinRewardRowTab = {}
+        local tab = Hotfix.GetDocumentStaticMember("XAnniversaryTreasureDocument","m_TreasureRankReward",true,true)
+        for i = 0, tab.Table.Length-1 do
+            if tab.Table[i].type == 100 then
+                m_rankWinRewardRowTab[#m_rankWinRewardRowTab + 1] = tab.Table[i]
+                -- print("<color=yellow>--------------rank type index = </color>"..tostring(i))
+                -- local rank1 = tab.Table[i].rank[0]--Hotfix.ParseUIntSeqList(tab.Table[i].rank,0,0)
+                -- print("rank1: "..rank1)
+            end
+        end
+    end
+--end LocalTable
+
+M.RankNum = 0
+M.ScoreNum = 0
+M.KillNum = 0
+
+function M.KillerNtf(deader, killer, isRoleKiller)
+    print("<color=yellow>deader, killer, isRoleKiller: </color>"..deader.."  "..killer.." "..tostring(isRoleKiller))
+    BattleDlg.ShowChrismasKiller(killer, deader, isRoleKiller)
+end
+
+function M.LeftNumNtf(leftNum)
+    print("<color=yellow>leftNum: </color>"..leftNum)
+    BattleDlg.ShowCurLeftNum(leftNum)
+end
+
+function M.ResultNtf(rank, score, killnum)
+    print("<color=yellow>rank,score,killnum: </color>"..rank.."  "..score.."  "..killnum)
+    M.RankNum = rank
+    M.ScoreNum = score
+    M.KillNum = killnum
+    XGameSysMgr.Opensystem(XSysDefine.XSys_LevelReward)
+end
+
+--积分被保存在master服务器，不随game下发的RankRes里面RankRoleData
+function M.ReqGetGhoulScore(self, callback)
+    -- local msg = GetProtoBufSendTable("GetGhoulScoreArg")
+    -- local pb_data = msg:SerializeToString()
+    -- if pb_data ~= nil then
+    --     print("rpc id: "..RPC.RpcC2G_GetGhoulScore)
+    --     Hotfix.SendLuaByteRPC(RPC.RpcC2G_GetGhoulScore, pb_data, M.OnGetInfo, M.OnErr)
+    -- else
+    --     print("pb encode data is nil !!")
+    -- end
+end
+
+function M.OnGetInfo(data, length)
+    -- print("OnGetInfo back success")
+    -- local msg = ParseProtoBufToTable("GetGhoulScoreRes",data)
+    -- assert(msg ~= nil)
+
+    -- local theScore = msg.score-- or 0
+
+    -- print("theScore: "..tostring(theScore))
+
+    -- DispatchEvent(XEventDefine.XEvent_ZombieScoreReq, theScore)
+end
+function M.OnErr()
+end
+
+function M.GetOpenTimeStr()
+    local actid = 120  --todo:globalconfig   圣诞乱斗superActivity活动id：120
+    local superActivityTimeRowData = m_SuperActivityTimeTable:GetByactid(actid)
+    -- local startTime = superActivityTimeRowData.starttime
+    -- -- print("startTime: "..startTime)
+    -- local timestage = Hotfix.ParseUIntSeqList(superActivityTimeRowData.timestage,0,0)
+    -- print("timestage: "..timestage)
+    local inexId = 33  --todo:globalconfig   圣诞乱斗MultiActivityList序号id：33
+    local multiActivityRowData = m_MultiActivityListTable:GetByID(inexId)
+    local openDayTime0 = Hotfix.ParseUIntSeqList(multiActivityRowData.OpenDayTime,0,0)
+    local openDayTime1 = Hotfix.ParseUIntSeqList(multiActivityRowData.OpenDayTime,0,1)
+    -- print("openDayTime: "..openDayTime)
+    
+    -- local year, monthDay = math.modf(startTime / 10000)
+    -- local month = math.modf(monthDay * 10000 / 100)  --math.modf(startTime / 100 % 100)
+    -- local day = startTime % 100
+    -- print("<color=yellow>year: </color>"..year)
+    -- print("<color=yellow>month: </color>"..month)
+    -- print("<color=yellow>day: </color>"..day)
+
+    local beginDate = CS.XMainClient.XTempActivityDocument.Doc:GetEndTime(actid,0)--Hotfix.CallDocumentMethod("TempActivityDocument",true,"GetEndTime", actid, 0)
+    local endDate = CS.XMainClient.XTempActivityDocument.Doc:GetEndTime(actid,-1)--Hotfix.CallDocumentMethod("TempActivityDocument",true,"GetEndTime", actid, -1)
+
+    print("beginDate: "..beginDate.Year.." "..beginDate.Month.." "..beginDate.Day)
+    print("endDate: "..endDate.Year.." "..endDate.Month.." "..endDate.Day)
+
+    local starSrt = Hotfix.GetStringTable("CAREER_GROWTH_PROCESS_TIME",beginDate.Year, beginDate.Month, beginDate.Day)
+    local endStr = Hotfix.GetStringTable("CAREER_GROWTH_PROCESS_TIME",endDate.Year, endDate.Month, endDate.Day)
+    local durTimeStr = starSrt.."~"..endStr
+
+    local isAllOpen = openDayTime0 == 0 and openDayTime1 == 0
+    local dayOpenStr = Hotfix.GetStringTable("MultiActivityDayTips")
+
+    if not isAllOpen then
+        local openDayTime01 = math.modf(openDayTime0 / 100)
+        local openDayTime02 = openDayTime0 % 100
+
+        local openDayTime11 = math.modf(openDayTime1 / 100)
+        local openDayTime12 = openDayTime1 % 100
+
+        dayOpenStr = string.format("%02d:%02d~%02d:%02d", openDayTime01,openDayTime02,openDayTime11,openDayTime12)
+        -- dayOpenStr = openDayTime01..":"..openDayTime02.."~"..openDayTime11..":"..openDayTime12.."开放"
+    end
+
+    durTimeStr = Hotfix.GetStringTable("ChristmasActOpenTime",durTimeStr,dayOpenStr)-- durTimeStr.." "..dayOpenStr
+
+    return durTimeStr
+end
+
+--<Override
+    function M.OnTableLoaded(self)
+        m_SuperActivityTimeTable = Hotfix.GetDocumentStaticMember("XTempActivityDocument", "SuperActivityTimeTable", true, false)
+        m_MultiActivityListTable = Hotfix.GetDocumentStaticMember("XTimeLimitActivityDocument", "m_mulActivityTable", false, true)
+        
+        local g1 =  Hotfix.GetGlobalString("ChristmasRankReward01")
+        if g1 ~= nil then
+            scoreRankRewardList = g1:split("|")
+        end
+
+        local g2 = Hotfix.GetGlobalString("ChristmasRankReward02")
+        if g2 ~= nil then
+            winRankRewardList = g2:split("|")
+        end
+    end
+
+    function M.Attach(self)
+        
+    end
+
+    function M.Detach(self)
+        m_SuperActivityTimeTable = nil
+    end
+
+    function M.EnterScene(self)
+    end
+
+    function M.EnterSceneFinally(self)
+        theRankType = GetNumberByPBEnum("RankeType","ChristmasScoreRank")
+        if theRankType == nil then theRankType = 99 end
+        theRankWinType = GetNumberByPBEnum("RankeType","ChristmasWinRank")
+        if theRankWinType == nil then theRankWinType = 100 end
+        print("<color=yellow>christmasEvent enter scenefinally</color>")
+        M.GetScoreRankRewardTable()
+        M.GetWinRankRewardTable()
+    end
+
+    function M.Reconnect(self)
+    end
+-->
+
+return M

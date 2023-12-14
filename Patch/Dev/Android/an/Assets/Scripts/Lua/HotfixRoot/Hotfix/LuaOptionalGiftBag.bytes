@@ -1,0 +1,251 @@
+local this = nil
+require "LuaNSelectOneTable.lua"
+require "XNSelectOne_pb.lua"
+require "HotfixGlobal.lua"
+require "LuaCalculatorData.lua"
+require "LuaNselectoneDoc.lua"
+
+---@class LuaOptionalGiftBag
+LuaOptionalGiftBag = {}
+local thisActive = nil
+local this = LuaOptionalGiftBag
+local Numtext
+local m_Select = nil
+local m_scrollView = nil
+local m_wrapContent = nil
+local m_wrapContentGo = nil
+local NSelectOne = nil
+local m_packnum = 1
+local m_packid
+local NSelectOneTable = {}
+local CanMaxnum
+local ShowItemlist = nil
+function  LuaOptionalGiftBag.SetInfo(itemID,itemcount)
+	m_packid = itemID
+	CanMaxnum = itemcount
+	--print("LuaOptionalGiftBag.SetInfo itemid: "..tostring(itemID).." itemcount: "..tostring(itemcount))
+	this.Refresh()
+end
+
+function LuaOptionalGiftBag.Refresh()
+
+	if m_packid == nil or CanMaxnum == nil then return end
+	--print("LuaOptionalGiftBag.Refresh")
+	--print("LuaOptionalGiftBag.Refresh m_packid: "..tostring(m_packid).." CanMaxnum: "..tostring(CanMaxnum))
+
+	m_SelectitemID = nil
+	if not IsNil(Numtext) then
+		Numtext.text = "1"
+	end
+	
+	m_packnum = 1
+	for i = 1, #NSelectOneTable do 
+		--print("i: "..i.." "..NSelectOneTable[i].ItemID.." "..#NSelectOneTable[i].ItemList)
+		if NSelectOneTable[i].ItemID == m_packid then
+			ShowItemlist = NSelectOneTable[i].ItemList
+			if not IsNil(m_Tips) then
+				local theNum = tonumber(#ShowItemlist / 3)
+				m_Tips.text = Hotfix.GetStringTable("NSelectone", theNum)--tostring(theNum))
+			end
+			this.SetList()
+		end
+	end
+	if IsNil(m_Select) then return end
+	m_Select.gameObject:SetActive(false)
+end
+function LuaOptionalGiftBag.SetList()
+	--body
+	if not IsNil(m_wrapContentGo) then
+		Hotfix.InitWrapContent(m_wrapContentGo, this.WrapContentRankUpdated)
+		Hotfix.SetWrapContentCount(m_wrapContentGo, #ShowItemlist / 3, true)
+	end
+end
+function LuaOptionalGiftBag.WrapContentRankUpdated(t,index)
+	t.gameObject:SetActive(true)
+	if index + 1 > (#ShowItemlist / 3) then
+		t.gameObject:SetActive(false)
+		return
+	end
+
+	local itemid = ShowItemlist[(index+1)*3 - 2]
+	local itemCount = ShowItemlist[(index+1)*3 - 1]
+	local isBind = ShowItemlist[(index+1)*3]
+	--if IsNil(itemid) or IsNil(itemCount) then return end
+
+	local bindtra = t:Find("Bind")
+	if isBind == 1 then
+		if not IsNil(bindtra) then
+			bindtra.gameObject:SetActive(true)
+		end
+	else
+		if not IsNil(bindtra) then
+			bindtra.gameObject:SetActive(false)
+		end
+	end
+	this.DrawItem(t.gameObject,itemid,itemCount)
+end
+function LuaOptionalGiftBag.DrawItem(go,id,num)
+	Hotfix.DrawItemView(go,id,num,false)
+	local icon = go.transform:Find("Icon"):GetComponent("UISprite")
+	icon.sid = tostring(id)
+	Hotfix.SetClickCallback(icon.gameObject,this.OnClickItem)
+end
+function LuaOptionalGiftBag.OnClickItem(go)
+	local spr = go.transform:GetComponent("UISprite")
+	Hotfix.LuaShowItemTooltipDialog(tonumber(spr.sid), go)
+	m_SelectitemID = tonumber(spr.sid)
+	Numtext.text = "1"
+	m_packnum = 1
+	if IsNil(m_Select) then return end
+	m_Select.gameObject:SetActive(true)
+	m_Select.localPosition = go.transform.parent.localPosition
+
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaOptionalGiftBag.Awake(go)
+	--print("LuaOptionalGiftBag.Awake(go)")
+	m_Go = go
+	m_Trans = go.transform
+	NSelectOneTable = ReadNSelectOneTable("Table/NSelectOne")
+	Numtext = m_Trans:Find("BuycardFrame/Count/Label"):GetComponent("UILabel")
+
+	m_Select = m_Trans:Find("Items/Panel/WrapContent/Select")
+	m_scrollView = m_Trans:Find("Items/Panel"):GetComponent("UIScrollView")
+    m_wrapContent = m_Trans:Find("Items/Panel/WrapContent"):GetComponent("UIWrapContent")
+	m_wrapContentGo = m_wrapContent.gameObject
+	Hotfix.InitWrapContent(m_wrapContentGo, this.WrapContentRankUpdated)
+
+	m_OK = m_Trans:Find("BuycardFrame/OK")
+	if not IsNil(m_OK) then
+		Hotfix.SetClickCallback(m_OK.gameObject,this.OnClickOK)
+	end
+
+	m_Tips = m_Trans:Find("T"):GetComponent("UILabel")
+	m_add = m_Trans:Find("BuycardFrame/Count/Add")
+	m_sub = m_Trans:Find("BuycardFrame/Count/Sub")
+	m_MAX = m_Trans:Find("BuycardFrame/Count/MAX")
+	if not IsNil(m_add) then
+		Hotfix.SetClickCallback(m_add.gameObject,this.OnClickAdd)
+	end
+	if not IsNil(m_sub) then
+		Hotfix.SetClickCallback(m_sub.gameObject,this.OnClickSub)
+	end
+	if not IsNil(m_MAX) then
+		Hotfix.SetClickCallback(m_MAX.gameObject,this.OnClickMAX)
+	end
+
+	m_close = m_Trans:Find("Close")
+	if not IsNil(m_close) then
+		Hotfix.SetClickCallback(m_close.gameObject,this.OnClose)
+	end
+
+	m_Count = m_Trans:Find("BuycardFrame/Count/Label")
+	if not IsNil(m_Count) then
+		Hotfix.SetClickCallback(m_Count.gameObject,this.OnClickInput)
+	end
+
+	LuaNselectoneDoc.setFrame(this)
+	--this.Refresh()
+end
+function LuaOptionalGiftBag.OnClickInput()
+	LuaUIManager.Instance:Load("UI/Common/UILuaCalculator")
+	LuaCalculatorData.SetHandlerDlg(this,CanMaxnum,1, 0)
+end
+function LuaOptionalGiftBag.SetCalculatorNum(theNum)
+	local theNumLb = m_Trans:Find("BuycardFrame/Count/Label"):GetComponent("UILabel")
+
+	m_packnum = tonumber(theNum)
+
+	if not IsNil(theNumLb) then
+		theNumLb.text = tostring(theNum)
+	end
+end
+function LuaOptionalGiftBag.OnClickAdd()
+	if m_packnum + 1 <= CanMaxnum then
+		m_packnum = m_packnum + 1
+		Numtext.text = tostring(m_packnum)
+		return
+	end
+	Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("CARD_COUNT_MAX"))
+end
+function LuaOptionalGiftBag.OnClickSub()
+	if m_packnum - 1 >= 1 then
+		m_packnum = m_packnum - 1
+		Numtext.text = tostring(m_packnum)
+		return
+	end
+	Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("CARD_COUNT_MIN"))
+end
+function LuaOptionalGiftBag.OnClickMAX()
+	m_packnum = CanMaxnum
+	Numtext.text = tostring(m_packnum)
+	Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("CARD_COUNT_MAX"))
+end
+
+function LuaOptionalGiftBag.OnShow()
+	thisActive = true
+	this.Refresh()
+end
+
+function LuaOptionalGiftBag.OnHide()
+end
+function LuaOptionalGiftBag.Start()
+end
+
+function LuaOptionalGiftBag.OnEnable()
+end
+function LuaOptionalGiftBag.OnClose()
+	LuaUIManager.Instance:Destroy("UI/GameSystem/OptionalGiftBag")
+end
+function LuaOptionalGiftBag.OnDisable()
+end
+
+function LuaOptionalGiftBag.OnDestroy()
+	m_packid = 0
+	thisActive = false
+	Numtext = nil
+	m_Select = nil
+	m_scrollView = nil
+	m_wrapContent = nil
+	m_wrapContentGo = nil
+end
+
+
+function LuaOptionalGiftBag.OnClickOK()
+	if m_SelectitemID == nil then
+		Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("ItemNoSelected"))
+		return
+	end
+	local  msg = GetProtoBufSendTable("NSelectOneArg")
+	msg.packID = m_packid
+	msg.giveItemID = m_SelectitemID
+	msg.packNum = m_packnum
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print "do send rpc 41132"
+		Hotfix.SendLuaByteRPC(41132, pb_data, this.ResOK, this.ResErr)
+	end
+end
+function LuaOptionalGiftBag.ResOK(data,length)
+	local  msg = ParseProtoBufToTable("SpActSecretTotalRes",data)
+	if msg ~= nil then
+
+	else
+		print("restart reply msg is nil")
+	end
+	if msg.result ~= 0 then
+		Hotfix.LuaShowSystemTipErrCode(msg.result)
+		return 
+	end
+	this.OnClose()
+end
+function LuaOptionalGiftBag.ResErr()
+
+end
+
+function LuaOptionalGiftBag.isVisible()
+	return thisActive
+end
+
+return this

@@ -1,0 +1,231 @@
+local M = class(Singleton)
+
+--管理子视图类
+local m_handlers = nil
+
+function M.ctor(self)
+    print("dlg base do ctor")   
+    self.m_bLoaded = false
+end
+
+
+local function _GetUIContainer(self)
+    return UIManager.GetContainer(self.hashId)
+end
+function M.GetUIBehaviour(self)
+    --print("<color=red>get uiBehaviour</color>")
+    local uicontainer =_GetUIContainer(self)
+    if uicontainer ~= nil then
+        --print("<color=red>get uicontainer and to get .ui</color>")
+        --print("<color=red>get uicontainer obj name: </color>"..uicontainer:GetContent().name)
+        return uicontainer:GetUI()
+    end    
+end
+
+function M.SetVisiblePure(self, bIsVisible)
+    assert(bIsVisible ~= nil and type(bIsVisible) == "boolean")
+    M:GetUIBehaviour().gameObject:SetActive(bIsVisible)
+end
+
+local function Load(self)
+    assert(UIManager ~= nil)
+    
+    print("Load   hashId: "..self.hashId)
+    local container = UIManager.GetContainer(self.hashId)
+    if container == nil then
+        print("Load fileName: "..self.fileName)
+        self.hashId = UIManager.GetNextAddMapId()
+        --print("<color=yellow> =======================》Load   new self.hashId: </color>"..self.hashId)
+        UIManager.RegisterDlgContainer(self.fileName, self.hashId)
+    end
+
+    local container = UIManager.GetContainer(self.hashId)
+    if container == nil then
+        print("<color=red> =======================》 load filed!!!   new hashId: </color>"..self.hashId)
+    end
+    
+    container:SetDlgBase(self)
+    local obj = container:GetContent()
+    assert(obj == nil,"container's content is already existence!!!")
+    container:LoadContentCo(function()
+        self.m_bLoaded = true
+        --print("Load  self.m_bLoaded: "..tostring(self.m_bLoaded))
+        local obj1 = container:GetContent()
+        --print("<color=red>Load  obj1 name: </color>"..obj1.name)
+        M.Init(self)
+        M.OnLoad(self)
+        M.SetVisible(self, true)
+    end)
+end
+
+function M.SetVisible(self, bIsVisible, bEnableAuto)
+    --print("====================================>SetVisible   bIsVisible = "..tostring(bIsVisible))
+    assert(bIsVisible ~= nil and type(bIsVisible) == "boolean")
+
+    if nil == bEnableAuto then
+        bEnableAuto = true
+    else
+        assert(type(bEnableAuto) == "boolean")
+    end
+
+    self.hashId = self.hashId or -1
+
+    --print("==============>SetVisible   hashId: "..tostring(self.hashId))
+    --print("<color=yellow>==============> SetVisible  self.m_bLoaded: </color>"..tostring(self.m_bLoaded))
+
+    if not self.m_bLoaded then
+        if self.autoload and bEnableAuto then
+            --print("  nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn   do Load")
+            Load(self)
+        end
+        return
+    end
+
+    if bIsVisible and not M.CanShow() then return end
+
+    local ui = UIManager.GetUI(self.hashId)
+    assert(ui ~= nil)
+
+    if bIsVisible then
+        --print("SetVisible ==============================》   do show")
+        UIManager.Push(self.hashId)
+        GameUtil:DoUIManagerDlgShow(true)
+        M.RegisterEvent(self)
+        M.OnShow(self) 
+    else
+        --print("do hide")
+        UIManager.Backward()
+        GameUtil:DoUIManagerDlgShow(false)
+        M.OnHide(self)
+        M.UnRegisterEvent(self)
+        M.OnUnload(self)
+        UIManager.UnRegisterDlgContainer(self)
+    end
+end
+
+function M.CanShow()
+    --todo: XTutorialMgr.singleton.InTutorial
+    return true
+end
+
+function M.UnLoad(self, bTransfer)
+    if nil == bTransfer then
+        bTransfer = false
+    else
+        assert(type(bTransfer) == "boolean")
+    end
+
+    if self.m_bLoaded then
+        if bTransfer then
+            M.SetVisible(self, false, false)
+        else
+            M.UnRegisterEvent(self)
+            M.OnUnload(self)
+
+            if self.m_handlers ~= nil then
+                for _, v in self.m_handlers do
+                    v:UnLoad()
+                end
+                self.m_handlers = {}
+            end
+            self.m_bLoaded = false
+            --todo: UIManager.unload remove
+            --todo: self._uicontainer = nil
+            --todo: like c# unseafeDestroy 
+            --todo:  not switchScene  resources.UnloadUnuseAdAssets
+        end
+    end
+end
+
+
+local function HasHandler(self, handler)
+
+    if self.m_handlers == nil then return false end
+
+    for _, v in ipairs(self.m_handlers) do
+        if v == handler then
+            return true
+        end
+    end
+
+    return false
+end
+
+function M.AttachHandler(self, handler, parentObj, visible)
+    assert(handler ~= nil)
+    assert(type(handler) == "table")
+
+    local hasHandler = HasHandler(self, handler)
+    if not hasHandler then
+        --local uicontainer =_GetUIContainer(self)
+        --if uicontainer ~= nil then
+            -- todo:设置层级
+            -- uicontainer:GetLayerOrder()
+        --end
+
+        self.m_handlers = self.m_handlers or {}
+        table.insert(self.m_handlers, handler)
+    end
+
+    assert(parentObj ~= nil, "rootObj is nil!!!!")
+
+    if handler.SetParent then
+        handler:SetParent(parentObj)
+    end
+
+    if nil == visible then
+        visible = true
+    else
+        assert(type(visible) == "boolean")
+    end
+
+    if handler.SetVisible then
+        handler:SetVisible(visible)
+    end
+end
+--
+
+--need Override
+    -- M.fileName = nil 
+    -- M.autoload = nil
+    -- M.fileName = stringEmpty
+    -- M.layer = 2
+    -- M.pushstack = false
+    -- M.fullscreenui = false
+    -- M.hideMainMenu = false
+    -- M.autoload = false
+
+    -- local hashId = 0
+    -- local fileName = ""
+    -- local sysid = 0
+    -- local autoload = false
+    function M.Init(self)
+        self:Init()
+    end
+    function M.OnLoad(self)
+        self:OnLoad()	
+    end
+    function M.OnShow(self)
+        self:OnShow()
+    end
+    function M.OnHide(self)
+        self:OnHide()
+    end
+    function M.OnUnload(self)
+        self:OnUnload()
+    end
+    function M.RegisterEvent(self)
+        self:RegisterEvent()
+    end
+    function M.UnRegisterEvent(self)
+        self:UnRegisterEvent()
+    end
+    function M.StackRefresh(self)
+        self:StackRefresh()
+    end
+    function M.LeaveStackTop(self)
+        self:LeaveStackTop()
+    end
+--
+
+return M

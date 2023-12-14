@@ -1,0 +1,338 @@
+local this = nil
+
+require("LuaProfessionStrategyTable.lua")
+LuaProfessionalStrategyDlg = {}
+local this = LuaProfessionalStrategyDlg
+
+local print = Debugger.LogWarning
+
+local Career = {}
+local professionStrategyTable
+
+local m_CareerItem_Pool = nil
+local m_ProfessionItem_Pool = nil
+
+local Current_Profession = 111
+local Current_State = 2 --1使用技巧 2龙器推荐
+
+local m_closeBtn= nil
+local skill= nil
+local skill_view= nil
+local artifact= nil
+local artifact_view= nil
+local item_Pool= nil
+local Emblem_tip= nil
+local Artifact_tip= nil
+local Texture_Pool= nil
+local Label_Pool = nil
+function LuaProfessionalStrategyDlg.Init()
+
+	Current_Profession = 111
+	Current_State = 2
+	 
+	m_closeBtn = selfTrans:Find("Bg/Close").gameObject
+
+	local m_Table = selfTrans:Find("Bg/Left/TypeList/Table").gameObject
+	local m_CareerItem = selfTrans:Find("Bg/Left/TypeList/Table/CareerItem").gameObject
+	local m_ProfessionItem = selfTrans:Find("Bg/Left/TypeList/Table/ProfessionItem").gameObject
+	m_CareerItem_Pool = Hotfix.SetupPool(m_Table,m_CareerItem,8)--大页签
+	m_ProfessionItem_Pool = Hotfix.SetupPool(m_Table,m_ProfessionItem,5)--小页签
+
+
+	skill = selfTrans:Find("Bg/Tabs/skill/Bg").gameObject
+	skill_view =  selfTrans:Find("Bg/Right/UseSkillsRoot").gameObject
+	SkillTextureTpl = selfTrans:Find("Bg/Right/UseSkillsRoot/SkillTextureTpl").gameObject
+	LabelItemTpl = selfTrans:Find("Bg/Right/UseSkillsRoot/LabelItemTpl").gameObject
+	Texture_Pool = Hotfix.SetupPool(skill_view,SkillTextureTpl,5)--图集
+	Label_Pool = Hotfix.SetupPool(skill_view,LabelItemTpl,5)--文集
+
+	artifact = selfTrans:Find("Bg/Tabs/artifact/Bg").gameObject
+	artifact_view =  selfTrans:Find("Bg/Right/ArtifactTplRoot").gameObject
+	local item_tpl = selfTrans:Find("Bg/Right/ArtifactTplRoot/itemTpl").gameObject
+
+	local isPure = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "IsPureVersion")
+	artifact:SetActive(isPure == false)
+
+	item_Pool = Hotfix.SetupPool(artifact_view,item_tpl,5)--item
+	Emblem_tip = selfTrans:Find("Bg/Right/ArtifactTplRoot/Emblem/tip"):GetComponent("UILabel")
+	Artifact_tip = selfTrans:Find("Bg/Right/ArtifactTplRoot/Artifact/tip"):GetComponent("UILabel")
+
+	professionStrategyTable = ReadProfessionStrategyTable("Table/ProfessionStrategy")
+	Career = {}
+	--print("LuaProfessionalStrategyDlg.professionStrategyTable : "..tostring(#professionStrategyTable))
+
+	for i = 1,#professionStrategyTable do
+		local ishave = false
+		for j = 1,#Career do
+			if professionStrategyTable[i].Career == Career[j].Career then
+				ishave = true
+			end
+		end
+		if ishave == false then
+			Career[#Career + 1] = professionStrategyTable[i]
+		end
+	end
+	--print("LuaProfessionalStrategyDlg.Init : "..tostring(#Career))
+
+	--首次刷一遍
+	this.FirstRefresh()
+end
+function LuaProfessionalStrategyDlg.RegisterEvent()
+	Hotfix.SetClickCallback(m_closeBtn,this.OnCloseClick)
+	Hotfix.SetClickCallback(skill,this.OnSkill)
+	Hotfix.SetClickCallback(artifact,this.OnArtifact)
+end
+function LuaProfessionalStrategyDlg.FirstRefresh()--首刷
+	m_ProfessionItem_Pool:FakeReturnAll()
+	m_CareerItem_Pool:FakeReturnAll()
+	Page_Trans = {}
+	for i = 1,#Career do
+		local page = m_CareerItem_Pool:FetchGameObject()
+		local spr = page.transform:GetComponent("UISprite")
+		spr.sid = tostring(Career[i].Career)
+		Hotfix.SetClickCallback(page,this.OnPageClick)
+
+		local UnSelectLab = page.transform:Find("UnSelectLab"):GetComponent("UILabel")
+		local NameLab = page.transform:Find("SelectLab/NameLab"):GetComponent("UILabel")
+		UnSelectLab.text = Career[i].CareerName
+		NameLab.text = Career[i].CareerName
+		Page_Trans[#Page_Trans + 1] = page
+	end
+
+	print("professionStrategyTable count: "..tostring(#professionStrategyTable))
+	for i = 1,#professionStrategyTable do
+		local child = m_ProfessionItem_Pool:FetchGameObject()
+		local spr = child.transform:GetComponent("UISprite")
+		spr.sid = tostring(professionStrategyTable[i].Profession)
+		Hotfix.SetClickCallback(child,this.OnChildClick)
+
+		child.transform.parent = Page_Trans[professionStrategyTable[i].Career].transform:Find("ChildList")
+		child.transform.localPosition = Vector3(0,-(child.transform.parent.childCount) * 47,0)
+		child.transform.localScale = Vector3.one
+
+		local UnSelectLab = child.transform:Find("UnSelectLab"):GetComponent("UILabel")
+		local SelectLab = child.transform:Find("SelectLab"):GetComponent("UILabel")
+		UnSelectLab.text = professionStrategyTable[i].ProfessionName
+		SelectLab.text = professionStrategyTable[i].ProfessionName
+
+	end 
+
+	local icb = Page_Trans[1].transform:GetComponent("XUICheckBox")
+	icb.bChecked = true
+	icb:ForceSetFlag(true)
+
+	icb = skill.transform:GetComponent("XUICheckBox")
+	icb.bChecked = true
+	icb:ForceSetFlag(true)
+	this.OnSkill()
+
+	this.Refresh()
+end
+function LuaProfessionalStrategyDlg.Refresh()--普刷
+	item_Pool:FakeReturnAll()
+	Texture_Pool:FakeReturnAll()
+	Label_Pool:FakeReturnAll()
+	--Current_Profession 当前小职业
+	--Current_State 当前横版页签
+	local data = nil
+	for i = 1,#professionStrategyTable do
+		if professionStrategyTable[i].Profession == Current_Profession then
+			data = professionStrategyTable[i]
+		end
+	end 
+	if data == nil then return end
+	Artifact_tip.text = data.ArtifactIntro
+	Emblem_tip.text = data.EmblemIntro
+	for i = 1, #data.ArtifactItems do
+		local item = item_Pool:FetchGameObject()
+		item.transform.parent = artifact_view.transform:Find("Artifact")
+		item.transform.localPosition = Vector3((i-1)*item_Pool.TplWidth,0,0)
+		this.DrawItem(item,data.ArtifactItems[i],1)
+	end
+	if data.EmblemItems ~= nil then
+		print("duckl  sssss "..#data.EmblemItems)
+		for i = 1, #data.EmblemItems do
+			local item = item_Pool:FetchGameObject()
+			item.transform.parent = artifact_view.transform:Find("Emblem")
+			item.transform.localPosition = Vector3((i-1)*item_Pool.TplWidth,0,0)
+			this.DrawItem(item,data.EmblemItems[i],1)
+		end
+	end
+
+	skill_view.transform:Find("ScrollView"):GetComponent("UIScrollView"):ResetPosition()
+	skill_view.transform:Find("Title"):GetComponent("UILabel").text = Hotfix.GetStringTable("ProfessionStrategyRecName", data.ProfessionName)
+	for i = 1, #data.SkillTexture do
+		local texture = Texture_Pool:FetchGameObject()
+		texture.transform.parent = skill_view.transform:Find("ScrollView")
+		texture.transform.localPosition = Vector3(-30,-90-(i-1)*(238 + 90),0)
+		--print("#data.SkillTexture :"..tostring((i-1)).." "..tostring(Texture_Pool.TplHeight + Label_Pool.TplHeight))
+		texture.transform:GetComponent("UITexture"):SetTexture("atlas/UI/GameSystem/ProfessionalStrategy/"..data.SkillTexture[i])
+		texture.gameObject:SetActive(false)
+		texture.gameObject:SetActive(true)
+	end
+	for i = 1, #data.SkillIntroduction / 2 do
+		local label = Label_Pool:FetchGameObject()
+		label.transform.parent = skill_view.transform:Find("ScrollView")
+		if i > #data.SkillTexture then
+			label.transform.localPosition = Vector3(-30,-267-(i-2)*(238 + 90) - 90,0)
+		else
+			label.transform.localPosition = Vector3(-30,-267-(i-1)*(238 + 90),0)	
+		end
+
+		label.transform:Find("SkillName"):GetComponent("UILabel").text = data.SkillIntroduction[i*2-1]
+		label.transform:Find("DetailT"):GetComponent("UILabel").text  = Hotfix.CallSingleMethod("UI.UiUtility", false, false, "ReplaceReturn", data.SkillIntroduction[i*2]) 
+	end
+
+	item_Pool:ActualReturnAll(true)
+	Texture_Pool:ActualReturnAll(true)
+	Label_Pool:ActualReturnAll(true)
+end
+function LuaProfessionalStrategyDlg.DrawItem(go,id,num)
+	Hotfix.DrawItemView(go,id,num,false)
+	local icon = go.transform:Find("Icon"):GetComponent("UISprite")
+	icon.sid = tostring(id)
+	Hotfix.SetClickCallback(icon.gameObject,this.OnClickItem)
+end
+function LuaProfessionalStrategyDlg.OnClickItem(go)
+	local spr = go.transform:GetComponent("UISprite")
+	Hotfix.LuaShowItemTooltipDialog(tonumber(spr.sid), go)
+end
+--大页签
+function LuaProfessionalStrategyDlg.OnPageClick(go)
+	local spr = go.transform:GetComponent("UISprite")
+	local id = tonumber(spr.sid)
+
+end
+--小页签
+function LuaProfessionalStrategyDlg.OnChildClick(go)
+	local spr = go.transform:GetComponent("UISprite")
+	local id = tonumber(spr.sid)
+	if Current_Profession == id then return end--频繁
+	Current_Profession = id
+	this.Refresh()
+end
+--使用技巧
+function LuaProfessionalStrategyDlg.OnSkill()
+	skill_view:SetActive(true)
+	artifact_view:SetActive(false)
+	if Current_State == 1 then return end--频繁
+	Current_State = 1
+	this.Refresh()
+end
+--龙器
+function LuaProfessionalStrategyDlg.OnArtifact()
+	skill_view:SetActive(false)
+	artifact_view:SetActive(true)
+	if Current_State == 2 then return end--频繁
+	Current_State = 2
+	this.Refresh()
+end
+--关闭界面
+function LuaProfessionalStrategyDlg.OnCloseClick()
+	LuaUIManager.Instance:Hide("UI/GameSystem/ProfessionalStrategyDlg")
+end
+
+--增加跳转功能
+function LuaProfessionalStrategyDlg.Jump2Profe(Profession)
+	Current_Profession = Profession
+	if IsNil(skill_view) then return end
+	skill_view:SetActive(true)
+	artifact_view:SetActive(false)
+	Current_State = 1
+	local icb2 = skill.transform:GetComponent("XUICheckBox")
+	icb2.bChecked = true
+	icb2:ForceSetFlag(true)
+
+	local belongcarrer = this.belongCarrer(Profession)
+	print("profession: "..Profession)
+	print("belongcarrer: "..tostring(belongcarrer))
+	local icb = Page_Trans[belongcarrer].transform:GetComponent("XUICheckBox")
+	icb.bChecked = true
+	icb:ForceSetFlag(true)
+	local play = Page_Trans[belongcarrer].transform:GetComponent("XUIPlayTween")
+	play:PlayTween(true)
+
+
+	this.Refresh()
+end
+--主动读表
+local testtable
+function LuaProfessionalStrategyDlg.readTable()
+ 	testtable = ReadProfessionStrategyTable("Table/ProfessionStrategy")
+end
+--在表格中是否存在此职业
+function LuaProfessionalStrategyDlg.haveProfession(Profession)
+	if testtable == nil then 
+		testtable = ReadProfessionStrategyTable("Table/ProfessionStrategy")
+	end
+	for i = 1,#testtable do
+		if testtable[i].Profession == Profession then
+			return true
+		end
+	end
+	return false
+end
+function LuaProfessionalStrategyDlg.belongCarrer(Profession)
+	if testtable == nil then 
+		testtable = ReadProfessionStrategyTable("Table/ProfessionStrategy")
+	end
+	for i = 1,#testtable do
+		if testtable[i].Profession == Profession then
+			return testtable[i].Career
+		end
+	end
+	return 1
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaProfessionalStrategyDlg.Awake(go)
+	--print("LuaProfessionalStrategyDlg.Awake")
+	selfObj = go
+
+	selfTrans = selfObj.transform
+	
+	this.Init()
+	this.RegisterEvent()
+end
+function LuaProfessionalStrategyDlg.OnShow()
+	--print("LuaProfessionalStrategyDlg.OnShow")
+end
+function LuaProfessionalStrategyDlg.OnHide()
+	--print("LuaProfessionalStrategyDlg.OnHide")
+	--LuaUIManager.Instance:Hide("UI/GameSystem/ProfessionalStrategyDlg")
+end
+function LuaProfessionalStrategyDlg.Start()
+	--print("LuaProfessionalStrategyDlg.Start")
+
+end
+
+function LuaProfessionalStrategyDlg.OnEnable()
+	--print("LuaProfessionalStrategyDlg.OnEnable")
+end
+function LuaProfessionalStrategyDlg.OnDisable()
+	--print("LuaProfessionalStrategyDlg.OnDisable")
+end
+
+function LuaProfessionalStrategyDlg.OnDestroy()
+	print("LuaProfessionalStrategyDlg.OnDestroy")
+	if Texture_Pool ~= nil then
+		Texture_Pool:ReturnAll()
+		Texture_Pool = nil
+	end
+	if Label_Pool ~= nil then
+		Label_Pool:ReturnAll()
+		Label_Pool = nil
+	end
+	if item_Pool ~= nil then
+		item_Pool:ReturnAll()
+		item_Pool = nil
+	end
+	if m_CareerItem_Pool ~= nil then
+		m_CareerItem_Pool:ReturnAll()
+		m_CareerItem_Pool = nil
+	end
+	if m_ProfessionItem_Pool ~= nil then
+		m_ProfessionItem_Pool:ReturnAll()
+		m_ProfessionItem_Pool = nil
+	end
+end
+return this

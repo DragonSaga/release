@@ -1,0 +1,772 @@
+-- UnityEngine命名空间
+UnityEngine = CS.UnityEngine
+UnityTime = UnityEngine.Time
+GameObject = UnityEngine.GameObject
+Transform = UnityEngine.Transform
+Resources = UnityEngine.Resources
+Application = UnityEngine.Application
+RuntimePlatform = UnityEngine.RuntimePlatform
+AssetBundle = UnityEngine.AssetBundle
+WWW = UnityEngine.WWW
+Input = UnityEngine.Input
+KeyCode = UnityEngine.KeyCode
+UnitySystemInfo = UnityEngine.SystemInfo
+UnityVector3 = UnityEngine.Vector3
+-- Color = UnityEngine.Color
+-- Vector2 = UnityEngine.Vector2
+-- Vector3 = UnityEngine.Vector3
+-- Vector4 = UnityEngine.Vector4
+-- Quaternion = UnityEngine.Quaternion
+Debugger = UnityEngine.Debug
+NGUITools = CS.NGUITools
+
+-- XFxMgr = CS.XUtliPoolLib.XFxMgr  --使用xlua的反射机制
+-- debug = CS.XUtliPoolLib.XDebug
+--xlua.import_type('XUtliPoolLib.XFxMgr')
+--CS.XUtliPoolLib.XSingleton(CS.XUtliPoolLib.XFxMgr)--CS.XUtliPoolLib.XFxMgr
+--for 'xlua.import_type' replace 'luanet.import_type'
+
+ResourcesLoaderMgr = CS.DC.Framework.Loaders.ResourceLoderMgr
+DelegateFactory = CS.DC.Framework.Loaders.DelegateFactory
+
+NetworkHelp = CS.DC.Framework.LuaNetworkHelp
+GameUtil = CS.DC.Framework.GameUtil.Instance
+PathUtility = CS.DC.Framework.PathUtility
+Hotfix = CS.Hotfix
+XLuaUIManager = CS.DC.Framework.HotfixRoot.XLuaUIManager
+LuaUIManager = XLuaUIManager
+PrivateExtensions = CS.PrivateExtensions
+PublicExtensions = CS.PublicExtensions
+-- ArrayList = typeof(CS.System.Collections.ArrayList)
+
+-- unpack is a global function for Lua 5.1, otherwise use table.unpack
+unpack = rawget(_G, "unpack") or table.unpack
+
+--just for old hotfix pb parse compatible 
+-- require "HotfixRoot/containers"
+-- require "HotfixRoot/decoder"
+-- require "HotfixRoot/descriptor"
+-- require "HotfixRoot/encoder"
+-- require "HotfixRoot/listener"
+-- require "HotfixRoot/MemoryReferenceInfo"
+-- require "HotfixRoot/person_pb"
+-- require "HotfixRoot/protobuf"
+-- require "HotfixRoot/text_format"
+-- require "HotfixRoot/type_checkers"
+-- require "HotfixRoot/wire_format"
+
+-- 加载全局模块
+-- require "Common.Tools.import"
+require "Common/LuaUtil"
+require "Common/TableUtil"
+-- require "Common.StringUtil"
+Mathf		= require "Common/Tools/UnityEngine/Mathf"
+Vector2		= require "Common/Tools/UnityEngine/Vector2"
+Vector3 	= require "Common/Tools/UnityEngine/Vector3"
+Vector4		= require "Common/Tools/UnityEngine/Vector4"
+Quaternion	= require "Common/Tools/UnityEngine/Quaternion"
+Color		= require "Common/Tools/UnityEngine/Color"
+Ray			= require "Common/Tools/UnityEngine/Ray"
+Bounds		= require "Common/Tools/UnityEngine/Bounds"
+RaycastHit	= require "Common/Tools/UnityEngine/RaycastHit"
+Touch		= require "Common/Tools/UnityEngine/Touch"
+LayerMask	= require "Common/Tools/UnityEngine/LayerMask"
+Plane		= require "Common/Tools/UnityEngine/Plane"
+Time		= require "Common/Tools/UnityEngine/Time"
+Object		= require "Common/Tools/UnityEngine/Object"
+
+list 		= require "Common/Tools/list"
+require "Common/Tools/event"
+
+--Core
+require "Framework/class"
+require "Framework/Updater/Coroutine"
+
+--全局模块
+Singleton = require "Framework/singleton"
+UIDlgBase = require "Framework/UI/UIDlgBase"
+
+-- update & time
+Timer = require "Framework/Updater/Timer"
+TimerManager = require "Framework/Updater/TimerManager"
+UpdateManager = require "Framework/Updater/UpdateManager"
+-- LogicUpdater = require "GameLogic/Main/LogicUpdater"
+
+-- 常用类
+-- StringUtil = CS.StringUtil
+-- ReflectUtil = CS.ReflectUtil
+
+stringEmpty = ""
+
+
+-- 管理器
+LogManager = require "Framework/LogManager"
+Profiler = require "Framework/Profiling/Profiler"
+UIManager = require "Framework/UIManager"
+
+
+-- 扩展功能
+-- UIExtension = require "Framework/Extensions/UIExtension"
+-- DateTimeExtension = require "Framework/Extensions/DateTimeExtension"
+
+-- 常用表
+LuaBehaviour = require "Framework/LuaBehaviour"
+XGameSysMgr = require "Game/GameLogic/XGameSysMgr"
+XCommon = require "Common/XCommon"
+XTableMgr = require "Game/GameLogic/XTableMgr"
+XDocumentMgr = require "Game/GameLogic/XDocumentMgr"
+
+require "Game/GameLogic/XEventDefine"
+require "Game/GameLogic/XSysDefine"
+require "Game/GameLogic/EnumTable"
+require "Net/NetWorkDefine"
+
+--预加载特别大的table
+-- require "LuaJadeEquipDataModel"
+
+-- 缓存常用的类型
+UIClassType = {
+	
+	-- NGUI 
+	UIPanel = typeof(CS.UIPanel),
+	UISprite = typeof(CS.UISprite),
+
+	--UILib
+	XUILabel = typeof(CS.XUILabel),
+	XUISprite = typeof(CS.XUISprite),
+	-- uGUI
+	-- Canvas = typeof(UnityEngine.Canvas),
+	-- CanvasGroup = typeof(UnityEngine.CanvasGroup),
+	-- RectTransform = typeof(UnityEngine.RectTransform),
+	-- Image = typeof(UnityEngine.UI.Image),
+	-- RawImage = typeof(UnityEngine.UI.RawImage),
+	-- Text = typeof(UnityEngine.UI.Text),
+	-- Button = typeof(UnityEngine.UI.Button), 
+	-- ScrollRect = typeof(UnityEngine.UI.ScrollRect),
+	-- Slider = typeof(UnityEngine.UI.Slider),
+	-- Toggle = typeof(UnityEngine.UI.Toggle),
+	-- ToggleGroup = typeof(UnityEngine.UI.ToggleGroup),
+	-- InputField = typeof(UnityEngine.UI.InputField),
+	-- Dropdown = typeof(UnityEngine.UI.Dropdown),
+	-- LoopScrollRect = typeof(UnityEngine.UI.LoopScrollRect),
+	-- LayoutElement = typeof(UnityEngine.UI.LayoutElement),
+	-- TextMeshProUGUI = typeof(CS.TMPro.TextMeshProUGUI),
+	-- Animator = typeof(UnityEngine.Animator),
+	-- LayoutGroup = typeof(UnityEngine.UI.LayoutGroup),	
+
+}
+
+GameObjectLayer = {
+	Default = 0,
+	TransparentFX = 1,
+	IgnoreRaycast = 2,
+	Water = 4,
+	UI = 5,
+	Character = 14,
+}
+
+XGameUI = {
+	UIRoot = nil
+}
+
+--事件消息中心
+	local EventCenter = nil
+	---@param type XEventDefine
+	---@param callback eventLister
+	---@param ... other params
+	function RegisterEvent(type, callback, ...)
+		assert(EventCenter ~= nil, "EventCenter is nil !!!")
+		EventCenter:AddListener(type, callback, ...)
+	end
+
+	function UnRegisterEvent(type, callback, ...)
+		assert(EventCenter ~= nil, "EventCenter is nil !!!")
+		EventCenter:RemoveListener(type, callback, ...)
+	end
+	function DispatchEvent(type, ...)
+		assert(EventCenter ~= nil, "EventCenter is nil !!!")
+		EventCenter:Broadcast(type, ...) --发送消息
+	end
+
+--会在XMainClient里的XUpdate里的LaunchGame最后执行
+function DoGlobalInit()
+
+	--读取支持热更的pb资源
+	require "Net/Network_Pb"
+
+	local Messenger = require "Framework/Common/Messenger"
+	EventCenter = Messenger.New() --创建消息中心
+		-- EventCenter:AddListener(Type, callback) --添加监听
+		-- EventCenter:AddListener(Type, callback, ...) --添加监听
+		-- EventCenter:Broadcast(Type, ...) --发送消息
+		-- EventCenter:RemoveListener(Type, callback, ...) --移除监听
+		-- EventCenter:Cleanup() --清理消息中心
+
+	XTableMgr:NeedPreLoadBigTable()
+	XDocumentMgr:RegisterDoc()
+
+	--todo 通用override的地方
+		XDocumentMgr:OnTableLoaded()
+		
+	local cannotFind = true
+	
+	local uiRoot = GameObject.Find("UIRoot(Clone)")
+
+	--FxMgr test
+		-- local singletenMgr = XFxMgr.singleton
+		-- if singletenMgr ~= nil then
+		-- 	print("<color=yellow>get single fxMgr</color>")
+		-- 	local m_s_path = "Effects/FX_Particle/Roles/Lzg_Ty/ssz_jinxiu_nan"
+			
+		-- 	local SuccEffect = singletenMgr:CreateUIFx(m_s_path, uiRoot.transform)
+		-- end
+	--
+
+	if uiRoot ~= nil then
+		print("finded")
+		cannotFind = false
+		XGameUI.UIRoot = uiRoot.transform
+		-- print("<color=yellow>uiRoot name: "..uiRoot.name.."</color>")
+		-- print("<color=yellow>uiRoot name: "..XGameUI.UIRoot.name.."</color>")
+	else
+		cannotFind = true
+		-- print("create")
+		local co = coroutine.create(function()
+			local tt = coroutine.yield()
+			-- print("step")
+			if uiRoot ~= nil then
+				-- print("finded")
+				cannotFind = false
+				XGameUI.UIRoot = uiRoot.transform
+				-- print("<color=yellow>uiRoot name: "..uiRoot.name.."</color>")
+				-- print("<color=yellow>uiRoot name: "..XGameUI.UIRoot.name.."</color>")
+			else
+				-- print("do find")
+				uiRoot = GameObject.Find("UIRoot(Clone)")
+			end
+		end)
+		-- print("resume")
+		while cannotFind do
+			coroutine.resume(co,stringEmpty)
+		end
+	end
+
+	--coroutine test
+		local action2 = function()
+			print("<color=yellow>action 2</color>")
+		end
+		local action = function()
+			print("<color=green>action 1</color>")
+			coroutine.waitforframes(1)
+			action2()
+			coroutine.waitforframes(1)
+			print("<color=red>test done</color>")
+		end
+		print("<color=red>Do coroutine</color>")
+		coroutine.start(action)
+
+	--timeMgr test
+		-- local timer = TimerManager:GetInstance():GetTimer(1,  action2, self)
+		-- timer:Start()
+
+		-- local Messenger = require "Framework/Common/Messenger";
+		-- local TestEventCenter = Messenger.New() --创建消息中心
+		-- TestEventCenter:AddListener(Type, callback) --添加监听
+		-- TestEventCenter:AddListener(Type, callback, ...) --添加监听
+		-- TestEventCenter:Broadcast(Type, ...) --发送消息
+		-- TestEventCenter:RemoveListener(Type, callback, ...) --移除监听
+		-- TestEventCenter:Cleanup() --清理消息中心
+
+		-- local tt = "GameSystem/DragonNestDlg"
+		-- local len = string.len(tt)
+		-- print("tt: "..tt)
+		-- local hash = 0
+		-- for temp in string.gmatch(tt, ".") do 
+		-- 	print("<color=yellow>-------------</color>")
+		-- 	print("char: "..temp)
+		--     local unit = string.byte(temp)
+		--     print("char unit: "..unit)
+		--     local tttt = (hash << 5)
+		--     print("char unit <<5: "..tttt)
+		-- 	hash = tttt + hash + unit
+		-- 	print("hash: "..hash)
+		-- end
+		-- print("hash: "..hash)
+
+	
+	--protobuf test
+		local pbTest = require "Test/pbTest"
+		if pbTest then
+			pbTest:DoTest()
+		end
+
+		local pb = require "pb"
+		local matchType = pb.enum("KKSG.KMatchType","KMT_HERO")
+		if matchType ~= nil then
+			print("<color=yellow> the HERO MatchType is: </color>"..matchType)
+		end
+		local theEnumType = pb.type("KKSG.KMatchType")
+		print("<color=yellow> the KKSG.KMatchType is: </color>"..theEnumType)
+
+		local topDNDArg = GetProtoBufSendTable("TopDragonNestDonateArg")
+		if topDNDArg ~= nil then
+			print("<color=yellow>decode the topDNDArg</color>")
+			topDNDArg.op = 2
+
+			local encodeInfo = topDNDArg:SerializeToString()
+			if encodeInfo ~= nil then
+				print("<color=yellow>encode the topDNDArg</color>")
+				local decodeInfo = ParseProtoBufToTable("TopDragonNestDonateArg",encodeInfo)
+				if decodeInfo ~= nil then
+					print("<color=yellow>topDNDArg.op: </color>"..decodeInfo.op)
+				end
+			end
+		end
+
+		local payGiftNtfData = GetProtoBufSendTable("PayGiftNtfData")
+		if payGiftNtfData ~= nil then
+			print "----------------------------"
+			print("<color=yellow>decode the payGiftNtfData</color>")
+			-- payGiftNtfData.openActivity = {1,3,5,7,9}
+			payGiftNtfData.isShowDetail = false
+
+			local encodeInfo = payGiftNtfData:SerializeToString()
+			if encodeInfo ~= nil then
+				print("<color=yellow>encode the payGiftNtfData</color>")
+				local decodeInfo = ParseProtoBufToTable("PayGiftNtfData",encodeInfo)
+				if decodeInfo ~= nil and decodeInfo.openActivity ~= nil then
+					print("<color=yellow>payGiftNtfData.openActivity's count : </color>"..#decodeInfo.openActivity)
+				end
+			end
+
+		end
+
+	--int64 test
+		local theInt64Value = 9223372036854775807
+		print("theInt64: "..theInt64Value)
+
+end
+
+-- 最小数值和最大数值指定返回值的范围。
+-- @function [parent=#math] clamp
+function math.clamp(v, minValue, maxValue)
+	if v < minValue then
+		return minValue
+	end
+	if( v > maxValue) then
+		return maxValue
+	end
+	return v
+end
+
+function Split(s, delim)
+    if type(delim) ~= "string" or string.len(delim) <= 0 then return end
+    local start = 1
+    local t = {}
+    while true do
+        local pos = string.find (s, delim, start, false) -- plain find
+        if not pos then break end
+        table.insert (t, string.sub (s, start, pos - 1))
+        start = pos + string.len (delim)
+    end
+    table.insert (t, string.sub (s, start))
+    return t
+end
+
+function string:split(sep)
+	local sep, fields = sep or ",", {}
+	local pattern = string.format("([^%s]+)", sep)
+	self:gsub(pattern, function(c) table.insert(fields, c) end)
+	return fields
+end
+
+function string:trim()
+	return self:match("^%s*(.-)%s*$")
+end
+
+-- 检测指定的字符串是否为空或长度为0
+-- text 需要检测的文本
+function string.IsNullOrEmpty(text)
+	return text == nil or string.len(text) == 0
+end
+
+-- 检测指定的字符串是否为空或为空白字符
+-- text 需要检测的文本
+function string.IsNullOrBlank(text)
+	-- TODO
+end
+
+-- 检测指定的字符串是否包含子字符串
+-- 由于string.find在安卓模拟器上返回异常，使用这个方法代替查找
+function string.contains(input,target)
+	local isMatchAt = function(matchSource,matchTarget,pos)
+			if #matchSource - pos < #matchTarget then
+				return false
+			end
+
+			for i=1,#matchTarget do
+				local inputByte = string.byte(input,i+pos)
+				local targetByte = string.byte(target,i)
+				if inputByte ~= targetByte then
+					return false
+				end
+			end
+			return true
+		end
+
+	for i=1,#input do
+		if isMatchAt(input,target,i) then
+			return true
+		end
+	end
+	return false
+end
+
+-- 调用指定的回调，若回调不存在则忽略
+function invoke(callback,...)
+	if callback == nil then
+		return
+	end
+	return callback(...)
+end
+
+function LuaGC()
+	local c = collectgarbage("count")
+	--Debugger.Log("Begin gc count = {0} kb", c)
+	collectgarbage("collect")
+	c = collectgarbage("count")
+	--Debugger.Log("End gc count = {0} kb", c)
+end
+
+-- 判断一个对象是否为nil
+function IsNil(obj)
+	return obj == nil or IsNull(obj)--obj:Equals(nil) --obj:IsNull()
+end
+
+
+--json拼接 先clear再用 添加用add 取用get
+local jsonData
+function JsonDataAdd( key,value )
+	if jsonData==nil then
+		jsonData="\""..key.."\":\""..value.."\""
+	else
+		jsonData=jsonData..",".."\""..key.."\":\""..value.."\""
+	end
+end
+
+function JsonDataClear()
+	jsonData=nil
+end
+
+function JsonDataGet()
+	return "{"..jsonData.."}"
+end
+
+--读取表格
+function readCSV(data)
+	local lineStr = string.split(data,'\n\r')
+	local titles = Split(lineStr[1],'\t')
+	--print("rows: "..table.getn(lineStr).." lines:"..table.getn(titles))
+	local ID = 1 --行数
+    local arrs = {}
+    for i = 3, #lineStr, 1 do
+	    -- 一行中，每一列的内容
+        local content = Split(lineStr[i], "\t");
+        arrs[ID] = {};
+        for j = 1, #titles, 1 do
+            arrs[ID][titles[j]] = content[j]
+			--print(ID.." titles:"..titles[j].." cont:"..content[j])
+        end
+        ID = ID + 1
+    end 
+    return arrs
+end
+
+
+--参数分别是表名，列名，主键值(第一列)
+function  readTable(tablename,key,ID)
+    local data = Hotfix.LuaTableBuffer("Table/"..tablename)
+    local lineStr = string.split(data,'\n\r')
+    local titles = Split(lineStr[1],'\t')
+    local line = 1
+    local value
+    for j = 1, #titles, 1 do
+        if titles[j] == key then
+            line = j
+            break
+        end
+    end
+
+    for i = 3, #lineStr, 1 do
+        local content = string.split(lineStr[i], "\t")
+        if tostring(content[1]) == tostring(ID) then
+            value = content[line]
+            break
+        end
+    end 
+    return value
+end
+
+
+function strLength(input)
+    local len  = string.len(input)
+    local left = len
+    local cnt  = 0
+    local arr  = {0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc}
+    while left ~= 0 do
+        local tmp = string.byte(input, -left)
+        local i   = #arr
+        while arr[i] do
+            if tmp >= arr[i] then
+                left = left - i
+                break
+            end
+            i = i - 1
+        end
+        cnt = cnt + 1
+    end
+    return cnt
+end
+
+--stream读表
+function  ReadBoolArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = reader:ReadBoolean()
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadIntArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = reader:ReadInt32()
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadUIntArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = reader:ReadUInt32()
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadFloatArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = reader:ReadSingle()
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadDoubleArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = reader:ReadDouble()
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadStringArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = Hotfix.ReadString(reader)
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadLongArray(reader)
+	local length = reader:ReadByte()
+	if length > 0 then
+		local array = {}
+		for i = 1, length , 1 do
+			array[i] = Hotfix.ReadLong(reader)
+		end
+		return array
+	end
+	return nil
+end
+
+function  ReadIntSeq(reader,count)
+	Hotfix.ReadSeqHead(reader)
+	local seq = {}
+	if hash ~= 0 then
+		for i = 1, count ,1 do
+			seq[i] = Hotfix.ReadInt(i-1)
+		end
+	end
+	return seq
+end
+
+function  ReadUIntSeq(reader,count)
+	Hotfix.ReadSeqHead(reader)
+	local seq = {}
+	if hash ~= 0 then
+		for i = 1, count ,1 do
+			seq[i] = Hotfix.ReadUInt(i-1)
+		end
+	end
+	return seq
+end
+
+function  ReadFloatSeq(reader,count)
+	Hotfix.ReadSeqHead(reader)
+	local seq = {}
+	if hash ~= 0 then
+		for i = 1, count ,1 do
+			seq[i] = Hotfix.ReadFloat(i-1)
+		end
+	end
+	return seq
+end
+
+function  ReadDoubleSeq(reader,count)
+	Hotfix.ReadSeqHead(reader)
+	local seq = {}
+	if hash ~= 0 then
+		for i = 1, count ,1 do
+			seq[i] = Hotfix.ReadDouble(i-1)
+		end
+	end
+	return seq
+end
+
+function  ReadStringSeq(reader,count)
+	Hotfix.ReadSeqHead(reader)
+	local seq = {}
+	if hash ~= 0 then
+		for i = 1, count ,1 do
+			seq[i] = Hotfix.ReadString(i-1)
+		end
+	end
+	return seq
+end
+
+function  ReadLongSeq(reader,count)
+	Hotfix.ReadSeqHead(reader)
+	local seq = {}
+	if hash ~= 0 then
+		for i = 1, count ,1 do
+			seq[i] = Hotfix.ReadLong(i-1)
+		end
+	end
+	return seq
+end
+
+function  ReadIntSeqList(reader,count)
+	local length = Hotfix.ReadSeqListHead(reader)
+	local seqList = {}
+	local index = 1
+	for i = 1, length ,1 do
+		if hash ~= 0 then
+			for j = 1, count ,1 do
+				seqList[index] = Hotfix.ReadInt(i-1,j-1)
+				index = index + 1
+			end
+		end
+	end
+	return seqList
+end
+
+function  ReadUIntSeqList(reader,count)
+	local length = Hotfix.ReadSeqListHead(reader)
+	-- print("length: "..tostring(length))
+	local seqList = {}
+	local index = 1
+	for i = 1, length ,1 do
+		if hash ~= 0 then
+			for j = 1, count ,1 do
+				seqList[index] = Hotfix.ReadUInt(i-1,j-1)
+				-- print ("the value: "..tostring(seqList[index]))
+				index = index + 1
+			end
+		end	
+	end
+	return seqList
+end
+
+function  ReadFloatSeqList(reader,count)
+	local length = Hotfix.ReadSeqListHead(reader)
+	local seqList = {}
+	local index = 1
+	for i = 1, length ,1 do
+		if hash ~= 0 then
+			for j = 1, count ,1 do
+				seqList[index] = Hotfix.ReadFloat(i-1,j-1)
+				index = index + 1
+			end
+		end
+	end
+	return seqList
+end
+
+function  ReadDoubleSeqList(reader,count)
+	local length = Hotfix.ReadSeqListHead(reader)
+	local seqList = {}
+	local index = 1
+	for i = 1, length ,1 do
+		if hash ~= 0 then
+			for j = 1, count ,1 do
+				seqList[index] = Hotfix.ReadDouble(i-1,j-1)
+				index = index + 1
+			end
+		end
+	end
+	return seqList
+end
+
+function  ReadStringSeqList(reader,count)
+	local length = Hotfix.ReadSeqListHead(reader)
+	local seqList = {}
+	local index = 1
+	for i = 1, length ,1 do
+		if hash ~= 0 then
+			for j = 1, count ,1 do
+				seqList[index] = Hotfix.ReadString(i-1,j-1)
+				index = index + 1
+			end
+		end
+	end
+	return seqList
+end
+
+function  ReadLongSeqList(reader,count)
+	local length = Hotfix.ReadSeqListHead(reader)
+	local seqList = {}
+	local index = 1
+	for i = 1, length ,1 do
+		if hash ~= 0 then
+			for j = 1, count ,1 do
+				seqList[index] =  Hotfix.ReadLong(i-1,j-1)
+				index = index + 1
+			end
+		end
+	end
+	return seqList
+end

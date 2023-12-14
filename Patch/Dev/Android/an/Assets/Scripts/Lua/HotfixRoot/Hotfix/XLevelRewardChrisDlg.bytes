@@ -1,0 +1,135 @@
+--[[
+    圣诞活动 六人乱斗 结算界面
+]]--
+local M = class(UIDlgBase)
+-- local log = LogManager.GetLogger("DragonNestView")
+local this = nil
+local uiBehaviour = nil
+local _doc = nil
+local leftTime = 10
+local timer = nil
+--Override
+local fileName = "Battle/LevelReward/LevelRewardChristmasevent"
+local autoload = true
+local pushstack = true
+local sysId = XSysDefine.XSys_LevelReward
+
+local WinOrLoseTitlePos = Vector3(30, -78, 0)
+local posFarFarAway = Vector3(10000,1,1)
+function M:Init()
+    this = M:GetInstance()
+    uiBehaviour = M.GetUIBehaviour(self)
+    assert(this ~= nil and uiBehaviour ~= nil,"this and uiBehaviour need evaluate in ctor!!!")
+    
+    _doc = XDocumentMgr.XChristmasEventDocument
+
+    print("<color=green>XZombie Init to attach</color>")
+end
+function M:OnLoad()	
+    print("<color=red>XZombie OnLoad</color>")
+end
+function M:OnShow()
+    print("<color=red>XZombie OnShow </color>")
+
+    if _doc.RankNum == 1 then
+        uiBehaviour.WinSprTrans.localPosition = WinOrLoseTitlePos
+        uiBehaviour.loseSprTrans.localPosition = posFarFarAway
+    else
+        uiBehaviour.WinSprTrans.localPosition = posFarFarAway
+        uiBehaviour.loseSprTrans.localPosition = WinOrLoseTitlePos
+    end
+
+    if uiBehaviour.theRankLb ~= nil then
+        uiBehaviour.theRankLb:SetText(_doc.RankNum)
+    end
+    if uiBehaviour.ScoreLb ~= nil then
+        uiBehaviour.ScoreLb:SetText(_doc.ScoreNum)
+    end
+    if uiBehaviour.KillLb ~= nil then
+        uiBehaviour.KillLb:SetText(_doc.KillNum)
+    end
+
+    -- if M.Snapshot ~= nil then
+    local tt = uiBehaviour.SnapshotTrans:GetComponent("UIDummy")
+    Hotfix.EnableMainDummy(true, tt)
+    -- end
+    
+    leftTime = 10
+    timer = TimerManager:GetInstance():GetTimer(1,  M.LeftTimeCallBack, self)    
+    timer:Start()
+end
+
+
+function M.LeftTimeCallBack(dlg)
+    if dlg == nil then return end
+    leftTime = leftTime - 1
+    uiBehaviour.LeftTimeLb:SetText(leftTime.."s")
+    if leftTime <= 0 then
+        timer:Stop()
+        M.OnCloseView()
+    else
+        timer:Reset()
+        timer:Start()
+    end
+end
+
+function M:OnHide()
+    print("<color=green>XZombie OnHide </color>")
+    local tt = uiBehaviour.SnapshotTrans:GetComponent("UIDummy")
+    Hotfix.EnableMainDummy(false, tt)
+
+    if timer ~= nil and timer.Stop then
+        timer:Stop()
+        timer = nil
+    end
+end
+function M:OnUnload()
+    print("OnUnload")
+    local tt = uiBehaviour.SnapshotTrans:GetComponent("UIDummy")
+    Hotfix.EnableMainDummy(false, tt)
+    uiBehaviour = nil
+    if timer ~= nil and timer.Stop then
+        timer:Stop()
+        timer = nil
+    end
+end
+function M:RegisterEvent()
+    assert(uiBehaviour ~= nil, "uiBehaviour is nil !!!")
+    -- assert(uiBehaviour._rwdRoot ~= nil, "can not get the Reward Root PanelObj, Please check it!!!")
+
+    --ui register
+    uiBehaviour.CloseBtn:RegisterClickEventHandler(M.OnCloseView)
+    --
+end
+function M:UnRegisterEvent()
+    print("OnUnRegisterEventLoad")
+end
+function M:StackRefresh()
+    print("StackRefresh")
+end
+function M:LeaveStackTop()
+    print("LeaveStackTop")
+end
+--
+
+--Click event
+function M.OnCloseView(btn)
+    print("<color=red>do DeActive</color>")
+    this:SetVisible(false)
+    
+    Hotfix.CallDocumentMethod("LevelRewardDocument",true,"SendLeaveScene")
+    return true
+end
+--
+
+function M.ctor(self)
+    self.fileName = fileName and fileName or stringEmpty
+    self.autoload = autoload and autoload or false
+    self.pushstack = pushstack and pushstack or false
+    self.sysId = sysId and sysId or 0
+
+    --构造函数里不能再去写对象实例化
+    -- M:GetInstance() 基类回调ctor构造哈数 进而会触发死循环
+end
+
+return M

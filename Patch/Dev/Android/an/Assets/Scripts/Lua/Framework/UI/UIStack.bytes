@@ -1,0 +1,235 @@
+--[[
+	界面堆栈，用于处理界面的进栈出栈的逻辑
+]]--
+
+local UIContainer = require "Framework/UI/UIContainer"
+
+local M = class()
+local log = LogManager.GetLogger("Framework.UI.UIStack")
+
+local function loadSceneIfNeeded(container)
+	-- local isLoaded = false
+	-- local waiter = function() 
+	-- 		isLoaded = true 
+	-- 	end
+
+	-- container:SetVisibility(false)
+	-- if container.Config.Scene ~= nil then
+	-- 	SceneManager.Load(container.Config.Scene,function()
+	-- 			container:LoadContent(waiter)
+	-- 		end)
+	-- else
+	-- 	container:LoadContent(waiter)
+	-- end
+
+	-- while not isLoaded do
+	-- 	coroutine.step()
+	-- end
+end
+
+function M:ctor(baseLayerOrder)
+	self.list = {}
+	self.map = {}
+	self.baseLayerOrder = baseLayerOrder
+end
+
+-- 注册指定的UI配置到界面堆栈
+-- config 需要注册的UI配置
+-- callback 注册成功后的回调
+function M:Register(config,callback)
+	local container = UIContainer.New(config)
+    self.map[config.Id] = container
+    print("map count: "..#self.map)
+	invoke(callback)
+end
+
+-- 预加所有界面
+function M:PreloadAll()
+	for k,container in pairs(self.map) do
+		if container.Config.Preload then
+			container:LoadContentCo()
+			container:SetVisibility(false)
+		end
+	end
+end
+
+-- 获取指定编号的界面
+function M:GetUI(id)
+	return self.map[id].ui
+end
+
+-- 获取指定编号的界面的容器
+function M:GetContainer(id)
+    print("container id: "..id)
+	return self.map[id]
+end
+
+-- 获取当前堆栈内界面的数量
+function M:GetCount()
+	return #self.list
+end
+
+-- 获取当前栈顶的界面
+function M:Peek()
+	return self.list[#self.list]
+end
+
+-- 将界面压入堆栈
+-- id 界面编号
+-- callback 当界面跳转成功后的回调
+function M:Push(id,callback)
+	local container = self:getAndValidateContainer(id)
+
+    print("111")
+    if container ~= nil then
+        print("uistack push id: "..id)
+    end
+
+	local action = function()
+		local lockId = UIManager.LockScreen()
+		loadSceneIfNeeded(container)
+		local top = self.list[#self.list]
+		if top ~= nil then
+			if container.Config.SuspendLast then
+				top:Suspend(true)
+			else
+				top:Focus(false)
+			end
+        end
+        
+        --print("stack do push")
+        --print("list count: "..#self.list)
+        self.list[#self.list+1] = container
+        --print("list count: "..#self.list)
+		container:SetLayerOrder(self.baseLayerOrder + #self.list * 10)
+		container:SetVisibility(true)
+		container:Enter(true);
+		invoke(callback)
+		UIManager.UnlockScreen(lockId)
+	end
+
+    action()
+	-- coroutine.start(action)
+end
+
+-- 将当前界面弹出堆栈
+function M:Pop()
+    local action =  function()
+        
+        print("self list count: "..tostring(#self.list))
+		if #self.list == 0 then
+			return
+		end
+
+		local lockId = UIManager.LockScreen()
+		local current = self.list[#self.list]
+		current:Exit(true)
+
+		self.list[#self.list] = nil
+		if #self.list > 0 then
+			local nextUI = self.list[#self.list]
+			nextUI:Resume(true)
+		end
+		UIManager.UnlockScreen(lockId)
+	end
+
+    action()
+	-- coroutine.start(action)
+end
+
+-- 将当前界面弹出堆栈，并压入新的界面
+-- id 界面编号
+-- callback 当界面跳转成功后的回调
+function M:Replace(id,callback)
+	local container = self:getAndValidateContainer(id)
+
+	local action = function()
+		local lockId = UIManager.LockScreen()
+		loadSceneIfNeeded(container)
+		local top = self.list[#self.list]
+		if top ~= nil then
+			top:Exit(true)
+		end
+		self.list[#self.list] = container
+		container:SetLayerOrder(self.baseLayerOrder + #self.list * 10)
+		container:SetVisibility(true)
+		container:Enter(true);
+		invoke(callback)
+		UIManager.UnlockScreen(lockId)
+	end
+
+	action()
+	-- coroutine.start(action)
+end
+
+-- 退出所有界面，并跳转到指定界面
+-- id 界面编号
+-- callback 当界面跳转成功后的回调
+function M:Fade(id,callback)
+	local container = self:getAndValidateContainer(id)
+
+	local action = function()
+		local lockId = UIManager.LockScreen()
+		loadSceneIfNeeded(container)
+		self:Clear(true)
+		container:SetLayerOrder(self.baseLayerOrder + #self.list * 10)
+		container:SetVisibility(true)
+		self.list[1] = container
+		container:Enter(true);
+		invoke(callback)
+		UIManager.UnlockScreen(lockId)
+	end
+	action()
+	-- coroutine.start(action)
+end
+
+-- 退出所有的界面
+function M:Clear(tweening)
+	local lockId = nil
+	if tweening then
+		lockId = UIManager.LockScreen()
+	end
+	while(#self.list>0)
+	do
+		local topUI = self.list[#self.list]
+		topUI:Exit(tweening)
+		self.list[#self.list] = nil
+		tweening = false -- 如果有动画也只允许顶层的界面播放
+	end
+	if lockId then
+		UIManager.UnlockScreen(lockId)
+	end
+end
+
+-- 获取所有界面的映射关系
+function M:GetMap()
+	return self.map
+end
+
+-- 退出并卸载所有界面
+function M:UnloadAll()
+	for _, container in pairs(self.map) do
+		container:Exit()
+		container:UnloadContent()
+	end
+end
+
+function M:Dump()
+	local o = {}
+	for _,container in ipairs(self.list) do
+		o[#o+1] = container.Config.Id
+	end
+	return table.concat(o," ")
+end
+
+function M:getAndValidateContainer(id)
+	local ret = self:GetContainer(id)
+	if ret == nil then
+		log:error("界面不存在 -> id=" .. tostring(id))
+		return nil
+	else
+		return ret
+	end
+end
+
+return M

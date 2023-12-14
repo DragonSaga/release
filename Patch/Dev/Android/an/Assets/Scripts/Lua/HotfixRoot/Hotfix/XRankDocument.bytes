@@ -1,0 +1,108 @@
+local M = {}
+
+M.INVALID_RANK = 4294967295
+-- local INVALID_RANK = ~0
+-- print("INVALID_RANK: "..INVALID_RANK)
+
+--todo:区分赛季版还是经典版
+local SelectProfessionID = 0
+
+--todo:根据不同排行榜数据，可以定制修改此数值
+local timeStamp = 0     
+
+--通用排行榜请求协议
+---@param type          KKSG.RankeType
+---@param lastseason   bool
+function M:ReqRankList(type, lastseason)
+    if nil == lastseason then
+        lastseason = false
+    else
+        assert(type(lastseason) == "boolean")
+    end
+
+    --todo:区分赛季版还是经典版
+    local currProfId = SelectProfessionID
+
+    local msg = GetProtoBufSendTable("ClientQueryRankListArg")
+
+    print("do rank req theRank type: "..type)
+    msg.RankType = type
+    msg.TimeStamp = timeStamp
+    msg.profession = currProfId
+    -- msg.lastseason = lastseason
+
+    local pb_data = msg:SerializeToString()
+    if pb_data ~= nil then
+        Hotfix.SendLuaByteRPC(RPC.C2M_ClientQueryRankListNtf, pb_data, M.OnGetInfo, M.OnErr)
+    else
+        print("pb encode data is nil !!")
+    end
+end
+
+local theRankList = {}
+local function ProcessRankListData(msg)
+    if msg ~= nil and msg.RankList ~= nil and msg.RankList.RankData ~= nil then
+        print "do ranklist replace"
+        theRankList = msg.RankList.RankData
+    else
+        theRankList = {}
+    end
+
+    local rankListCount = #theRankList
+    print("rank list count: "..tostring(rankListCount))
+    
+    if rankListCount > 0 then
+        -- print("first data roleName: "..theRankList[1].RoleName)
+        -- print("first data roleId: "..theRankList[1].RoleId)
+        -- print("first data totalnum: "..theRankList[1].total_num)
+    end
+end
+local myRankData
+local function ProcessSelfRankData(msg)
+    -- assert(msg~= nil, "msg == nil")
+
+    if msg ~= nil and msg.RoleRankData ~= nil then
+        myRankData = msg.RoleRankData
+    else
+        myRankData = nil
+    end
+    
+    -- local myRoleName = myRankData.RoleName or stringEmpty
+    -- local myRoleId = myRankData.RoleId or 0
+    -- local myRank = myRankData.Rank
+
+    -- print("<color=red>my roleName: </color>"..myRoleName)
+    -- print("my roleId: "..myRoleId)
+    -- print("my rank: "..myRank)
+end
+
+
+function M.OnGetInfo(data, length)
+
+    print("OnGetRankInfo back success")
+    local msg = ParseProtoBufToTable("ClientQueryRankListRes",data)
+    assert(msg ~= nil)
+    -- print("errorcode is: "..tostring(msg.ErrorCode))
+    
+    if msg.ErrorCode ~= 0 then
+        -- todo: do sth like tips
+        -- return
+    end
+
+    local Ranktype = msg.RankType
+    print("rank type: "..Ranktype)
+
+    -- local theTimeStamp = msg.TimeStamp or -1  --todo:根据不同排行榜数据，缓存此值
+    -- print("theTimeStamp: "..tostring(theTimeStamp))
+
+    ProcessRankListData(msg)
+    ProcessSelfRankData(msg)
+
+    DispatchEvent(XEventDefine.XEvent_RankListReq, Ranktype, myRankData, theRankList)
+end
+
+function M.OnErr()
+	print("lua LuaBuyActivityDoc OnErr!")
+end
+
+return M

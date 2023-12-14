@@ -1,0 +1,634 @@
+local this = nil
+require "HotfixGlobal.lua"
+require "LuaDailyDungeonDoc.lua"
+require "LuaCareerChallengesDoc.lua"
+
+
+
+LuaDailyDungeonDlg = {}
+
+LuaDailyDungeonDlg.m_close = nil;
+LuaDailyDungeonDlg.m_Help = nil;
+LuaDailyDungeonDlg.WrapContentItemUpdated = nil;
+LuaDailyDungeonDlg.m_entrancePool = nil;
+LuaDailyDungeonDlg.m_activityNum = nil
+LuaDailyDungeonDlg.m_doubleReward = nil
+LuaDailyDungeonDlg.m_detailActivityNum = nil
+LuaDailyDungeonDlg.m_detailActivityNumTip = nil
+LuaDailyDungeonDlg.m_RewardNumTip = nil
+
+--detail region
+LuaDailyDungeonDlg.m_activityGO = nil;
+LuaDailyDungeonDlg.m_activityClose = nil
+LuaDailyDungeonDlg.m_uiWrapContent = nil
+LuaDailyDungeonDlg.m_ScrollView = nil
+--detail region end
+LuaDailyDungeonDlg.m_dailyID = nil;
+LuaDailyDungeonDlg.Type = 0; -- 0 daily  1 = weekend
+
+local m_isVisible = false
+local this = LuaDailyDungeonDlg
+
+function LuaDailyDungeonDlg.Awake(go)
+	--print("Awake")
+	LuaDailyDungeonDlg.m_close = go.transform:Find("Bg/Close").gameObject
+	LuaDailyDungeonDlg.m_Help = go.transform:Find("Bg/Help").gameObject
+	LuaDailyDungeonDlg.m_activityNum = go.transform:Find("Bg/PVEActivityFrame/RewardNum/Num"):GetComponent("XUILabel")
+	LuaDailyDungeonDlg.m_activityNum:SetText("")
+	LuaDailyDungeonDlg.m_detailActivityNum = go.transform:Find("Bg/PVEActivityPopFrame/PVE/RewardNum"):GetComponent("XUILabel")
+	LuaDailyDungeonDlg.m_detailActivityNum:SetText("")
+	LuaDailyDungeonDlg.m_detailActivityNumTip = go.transform:Find("Bg/PVEActivityPopFrame/PVE/RewardNum/Num"):GetComponent("XUILabel")
+	LuaDailyDungeonDlg.m_doubleReward = go.transform:Find("Bg/PVEActivityFrame/Db").gameObject
+	
+	local helpObj  = go.transform:Find("Bg/PVEActivityFrame/RewardNum/Help").gameObject
+	Hotfix.SetClickCallback(helpObj,LuaDailyDungeonDlg.ShowRewardNumTip)
+	LuaDailyDungeonDlg.tipLabel = go.transform:Find("Bg/PVEActivityFrame/RewardNum/Help/Tip/Name"):GetComponent("XUILabel")
+	LuaDailyDungeonDlg.numTip = go.transform:Find("Bg/PVEActivityFrame/RewardNum/Name"):GetComponent("XUILabel")
+	--local tipStr = Hotfix.GetStringTable("Daily_Dungeon_Reward_Num_Tips")
+	--LuaDailyDungeonDlg.tipLabel:SetText(tipStr)
+	LuaDailyDungeonDlg.m_RewardNumTip = go.transform:Find("Bg/PVEActivityFrame/RewardNum/Help/Tip").gameObject
+	LuaDailyDungeonDlg.m_RewardNumTip:SetActive(false)
+
+	local templateGo = go.transform:Find("Bg/PVEActivityFrame/Panel/Tpl")
+	LuaDailyDungeonDlg.m_entrancePool = Hotfix.SetupPool(templateGo.parent.gameObject, templateGo.gameObject, 5)
+
+	--detail
+
+	LuaDailyDungeonDlg.m_activityGO = go.transform:Find("Bg/PVEActivityPopFrame").gameObject
+	LuaDailyDungeonDlg.m_activityClose = go.transform:Find("Bg/PVEActivityPopFrame/PVE/Close").gameObject
+	LuaDailyDungeonDlg.m_uiWrapContent = go.transform:Find("Bg/PVEActivityPopFrame/ListPanel/WrapContent").gameObject
+	Hotfix.InitWrapContent(LuaDailyDungeonDlg.m_uiWrapContent, LuaDailyDungeonDlg.WrapContentItemUpdated)
+	LuaDailyDungeonDlg.m_ScrollView =  go.transform:Find("Bg/PVEActivityPopFrame/ListPanel"):GetComponent("UIScrollView")
+
+	local tabGo = go.transform:Find("Bg/Tabs/TabTpl/Bg").gameObject
+	LuaDailyDungeonDlg.Type = 0
+	tabGo.transform:GetComponent("XUICheckBox").bChecked = true;
+	Hotfix.SetClickCallback(tabGo,LuaDailyDungeonDlg.OnDailyToggle)
+	tabGo = go.transform:Find("Bg/Tabs/TabTpl2/Bg").gameObject
+	--tab1 = tabGo.transform:GetComponent("XUICheckBox").bChecked = true;
+	Hotfix.SetClickCallback(tabGo,LuaDailyDungeonDlg.OnWeekendToggle)
+
+	LuaDailyDungeonDoc.DailyDungeonHandler(LuaDailyDungeonDlg)
+end
+
+function LuaDailyDungeonDlg.OnDailyToggle(checkBox)
+	print("OnDailyToggle")
+	LuaDailyDungeonDlg.Type = 0
+	local icb2 = checkBox.transform:GetComponent("XUICheckBox")
+	icb2.bChecked = true
+	LuaDailyDungeonDlg.RefreshUI(LuaDailyDungeonDoc.TypeData)
+	--icb2:ForceSetFlag(true)
+end
+
+function LuaDailyDungeonDlg.OnWeekendToggle(checkBox)
+	print("OnWeekendToggle")
+	LuaDailyDungeonDlg.Type = 1
+	local icb2 = checkBox.transform:GetComponent("XUICheckBox")
+	icb2.bChecked = true
+	LuaDailyDungeonDlg.RefreshUI(LuaDailyDungeonDoc.TypeData)
+	--icb2:ForceSetFlag(true)
+end
+
+function  LuaDailyDungeonDlg.OnHelpClick (...)
+	Hotfix.CallSingleMethod("UI.XCommonHelpTipView", true, false, "ShowHelp", 1010)
+end
+
+function LuaDailyDungeonDlg.ShowRewardNumTip(...)
+	LuaDailyDungeonDlg.m_RewardNumTip:SetActive(not LuaDailyDungeonDlg.m_RewardNumTip.activeInHierarchy)
+end
+
+
+
+
+
+function LuaDailyDungeonDlg.Start()
+	print("Start")
+	Hotfix.SetClickCallback(LuaDailyDungeonDlg.m_close,LuaDailyDungeonDlg.OnCloseClick)
+	Hotfix.SetClickCallback(LuaDailyDungeonDlg.m_Help,LuaDailyDungeonDlg.OnHelpClick)
+
+
+	Hotfix.SetClickCallback(LuaDailyDungeonDlg.m_activityClose,LuaDailyDungeonDlg.OnDetailCloseClick)
+	LuaDailyDungeonDlg.m_activityGO:SetActive(false)
+end
+
+function LuaDailyDungeonDlg.OnCloseClick()
+	LuaUIManager.Instance:Destroy("UI/GameSystem/DailyActivity/DailyDungeonDlg")
+	--FashionCompoundData.curr_compounds ={}
+end
+
+function LuaDailyDungeonDlg.OnDetailCloseClick()
+	LuaDailyDungeonDlg.m_activityGO:SetActive(false)
+end
+
+function LuaDailyDungeonDlg.OnRefreshDungeonTypeItems()
+	
+end
+
+function LuaDailyDungeonDlg.GetCurLevelDungeon()
+	local level = -1;
+	local playerLevel = 0
+	local attr = Hotfix.GetSingleMember("XAttributeMgr","XPlayerData",true,false,false);
+	if attr ~= nil then
+		playerLevel = attr.Level
+	end
+	-- local curPPT = Hotfix.CallDocumentStaticMethod("XCharacterDocument",true,"GetCharacterPPT")
+	
+	local itemData = LuaDailyDungeonDoc.GetTypeDataByType(LuaDailyDungeonDlg.m_dailyID)
+	if itemData ~= nil then
+		local sceneList = itemData.SceneID
+		for	i = 1,#sceneList do
+			local sceneData = LuaDailyDungeonDoc.GetSceneDataBySceneID(sceneList[i])
+			if sceneData ~= nil then
+
+				if playerLevel < sceneData.AdviceLevel then
+					break
+				else
+					local sceneTable = Hotfix.CallSingleMethod("XSceneMgr",true,false,"GetSceneData",sceneList[i])
+					if sceneTable.PreScene ~= nil and sceneTable.PreScene.Length > 0 then
+						local pass,preSceneid = LuaDailyDungeonDoc.IsPreScenePassed(sceneTable.PreScene)
+						if pass then
+							level = level +1
+						else
+							break
+						end
+					else
+						level = level + 1
+					end
+				end
+			end
+		end
+	end
+	if level < 0 then
+		level = 0
+	end
+	return level;
+end
+
+function LuaDailyDungeonDlg.WrapContentItemUpdated(t,index)
+	local itemData = LuaDailyDungeonDoc.GetTypeDataByType(LuaDailyDungeonDlg.m_dailyID)
+	local playerLevel = 0
+	local attr = Hotfix.GetSingleMember("XAttributeMgr","XPlayerData",true,false,false);
+	if attr ~= nil then
+		playerLevel = attr.Level
+	end
+	local curPPT = Hotfix.CallDocumentStaticMethod("XCharacterDocument",true,"GetCharacterPPT")
+	-- for i = 1,#LuaDailyDungeonDoc.TypeData do
+	-- 	if LuaDailyDungeonDoc.TypeData[i].DailyID == LuaDailyDungeonDlg.m_dailyID then
+	-- 		itemData =  LuaDailyDungeonDoc.TypeData[i]
+	-- 		break;
+	-- 	end
+	-- end
+	local isOpen = LuaDailyDungeonDoc.IsOpen(LuaDailyDungeonDlg.m_dailyID)
+	if itemData ~= nil and index < #itemData.SceneID then
+		local sceneList = itemData.SceneID
+		local sceneid = sceneList[index + 1]
+		for	i = 1,#sceneList do
+			local sceneData = LuaDailyDungeonDoc.GetSceneDataBySceneID(sceneid)			
+			if sceneData ~= nil then
+				local sprite = t:Find("BattleBtn"):GetComponent("UISprite")
+				local Btn =  t:Find("BattleBtn"):GetComponent("XUIButton")
+				Btn:SetEnable(isOpen and playerLevel >= sceneData.AdviceLevel)
+				sprite.uid = sceneid
+				Hotfix.SetClickCallback(sprite.gameObject,LuaDailyDungeonDlg.EnterScene)
+				local Skipsprite = t:Find("ClearBtn"):GetComponent("UISprite")
+				local SkipBtn =  t:Find("ClearBtn"):GetComponent("XUIButton")
+				SkipBtn:SetEnable((isOpen and playerLevel >= sceneData.AdviceLevel) and true)
+				SkipBtn.gameObject:SetActive(true)
+				-- SkipBtn.gameObject:SetActive(false)
+				Skipsprite.uid = sceneid
+				Hotfix.SetClickCallback(Skipsprite.gameObject,LuaDailyDungeonDlg.SkipScene)
+				local cost = t:Find("BattleBtn/p/Cost"):GetComponent("XUILabel")
+				cost:SetText(""..sceneData.Cost[1])
+				local costC = t:Find("ClearBtn/p/Cost"):GetComponent("XUILabel")
+				costC:SetText(""..sceneData.Cost[1])
+				local level = t:Find("Level"):GetComponent("XUILabel")
+				if playerLevel >= sceneData.AdviceLevel then
+					level:SetText("[6c3c2b]" .. ""..sceneData.AdviceLevel .. "[-]")
+				else
+					level:SetText("[ff0000]" .. ""..sceneData.AdviceLevel .. "[-]")
+				end
+				
+				local ppt = t:Find("Value"):GetComponent("XUILabel")
+				if curPPT >= sceneData.AdvicePPT then
+					ppt:SetText("[6c3c2b]" .. ""..sceneData.AdvicePPT .. "[-]")
+				else
+					ppt:SetText("[ff0000]" .. ""..sceneData.AdvicePPT .. "[-]")
+				end
+				local sceneTable = Hotfix.CallSingleMethod("XSceneMgr",true,false,"GetSceneData",sceneid)
+				local sceneName = ""
+				local preSceneText = ""
+				if not IsNil(sceneTable) then
+					sceneName = sceneTable.Comment
+					local pass,preSceneid = LuaDailyDungeonDoc.IsPreScenePassed(sceneTable.PreScene)
+					if not pass then
+						Btn:SetEnable(false)
+						sceneTable = Hotfix.CallSingleMethod("XSceneMgr",true,false,"GetSceneData",preSceneid)
+						if not IsNil(sceneTable) then
+							preSceneText = Hotfix.GetStringTable("Daily_Dungeon_PreScene_No_Pass")..sceneTable.Comment
+						end	
+					end
+
+					local cPass,pc = LuaDailyDungeonDoc.IsPreScenePassedSingle(sceneid)
+					if not cPass then
+						SkipBtn.gameObject:SetActive(false)
+					end
+				end
+				local title = t:Find("BgTitle/Condition"):GetComponent("XUILabel")
+				title:SetText(sceneName)
+				local preLabel = t:Find("PreScene"):GetComponent("XUILabel")
+				preLabel:SetText(preSceneText)
+				
+				local rootTrans = t:Find("ItemList")
+				local childCount = rootTrans.childCount
+				
+				local childIndex = 0
+
+				local rewards = sceneData.LowRewards
+				if rewards ~= nil then
+					for k = 1,#rewards do
+						local dropID = rewards[k]
+						local dropTable = Hotfix.CallDocumentMethod("XLevelDocument", true,"GetDropData", dropID)
+						--print("dropTable.Table.Length = "..tostring(dropTable.Count))
+						if dropTable ~= nil then
+							for m = 0, dropTable.Count - 1 do --dropTable.Table.Length - 1 do
+								if childIndex >=  childCount then
+									break;
+								end 
+								local itemID = dropTable[m].itemID
+								if itemID ~= 0 then
+									local itemCount = dropTable[m].count
+				
+									local item = rootTrans:GetChild(childIndex).gameObject
+									item:SetActive(true)
+									local flag = item.transform:Find("Flag").gameObject
+									flag:SetActive(false)
+									local flag2 = item.transform:Find("Flag2").gameObject
+									flag2:SetActive(false)
+									local flag1 = item.transform:Find("Flag1").gameObject
+									flag1:SetActive(true)
+										
+									local normalItemDrawer=Hotfix.GetSingleMember("XItemDrawerMgr","normalItemDrawer",true,true,false)
+									normalItemDrawer:DrawItem(item, itemID, 1, false)
+										
+									local sp=item.transform:Find("Icon"):GetComponent("UISprite")
+									sp.uid = itemID
+									Hotfix.SetClickCallback(sp.gameObject,LuaDailyDungeonDlg.ShowIconTip)
+									childIndex = childIndex + 1
+								end
+								
+							end										
+						end
+					end
+				end
+
+				rewards = sceneData.NormalRewards
+				if rewards ~= nil then
+					for k = 1,#rewards do
+						local dropID = rewards[k]
+						local dropTable = Hotfix.CallDocumentMethod("XLevelDocument", true,"GetDropData", dropID)
+						--print("dropTable.Table.Length = "..tostring(dropTable.Count))
+						if dropTable ~= nil then
+							for m = 0, dropTable.Count - 1 do --dropTable.Table.Length - 1 do
+
+								if childIndex >=  childCount then
+									break;
+								end 
+
+								local itemID = dropTable[m].itemID
+								if itemID ~= 0 then
+									local itemCount = dropTable[m].count
+					
+									local item = rootTrans:GetChild(childIndex).gameObject
+									item:SetActive(true)
+									local flag = item.transform:Find("Flag").gameObject
+									flag:SetActive(false)
+									local flag2 = item.transform:Find("Flag2").gameObject
+									flag2:SetActive(false)
+									local flag1 = item.transform:Find("Flag1").gameObject
+									flag1:SetActive(false)
+										
+									local normalItemDrawer=Hotfix.GetSingleMember("XItemDrawerMgr","normalItemDrawer",true,true,false)
+									normalItemDrawer:DrawItem(item, itemID, 1, false)
+										
+									local sp=item.transform:Find("Icon"):GetComponent("UISprite")
+									sp.uid = itemID
+									Hotfix.SetClickCallback(sp.gameObject,LuaDailyDungeonDlg.ShowIconTip)
+									childIndex = childIndex + 1
+								end
+								
+							end										
+						end
+					end
+				end
+
+				while childIndex < childCount do
+					local go = rootTrans:GetChild(childIndex).gameObject
+					go:SetActive(false)
+					childIndex = childIndex + 1
+				end
+			end		
+		end
+	end
+end
+
+function LuaDailyDungeonDlg.ShowDropid()
+	for k = 0, dropList.Length - 1 do
+		local dropID = dropList[k]
+		local dropTable = Hotfix.CallDocumentMethod("XLevelDocument", true,"GetDropData", dropID)
+		--print("dropTable.Table.Length = "..tostring(dropTable.Count))
+		if dropTable ~= nil then
+			for m = 0, dropTable.Count - 1 do --dropTable.Table.Length - 1 do
+				local itemID = dropTable[m].itemID
+				local itemCount = dropTable[m].count
+
+				local item = m_itemPool:FetchGameObject()
+				local grid = gift.transform:Find("List"):GetComponent("UIGrid")
+				item.transform.parent = grid.gameObject.transform
+				item.transform.localScale = Vector3.one
+					
+				local normalItemDrawer=Hotfix.GetSingleMember("XItemDrawerMgr","normalItemDrawer",true,true,false)
+				normalItemDrawer:DrawItem(item, itemID, itemCount, true)
+					
+				local sp=item.transform:Find("Icon"):GetComponent("UISprite")
+				sp.uid = itemID
+				Hotfix.SetClickCallback(sp.gameObject, LuaDailyDungeonDlg.ShowIconTip)
+			end										
+		end
+	end
+end
+
+function LuaDailyDungeonDlg.ShowIconTip(go)
+	Hotfix.LuaShowItemTooltipDialog(go:GetComponent("UISprite").uid, go)
+end
+
+function LuaDailyDungeonDlg.SkipScene(go)
+	local ID = go:GetComponent("UISprite").uid
+	LuaDailyDungeonDlg.CurSceneID = go:GetComponent("UISprite").uid
+	local times = LuaDailyDungeonDoc.DailyLeft
+	if LuaDailyDungeonDlg.Type == 1 then
+		times = LuaDailyDungeonDoc.WeekLeft
+	end
+	if LuaDailyDungeonDoc.isreduceprivilege == 0 then
+		local tips = Hotfix.GetStringTable("Daily_Dungeon_Go_PayReduce")
+		local DoOkClickEvent = DelegateFactory.UILib_ButtonClickEventHandler(LuaDailyDungeonDlg.DoBuyEventt)
+		Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips, DoOkClickEvent)
+		return
+	else
+		if times <= 0 then
+			if LuaDailyDungeonDlg.Type == 0 then
+				local tips = Hotfix.GetStringTable("Daily_Dungeon_No_High_Rewards")
+				local DoOkClickEvent = DelegateFactory.UILib_ButtonClickEventHandler(LuaDailyDungeonDlg.DoSkipEventt)
+				Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips, DoOkClickEvent)
+			else
+				local tips = Hotfix.GetStringTable("ERR_DAILYDUNGEON_NO_TIMES");
+				local ok = Hotfix.GetStringTable("COMMON_OK")
+				Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips,ok)
+			end
+
+			return
+		end
+	end
+	LuaDailyDungeonDoc.SendSkip(ID)
+end
+
+function LuaDailyDungeonDlg.EnterScene(go)
+	LuaDailyDungeonDlg.CurSceneID = go:GetComponent("UISprite").uid
+	local times = LuaDailyDungeonDoc.DailyLeft
+	if LuaDailyDungeonDlg.Type == 1 then
+		times = LuaDailyDungeonDoc.WeekLeft
+	end
+	if times <= 0 then
+		if LuaDailyDungeonDlg.Type == 0 then
+			local tips = Hotfix.GetStringTable("Daily_Dungeon_No_High_Rewards")
+			-- Hotfix.LuaMessageBoxConfirm(tips,LuaDailyDungeonDlg.DoOkClickEvent,LuaDailyDungeonDlg.OnCancel)--结果不满意可以回退，返还{0}张抽奖券，并刷新到下一轮
+			-- this.ChangeModleLabText("确定","取消")
+			-- LuaDailyDungeonDlg.OkClickEvent = DelegateFactory.UILib_ButtonClickEventHandler(LuaDailyDungeonDlg.DoOkClickEvent)
+			-- Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips, LuaDailyDungeonDlg.OkClickEvent)
+
+			local DoOkClickEvent = DelegateFactory.UILib_ButtonClickEventHandler(LuaDailyDungeonDlg.DoOkClickEventt)
+			Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips, DoOkClickEvent)
+		else
+			local tips = Hotfix.GetStringTable("ERR_DAILYDUNGEON_NO_TIMES");
+			local ok = Hotfix.GetStringTable("COMMON_OK")
+			Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips,ok)
+		end
+
+		return
+	end
+	local SceneID = go:GetComponent("UISprite").uid
+	-- Hotfix.CallDocumentMethod("TeamDocument", true, "SetAndMatch", SceneID)
+	-- LuaDailyDungeonDlg.OnCloseClick()
+	LuaCareerChallengesDoc.ReqEnterScenePtc(SceneID)
+end
+function LuaDailyDungeonDlg.OnCancel(Btn)
+end
+
+function LuaDailyDungeonDlg.DoOkClickEventt(Btn)
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	-- Hotfix.CallDocumentMethod("TeamDocument", true, "SetAndMatch", LuaDailyDungeonDlg.CurSceneID)
+	-- LuaDailyDungeonDlg.OnCloseClick()
+	LuaCareerChallengesDoc.ReqEnterScenePtc(LuaDailyDungeonDlg.CurSceneID)
+	return true
+end
+
+function LuaDailyDungeonDlg.DoOkGoToEventt(Btn)
+	-- Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	-- -- Hotfix.CallDocumentMethod("TeamDocument", true, "SetAndMatch", LuaDailyDungeonDlg.CurSceneID)
+	-- -- LuaDailyDungeonDlg.OnCloseClick()
+	-- LuaCareerChallengesDoc.ReqEnterScenePtc(LuaDailyDungeonDlg.CurSceneID)
+	return true
+end
+
+function LuaDailyDungeonDlg.DoSkipEventt(Btn)
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	LuaDailyDungeonDoc.SendSkip(LuaDailyDungeonDlg.CurSceneID)
+	return true
+end
+
+function LuaDailyDungeonDlg.DoBuyEventt(Btn)
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+	Hotfix.CallSingleMethod("XWelfareView",true,false,"ShowLua", 1530)
+	LuaDailyDungeonDlg.OnCloseClick()
+	return true
+end
+
+function LuaDailyDungeonDlg.OnUpdateDailyDungeonTypeItem(go,data)
+	local isOpen = LuaDailyDungeonDoc.IsOpen(data.DailyID)
+	local isp = go:GetComponent("UISprite")
+	isp.uid = data.DailyID
+	Hotfix.SetClickCallback(go,LuaDailyDungeonDlg.OnOpenDetail)
+	
+	local lockObj = go.transform:Find("Lock");
+	lockObj.gameObject:SetActive(not isOpen)
+	local name = go.transform:Find("Desc"):GetComponent("XUILabel")
+	name:SetText(data.Name)
+	local openDay = go.transform:Find("Go"):GetComponent("XUILabel")
+	if not isOpen then
+		--openDay:SetText("[ff0000]"..data.ShowOpenDay.."[-]")
+		openDay:SetText("[cfe7e7]"..data.ShowOpenDay.."[-]")
+	else
+		openDay:SetText("[cfff0d]"..data.ShowOpenDay.."[-]")
+	end
+	local txtBg =  go.transform:Find("Tex"):GetComponent("UITexture")
+	Hotfix.SetTexture(txtBg,data.ShowItemPath,false)
+	local xbg = go.transform:Find("Tex"):GetComponent("XUITexture")
+	xbg:SetEnabled(isOpen)
+	xbg = go.transform:Find("Tex/Bg"):GetComponent("XUITexture")
+	xbg:SetEnabled(isOpen)
+
+	local rootTrans = go.transform:Find("ItemList")
+	local childCount = rootTrans.childCount
+	local rewards = data.ShowItem
+	local index = 0
+
+	if rewards ~= nil then
+		for k = 1,#rewards do
+			local dropID = rewards[k]
+			local dropTable = Hotfix.CallDocumentMethod("XLevelDocument", true,"GetDropData", dropID)
+			--print("dropTable.Table.Length = "..tostring(dropTable.Count))
+			if dropTable ~= nil then
+				for m = 0, dropTable.Count - 1 do --dropTable.Table.Length - 1 do
+					local itemID = dropTable[m].itemID
+					local itemCount = dropTable[m].count
+
+					local item = rootTrans:GetChild(index).gameObject
+					item:SetActive(true)
+						
+					local normalItemDrawer = Hotfix.GetSingleMember("XItemDrawerMgr","normalItemDrawer",true,true,false)
+					normalItemDrawer:DrawItem(item, itemID, itemCount, true)
+						
+					local sp=item.transform:Find("Icon"):GetComponent("UISprite")
+					sp.uid = itemID
+					Hotfix.SetClickCallback(sp.gameObject,LuaDailyDungeonDlg.ShowIconTip)
+					index = index + 1
+				end										
+			end
+		end
+	end
+
+	while index < childCount do
+		local go = rootTrans:GetChild(index).gameObject
+		go:SetActive(false)
+		index = index + 1
+	end
+end
+
+
+function LuaDailyDungeonDlg.OnOpenDetail(go)
+	local dailyid = go:GetComponent("UISprite").uid
+	local opened = LuaDailyDungeonDoc.IsOpen(dailyid)
+	if opened then
+		LuaDailyDungeonDlg.m_activityGO:SetActive(true)
+		LuaDailyDungeonDlg.m_dailyID = dailyid
+		local itemData = LuaDailyDungeonDoc.GetTypeDataByType(LuaDailyDungeonDlg.m_dailyID)
+		if  itemData ~= nil then
+			local titleLabel = 	LuaDailyDungeonDlg.m_activityGO.transform:Find("PVE/Title"):GetComponent("XUILabel")
+			titleLabel:SetText(itemData.Name)
+			local typeData = itemData.SceneID
+			if typeData ~= nil then
+				Hotfix.SetWrapContentCount(LuaDailyDungeonDlg.m_uiWrapContent, #typeData, true)
+				local level = LuaDailyDungeonDlg.GetCurLevelDungeon()
+				local targetPos = Vector3(0,136 * level,0)
+				LuaDailyDungeonDlg.m_ScrollView:MoveRelative(targetPos)
+				-- m_uiScrollView:MoveRelative(targetPos)
+			end
+		end
+	else
+		local tip = Hotfix.GetStringTable("Daily_Dungeon_Not_Open")
+		Hotfix.LuaShowSystemTip(tip)
+	end
+	local numStr = Hotfix.GetStringTable("Daily_Dungeon_Num_Des")
+	if LuaDailyDungeonDlg.Type == 1 then
+		numStr = Hotfix.GetStringTable("Daily_Dungeon_Num_Des2")
+	end
+	LuaDailyDungeonDlg.m_detailActivityNumTip:SetText(numStr)
+	
+end
+
+----------------------------------------------------Refresh-----------------------------------------------------------------------
+function LuaDailyDungeonDlg.Refresh()
+	
+end
+
+function LuaDailyDungeonDlg.RefreshUI(data)
+	if m_isVisible == false then return end
+	local dailyWeekendDailyTable = {}
+	for i = 1,#data do
+		print("data[i].type  " .. data[i].Type)
+		if data[i].Type == LuaDailyDungeonDlg.Type then
+			dailyWeekendDailyTable[#dailyWeekendDailyTable +1] = data[i]
+		end
+	end
+	local leftNum = LuaDailyDungeonDoc.DailyLeft
+	local totalNum = LuaDailyDungeonDoc.TotalDailyNum
+	if LuaDailyDungeonDlg.Type == 1 then
+		leftNum = LuaDailyDungeonDoc.WeekLeft
+		totalNum = LuaDailyDungeonDoc.TotalWeekendNum
+	end
+	LuaDailyDungeonDlg.m_doubleReward:SetActive(LuaDailyDungeonDoc.DoubleReward)
+	LuaDailyDungeonDlg.m_activityNum:SetText(leftNum .. "/" .. totalNum)
+	LuaDailyDungeonDlg.m_detailActivityNum:SetText(leftNum .. "/" .. totalNum)
+	LuaDailyDungeonDlg.m_entrancePool:ReturnAll()
+	for i = 1,#dailyWeekendDailyTable do
+		local item = LuaDailyDungeonDlg.m_entrancePool:FetchGameObject()
+		LuaDailyDungeonDlg.OnUpdateDailyDungeonTypeItem(item,dailyWeekendDailyTable[i])
+		item.transform.localPosition =  LuaDailyDungeonDlg.m_entrancePool.TplPos + Vector3((i - 1 ) * LuaDailyDungeonDlg.m_entrancePool.TplWidth,0,0)
+	end
+
+	local tipStr = Hotfix.GetStringTable("Daily_Dungeon_Reward_Num_Tips")
+	local numStr = Hotfix.GetStringTable("Daily_Dungeon_Num_Des")
+	if LuaDailyDungeonDlg.Type == 1 then
+		tipStr = Hotfix.GetStringTable("Daily_Dungeon_Reward_Num_Tips2")
+		numStr = Hotfix.GetStringTable("Daily_Dungeon_Num_Des2")
+	end
+	LuaDailyDungeonDlg.tipLabel:SetText(tipStr)
+	LuaDailyDungeonDlg.numTip:SetText(numStr)
+end
+
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaDailyDungeonDlg.GetDailyNum(num,data)
+	if LuaDailyDungeonDlg.Type == 1 then
+		LuaDailyDungeonDoc.WeekLeft = num
+	else
+		LuaDailyDungeonDoc.DailyLeft = num
+	end
+	LuaDailyDungeonDlg.RefreshUI(data)
+end
+
+function LuaDailyDungeonDlg.OnEnable()
+	print("LuaDailyDungeonDlg.OnEnable")
+	m_isVisible = true
+end
+
+
+function LuaDailyDungeonDlg.OnDisable()
+	print("LuaDailyDungeonDlg vis false")
+	m_isVisible = false
+end
+
+function LuaDailyDungeonDlg.OnDestroy()
+	print("LuaDailyDungeonDlg vis false")
+	m_isVisible = false
+end
+
+
+
+function LuaDailyDungeonDlg.OnShow()
+	print("LuaDailyDungeonDlg.OnShow")
+	LuaDailyDungeonDoc.SendToGetDailyDungeonRes()
+end
+
+function LuaDailyDungeonDlg.OnHide()
+	print("LuaDailyDungeonDlg vis false")
+	m_isVisible = false
+end
+
+function LuaDailyDungeonDlg.IsVisible()
+	return m_isVisible
+end
+
+
+function LuaDailyDungeonDlg.SetCountUI()
+
+end
+return this

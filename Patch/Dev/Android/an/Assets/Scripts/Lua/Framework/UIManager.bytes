@@ -1,0 +1,282 @@
+--[[
+	界面管理器
+]]--
+
+local UIContainer = require "Framework/UI/UIContainer"
+local UIStack = require "Framework/UI/UIStack"
+
+local M = {}
+
+local uiMap = {} -- 键:界面Id，值:UIContainer
+
+local stacks = {}
+
+local uiStack = nil
+local smallUIStack = nil
+
+--uiStack  普通的全屏ui,类似于c#的dlg，打开了这个原来的会隐藏掉或者关闭
+--smallUIStack	小弹框  覆盖在原来的ui上边，原来的不会关闭或者隐藏
+function M.Init()
+    stacks["Default"] = UIStack.New(100)
+    stacks["SmallUI"] = UIStack.New(300)
+    uiStack = stacks["Default"]
+    smallUIStack = stacks["SmallUI"]
+end
+
+function M.RegisterDlgContainer(fileName, mapId, callback)
+    assert(fileName ~= nil and type(fileName) == "string")
+
+	local hashId = mapId
+    local hadContainer = M.GetContainer(hashId)
+    assert(hadContainer == nil,"already have the container: "..tostring(hashId))
+
+    local config = {}
+    config.Id = hashId
+    config.fileName = fileName
+	config.SuspendLast = true
+	
+	local action = function()
+        local uicontainer = uiStack:GetContainer(hashId)
+		if uicontainer ~= nil then
+			--print("to register id in uiManager: "..hashId)
+            uiMap[hashId] = uicontainer
+		end
+	end
+
+    uiStack:Register(config, action)
+end
+
+function M.UnRegisterDlgContainer(self)
+
+	--print("========================>UnRegisterDlgContainer    hashId = "..tostring(self.hashId))
+	self.m_bLoaded = false
+	self.m_handlers = {}
+	
+	local container = M.GetContainer(self.hashId)
+	if(container == nil) then return end
+	container:UnloadContent()
+	table.remove(uiMap,self.hashId)
+end
+
+-- 获取指定编号的界面
+function M.GetUI(hashId)
+	--print("hash id in UIManager: "..hashId)
+
+    local container = M.GetContainer(hashId)
+    if container ~= nil then return container.ui end
+	return nil
+end
+
+function M.GetNextAddMapId()
+	return #uiMap + 1
+end
+
+-- 获取指定编号的界面的容器
+function M.GetContainer(hashId)
+	--print("===================================> uiMap count: "..tostring(#uiMap))
+	return uiMap[hashId]
+end
+
+-- 获取当前在最上方的弹窗容器
+function M.GetTopPopupContainer()
+	return smallUIStack:Peek()
+end
+
+-- 弹出一个新界面并覆盖到当前界面上，当前界面不会被关闭  一般是小ui(非弹框的)
+-- id 界面编号
+-- callback 当新界面弹出时的回调
+function M.PushSmallUI(id,callback)
+	local lockId = M.LockScreen()
+	smallUIStack:Push(id,function()
+		if smallUIStack:GetCount() == 1 then
+			-- 第一个Popup窗口会导致普通界面失去焦点
+			local container = uiStack:Peek()
+			container:Focus(false)
+		end
+		M.UnlockScreen(lockId)
+		invoke(callback)
+	end)
+end
+
+-- 跳转到指定界面，若当前有界面/弹窗已经打开，将全部被关闭
+-- id 界面编号
+-- callback 当界面跳转成功后的回调
+function M.Fade(id,callback)
+	M:ExitAllPopups()
+	local lockId = M.LockScreen()
+	uiStack:Fade(id,function()
+		M.UnlockScreen(lockId)
+		invoke(callback)
+	end)
+end
+
+-- 挂起当前界面到堆栈，并跳转到指定界面，若当前有弹窗已经打开，将全部被关闭
+-- id 界面编号
+-- callback 当界面跳转成功后的回调
+function M.Push(id,callback)
+    --print("uimanager id: "..id)
+	local lockId = M.LockScreen()
+	uiStack:Push(id,function()
+		M.UnlockScreen(lockId)
+		invoke(callback)
+	end)
+end
+
+-- 关闭当前界面，并跳转到指定界面，维持原有的界面队列
+-- id 界面编号
+-- callback 当界面跳转成功后的回调
+function M.Replace(id,callback)
+	local lockId = M.LockScreen()
+	uiStack:Replace(id,function()
+		M.UnlockScreen(lockId)
+		invoke(callback)
+	end)
+end
+
+-- 返回前一个界面，若当前有弹窗界面，则会关闭当前弹窗
+function M.Backward()
+	
+	smallUICount = smallUIStack:GetCount()
+	uiCount = uiStack:GetCount()
+
+    --print("smallUIStack Count: "..smallUICount)
+    --print("uiStack Count: "..uiCount)
+	
+	if smallUICount > 1 then
+		-- log:trace("Backward(smallUi)")
+		smallUIStack:Pop()
+	elseif smallUICount == 1 then
+		-- 最后一个smallUi界面关闭后，刷新uistack栈顶的UI
+		--log:trace("Backward(Last smallUi)")
+		smallUIStack:Pop()
+		if uiCount > 0 then
+			local container = uiStack:Peek()
+			container:Focus(true)
+		end
+	elseif uiCount >= 1 then
+        -- log:trace("Backward(UI)")
+        --print("==================================================================>  backward ui")
+		uiStack:Pop()
+	end
+end
+
+--为了兼容c#端uimgr与lua端的uimgr的ui栈顶刷新相兼容
+	function M.DoLeaveStackTopForCSharp(self)
+		if uiStack:GetCount() > 0 then
+			local container = uiStack:Peek()
+			local dlg = container:GetDlgBase()
+			dlg:LeaveStackTop()
+			container.ui.gameObject:SetActive(false)
+			-- dlg:SetVisiblePure(false)
+			return true
+		end
+
+		return false
+	end
+
+	function M.DoStackRefreshForCSharp(self)
+		if uiStack:GetCount() > 0 then
+			local container = uiStack:Peek()
+			local dlg = container:GetDlgBase()
+			container.ui.gameObject:SetActive(true)
+			-- dlg:SetVisiblePure(true)
+			dlg:StackRefresh()
+			return true
+		end
+
+		return false
+	end
+
+	function M.DoCloseAllLuaUIForCSharp(self)
+		local stackCount = uiStack:GetCount()
+		for i = 1, stackCount do
+			local container = uiStack:Peek()
+			local dlg = container:GetDlgBase()
+			--dlg:LeaveStackTop()
+			dlg:SetVisible(false)
+			-- dlg:SetVisiblePure(false)
+			--container.ui.gameObject:SetActive(false)
+			uiStack:Pop()
+		end
+	end
+
+	function M.OnLeaveScene(self, transfer)
+		--local stackCount = uiStack:GetCount()
+		--for i = 1, stackCount do
+		--	local container = uiStack:GetUI(i)
+		--	local dlg = container:GetDlgBase()
+		--	dlg:UnLoad(transfer)
+		--end
+	end
+--
+
+-- 显示指定浮动界面
+-- 需要关闭的浮动界面编号
+-- callback 当界面显示成功后的回调
+function M.Show(id,callback)
+	local container = uiMap[id]
+	assert(container)
+	local stack = stacks[container.Config.Layer or "Default"]
+	stack:Show(id,callback)
+end
+
+-- 关闭指定浮动界面
+-- 需要关闭的浮动界面编号
+function M.Close(id)
+	local container = uiMap[id]
+	assert(container)
+	local stack = stacks[container.Config.Layer or "Default"]
+	stack:Close(id)
+end
+
+--<<todo:
+-- 获取一个值，表示当前屏幕是否被锁定
+function M.IsScreenLocked()
+	--todo:
+	return false
+end
+
+-- 锁定当前屏幕，禁止任何操作输入
+function M.LockScreen(screenLockerId)
+	--todo:
+	return 0
+end
+
+-- 解锁当前屏幕，允许操作输入
+-- lockId 锁定屏幕时返回的编号，若为0则表示清除所有的锁定请求
+function M.UnlockScreen(lockId)
+	assert(lockId~=nil)
+	--todo:
+end
+--todo:>>
+
+-- 关闭所有的弹窗
+function M.ExitAllPopups()
+	smallUIStack:Clear()
+end
+
+-- 退出指定一层的界面
+function M.ExitLayer(layerName)
+	local stack = stacks[layerName]
+	if not stack then
+		return
+	end
+
+	stack:Clear()
+end
+
+-- 退出所有的弹窗和界面
+function M.ExitAll()
+	for _,stack in pairs(stacks) do
+		stack:Clear()
+	end
+end
+
+-- 卸载所有界面
+function M.UnloadAll()
+	for _, stack in pairs(stacks) do
+		stack:UnloadAll()
+	end
+end
+
+return M

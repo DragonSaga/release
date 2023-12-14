@@ -1,0 +1,52 @@
+local M = {}
+
+--日常限时活动 生化模式
+local function ZombieSysOpen(param)
+    print("show sys")
+    local dnDlg = require "Game/UI/Zombie/XZombieDlg"
+    dnDlg:GetInstance():SetVisible(true)
+
+    return true
+end
+
+local function ChristmasEventSysOpen(param)
+    local dnDlg = require "Game/UI/ChristmasEvent/XChristmasEventDlg"
+    dnDlg:GetInstance():SetVisible(true)
+
+    return true
+end
+
+local function LevelRewardShow(params)
+    local dnDlg = require "Game/UI/ChristmasEvent/XLevelRewardChrisDlg"
+    dnDlg:GetInstance():SetVisible(true)
+
+    return true
+end
+
+---@param sysId number
+---@param param number
+function M.Opensystem(sysId, param)
+
+    if param == nil then param = 0 end
+
+    assert(type(sysId)=="number", "the sysId's type must be number!!")
+    assert(type(param)=="number", "the param's type must be number!!")
+
+    local hasLuaFunc = false
+
+    if XSysDefine.XSys_Zombie == sysId then
+        hasLuaFunc = ZombieSysOpen(param)
+    end
+
+    if XSysDefine.XSys_ChristmasEvent == sysId then
+        hasLuaFunc = ChristmasEventSysOpen(param)
+    end
+
+    if XSysDefine.XSys_LevelReward == sysId then
+        hasLuaFunc = LevelRewardShow(param)
+    end
+
+    return hasLuaFunc
+end
+
+return M

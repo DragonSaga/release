@@ -1,0 +1,305 @@
+local this = nil
+require 'LuaFastSignalSettingsDlg.lua'
+
+--require "XPreConditionCancel_pb"
+
+SettingDlg = {}
+local this = SettingDlg
+
+local FAST_SIGNAL_TBA_NAME = 'FastSignalTab'
+local CancelAccount_TBA_NAME = "PrivacyTab"
+
+local highRateObj = nil
+
+local tabs = {}
+local panels = {}
+
+local json = require 'rapidjson'
+local xplatGo = nil
+local xpalt = nil
+
+local isLocking = false
+
+function SettingDlg.BeforeRefresh(go)
+end
+
+function SettingDlg.AfterRefresh(go)
+    if IsNil(go) then return end
+    isLocking = false
+
+    local highRateTrans = go.transform:Find('Bg/SettingPanel/BasePanel/HighFrameRate')
+    if not IsNil(highRateTrans) then
+        highRateObj = highRateTrans.gameObject
+
+        print '11'
+        if not IsNil(highRateObj) and not highRateObj.activeSelf then
+            print '22'
+
+            highRateObj:SetActive(true)
+        end
+    end
+
+--------FastSignal----------
+    this.InitFastSignal(go)
+
+    --隐私条款页签点击
+    -- local PrivacyTabObj = go.transform:Find("Bg/Tabs/PrivacyTab").gameObject
+    -- if not IsNil(PrivacyTabObj) then
+    --     Hotfix.SetClickCallback(PrivacyTabObj, this.PrivacyPanelShow)
+    -- end
+    local pcStr = Hotfix.GetStringTable("PrivacyContent")
+    local privacyContentLb = go.transform:Find('Bg/PrivacyPanel/Bg/Label'):GetComponent("UILabel")
+    privacyContentLb.text = Hotfix.CallSingleMethod("UI.UiUtility", false, false, "ReplaceReturn", pcStr)
+
+    --儿童协议页签点击
+    local childProtocolTrans = go.transform:Find("Bg/UserInfoPanel/Link/ChildProtocol")
+    if not IsNil(childProtocolTrans) then
+        local childProtocolObj = childProtocolTrans.gameObject
+        if not IsNil(childProtocolObj) then
+            Hotfix.SetClickCallback(childProtocolObj, this.childProtoOpenUrl)
+        end
+    end
+
+    --注销账号点击事件
+    local CancelAccountObj = go.transform:Find("Bg/UserInfoPanel/BottomButtons/CancelAccount").gameObject
+    if not IsNil(CancelAccountObj) then
+        Hotfix.SetClickCallback(CancelAccountObj, this.CancelAccountOnClick)
+    end
+end
+
+function SettingDlg.Hide(go)
+    LuaFastSignalSettingsDlg.Hide(go)
+end
+
+-------------战斗语音----------------
+function SettingDlg.InitFastSignal(go)
+
+    tabs[1] = go.transform:Find('Bg/Tabs/InfoTab'):GetComponent('XUICheckBox')
+    tabs[2] = go.transform:Find('Bg/Tabs/OptionTab'):GetComponent('XUICheckBox')
+    tabs[3] = go.transform:Find('Bg/Tabs/PushTab'):GetComponent('XUICheckBox')
+    tabs[4] = go.transform:Find('Bg/Tabs/CameraTab'):GetComponent('XUICheckBox')
+    tabs[5] = go.transform:Find('Bg/Tabs/PasswordTab'):GetComponent('XUICheckBox')
+    tabs[6] = go.transform:Find('Bg/Tabs/FastSignalTab'):GetComponent('XUICheckBox')
+    tabs[7] = go.transform:Find('Bg/Tabs/PrivacyTab'):GetComponent('XUICheckBox')
+    panels[1] = go.transform:Find('Bg/UserInfoPanel').gameObject
+    panels[2] = go.transform:Find('Bg/SettingPanel').gameObject
+    panels[3] = go.transform:Find('Bg/PushPanel').gameObject
+    panels[4] = go.transform:Find('Bg/BattlePanel').gameObject
+    panels[5] = go.transform:Find('Bg/PasswordPanel').gameObject
+    panels[6] = go.transform:Find('Bg/FastSignalPanel').gameObject
+    panels[7] = go.transform:Find('Bg/PrivacyPanel').gameObject
+
+    panels[6]:SetActive(false)
+    panels[7]:SetActive(false)
+
+    for index, value in ipairs(tabs) do
+        Hotfix.SetClickCallback(value.gameObject, this.OnTabClicked)
+    end
+
+    local isSysOpen = Hotfix.CallSingleMethod('XGameSysMgr', true, false, 'IsSystemOpen', XSys_FastSignal)
+    print('<color=yellow>=================After Refresh settingDlg, fastSignal: isSysOpen</color>  ', isSysOpen)
+
+    if isSysOpen then
+
+    else
+        go.transform:Find('Bg/FastSignalPanel').gameObject:SetActive(false)
+        go.transform:Find('Bg/Tabs/FastSignalTab').gameObject:SetActive(false)
+        return
+    end
+
+    local isPure = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'IsPureVersion')
+    if isPure then
+        go.transform:Find('Bg/Tabs/FastSignalTab').localPosition = Vector3(0, -310, 0)
+    else
+        go.transform:Find('Bg/Tabs/FastSignalTab').localPosition = Vector3(0, -372, 0)
+    end
+    go.transform:Find('Bg/Tabs/FastSignalTab').gameObject:SetActive(true)
+   
+end
+
+
+
+function SettingDlg.OnTabClicked(go)
+
+    if isLocking then
+        return
+    end
+
+    isLocking = true
+
+    print("go name: "..go.name)
+    for index, value in ipairs(panels) do
+        value:SetActive(false)
+    end
+    for index, value in ipairs(tabs) do
+        value.bChecked = false
+        if value.gameObject.name == go.name then
+            value.bChecked = true
+            panels[index]:SetActive(true)
+        end
+    end
+    if go.name == FAST_SIGNAL_TBA_NAME then
+        print('on click fast signal')
+        LuaFastSignalSettingsDlg.Init(panels[6])
+    end
+
+    -- if go.name == CancelAccount_TBA_NAME then
+    --     panels[7]:SetActive(true)
+    -- end
+
+    isLocking = false
+end
+
+
+
+----兒童協議 賬號注銷
+
+function SettingDlg.childProtoOpenUrl(go)
+    local theUrl = Hotfix.GetGlobalString("ChildrenAgreement")
+    if theUrl == nil or theUrl == "" then
+        theUrl = "https://game.qq.com/privacy_guide_children.shtml"
+    end
+
+    Hotfix.CallDocumentMethod("OptionsDocument",true,"OpenURL",theUrl)
+end
+
+function SettingDlg.PrivacyPanelShow(go)
+    Hotfix.CallSingleMethod("XOptionsView",false,false,"CloseAllPanel")
+    --这里在关闭其他tab关联页面的同时，配合ngui的uitoggle控件
+end
+
+-- 2020-09/统一账号通用注销方案接入指引v2.0.pdf
+-- V3版本示例
+-- https://gacc-account-web.odp.qq.com/writeoff.html?
+-- ADTAG=client&os=1&gameid=wx1234567&channelid=1&msdkEncodeParam=d9b48147c3b809a2b
+-- ebbd8b2e96c26f1&outerIp=127.0.0.1
+function SettingDlg.DoEncodeParam()
+
+    xplatGo = GameObject.Find("XGamePoint")
+    xpalt = xplatGo:GetComponent("XPlatform")
+
+    local appId = Hotfix.GetSingleMember("XClientNetwork","AppId",true,false,false)
+    if appId == nil then appId = "1105309683" end
+    local openId = Hotfix.GetSingleMember("XClientNetwork","_openid",false,true,false)
+    local access_token = Hotfix.GetSingleMember("XLoginDocument","TokenCache",true,false,false)
+    local channel = Hotfix.GetSingleMember("XLoginDocument","Channel",true,false,false)
+    local acctype = "qq"
+    local channelId = 3     --游客
+    if tostring(channel) == "XAuthorization_WeChat: 4" then
+        acctype = "wx"
+        channelId = 1
+    elseif tostring(channel) == "XAuthorization_QQ: 3" then
+        acctype= "qq"
+        channelId = 2
+    end
+
+    -- print("acctype: "..acctype)
+    -- print("appid: "..appId)
+    -- print("openId: "..openId)
+    -- print("accesstoken: "..access_token)
+
+    --"acctype={0}&appid={1}&openid={2}&access_token={3}"
+    local paramStr = "acctype="..acctype.."&".."appid="..appId.."&".."openid="..openId.."&".."access_token="..access_token
+    print("paramStr = "..paramStr)
+    local t ={}
+    t["url"] = paramStr
+    print("do encode json")
+    local url = json.encode(t)
+
+    print("do encode url")
+    local encodeParam = xpalt:GetSDKConfig("get_encoded_url",url)
+    print("encodeParam: "..encodeParam)
+
+    local url1 = 
+    --"https://gacc-account-web-test.odp.qq.com/writeoff.html?"   --测试环境地质
+    "https://gacc-account-web.odp.qq.com/writeoff.html?"   --正式环境地址
+
+    local os = 1
+	local plat = Application.platform
+ 	if tostring(plat) == "IPhonePlayer: 8" then
+        os = 2
+     elseif tostring(plat) == "Android: 11" then
+        os = 1
+     else
+        os = 5 --windows
+    end
+     
+    --unity2018前wifi下用这个
+        -- local netWork = luanet.import_type("UnityEngine.Network")
+        local ip = "123.206.102.160"
+        -- if netWork ~= nil then
+        --     ip = netWork.player.ipAddress
+        -- end
+    --
+    
+    -- print("ip: "..ip)
+    --正常4、5G网络下用
+    --c#
+    -- var strHostName = System.Net.Dns.GetHostName();
+    -- var ipEntry = System.Net.Dns.GetHostEntry(strHostName);
+    -- var addr = ipEntry.AddressList;
+    -- return addr[addr.Length - 1].ToString();
+
+    -- local url2 = "ADTAG=Client&os="..os.."&msdkVersion=V3&idType="..openId.."&gameid="..appId.."&channelid="..channelId.."&msdkEncodeParam="..encodeParam.."&outerIp="..ip
+    local url2 = "ADTAG=Client&os="..os.."&msdkVersion=V3&idType=openid".."&gameid="..appId.."&channelid="..channelId.."&msdkEncodeParam="..encodeParam.."&outerIp="..ip
+    local theUrl = url1..url2
+    print("theUrl: "..theUrl)
+
+    if channelId == 3 then
+        Hotfix.CallDocumentMethod("OptionsDocument",true,"OpenURL",theUrl)
+    else
+        local theT ={}
+        theT["url"] = theUrl
+        theT["screendir"] = "PORTRAIT"--"LANDSCAPE"
+    
+        local theUrlJson = json.encode(theT)
+        xpalt:SendExtDara("open_url",theUrlJson)
+    end   
+end
+
+function SettingDlg.CancelAccountOnClick(go)
+
+    local  msg = GetProtoBufSendTable("PreConditionCancelArg")
+    local pb_data = msg:SerializeToString()
+    pb_data = pb_data
+    if pb_data ~= nil then
+
+        print "do send rpc 51664"
+        Hotfix.SendLuaByteRPC(51664, pb_data, this.ResPreCondition, this.ResErr)
+    end
+end
+
+function SettingDlg.ResPreCondition(data,length)
+    print "Response Ok"
+
+    local  msg = ParseProtoBufToTable("PreConditionCancelRes",data)
+    if msg ~= nil then
+
+    else
+        print("restart reply msg is nil")
+    end
+
+    print("errorcode: "..msg.errorcode)
+    if msg.errorcode == 10 then
+        local tips = Hotfix.GetStringTable("ERR_ACCOUNT_ROLE_FULL")
+        Hotfix.LuaShowSystemTip(tips)
+        do return end
+    elseif msg.errorcode ~= 0 then
+        local tips = Hotfix.GetStringTable("PreCancelConditonTips")
+        Hotfix.LuaShowSystemTip(tips)
+        return
+    end
+
+    this.DoEncodeParam()
+end
+
+function SettingDlg.ResErr()
+
+end
+
+function SettingDlg.GetPanels()
+    return panels
+end
+
+
+return this

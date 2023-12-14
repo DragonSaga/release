@@ -1,0 +1,54 @@
+local this = nil
+require("LuaPureSeasonAchievementTableTable.lua")
+
+HotfixPureSeasonDocument = {}
+
+local this = HotfixPureSeasonDocument
+local PureSeasonAchievementTable = nil
+
+function HotfixPureSeasonDocument.EnterScene()
+    
+    if PureSeasonAchievementTable == nil then
+        PureSeasonAchievementTable = ReadPureSeasonAchievementTableTable("Table/PureSeasonAchievementTable")
+    --this:GetCurAchiLvAttrPercent(achiLv)
+    end
+end
+
+function HotfixPureSeasonDocument.GetCurAchiLvAttrPercent(seasonId, achiLv)
+    for i=1,#PureSeasonAchievementTable do
+        if (PureSeasonAchievementTable[i].SeasonID == seasonId and PureSeasonAchievementTable[i].Achievementlevel == achiLv) then
+            return PureSeasonAchievementTable[i].AttributesPrecent
+        end
+    end
+end
+
+function HotfixPureSeasonDocument.GetOneHundredAttrPercentAchiLv(seasonId)
+    for i=1,#PureSeasonAchievementTable do
+        if PureSeasonAchievementTable[i].SeasonID == seasonId then
+            if PureSeasonAchievementTable[i].AttributesPrecent >= 100 then
+                return PureSeasonAchievementTable[i]
+            end
+        end
+    end
+end
+
+function HotfixPureSeasonDocument.GetCurAchiLvDescription(seasonId, achiLv)
+    for i=1,#PureSeasonAchievementTable do
+        if (PureSeasonAchievementTable[i].SeasonID == seasonId and PureSeasonAchievementTable[i].Achievementlevel == achiLv) then
+            return PureSeasonAchievementTable[i].description
+        end
+    end
+end
+
+function HotfixPureSeasonDocument.GetNeedSeverOpenday(seasonId, achiLv)
+    for i=1,#PureSeasonAchievementTable do
+        --print("SeasonID = "..seasonId.tostring())
+        --print("achiLv = "..achiLv.tostring())
+        if (PureSeasonAchievementTable[i].SeasonID == seasonId and PureSeasonAchievementTable[i].Achievementlevel == achiLv) then
+            --print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa = "..tostring(PureSeasonAchievementTable[i].UnlockTime))
+            return PureSeasonAchievementTable[i].UnlockTime
+        end
+    end
+    return 1
+end
+return this

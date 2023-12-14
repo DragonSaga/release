@@ -1,0 +1,418 @@
+local this = nil
+
+
+-- require("XNpcFLReq_pb.lua")
+
+---npc圣物装备页签 --hotfix
+XNPCFavorHandler = {}
+local this = XNPCFavorHandler
+
+local favorHandler = nil --c# 里面的圣物第一个标签页的界面
+local selectedNpcID = 0
+
+local timetoken = 0
+
+local LvUpCostPanelTrans = nil
+local LvUpBtnTrans = nil
+local GoBtnTrans = nil
+
+local PanelActiveTrans = nil
+local ActiveBtnObj = nil
+local ActiveBtnSpr = nil
+local ActiveTitleTrans = nil
+
+local farfarAwayPos = Vector3(100000, -121, 0)
+local GoBtnPos = Vector3(-182, -205, 0)
+local LvBtnPos = Vector3(-354, -205, 0)
+local LvUpCostPanelPos = nil--Vector3(-404. -121, 0)
+local ActiveBtnPos = Vector3(-267, -205, 0)
+local ActiveTitlePos = Vector3(-439, -70, 0)
+
+local AcitveCostItemObj = nil
+local ItemConfigTable = nil
+local icon = nil
+
+local refreshTime = 200
+
+local currCostItemId = 0
+
+local redPointObj = nil
+
+local curPlayerLv = 0
+
+local SelectItemObj = nil
+
+local theOne = nil
+
+local ParentDlgObj = nil
+
+local costTipsLb = nil
+
+-- function XNPCFavorHandler.ArgNpcFLReq()
+
+-- 	local  msg = GetProtoBufSendTable("NpcFlArg")
+
+-- 	msg.reqtype = 7
+
+-- 	msg.npcid = selectedNpcID
+
+-- 	local pb_data = msg:SerializeToString()
+-- 	pb_data = pb_data
+-- 	if pb_data ~= nil then
+-- 		print "do send rpc 11607"
+-- 		Hotfix.SendLuaByteRPC(11607, pb_data, this.ResNpcFLReq, this.ResErr)
+-- 	end
+-- end
+
+-- function XNPCFavorHandler.ResNpcFLReq(data,length)
+-- 	print "Response Ok"
+
+-- 	local  msg = ParseProtoBufToTable("NpcFlRes",data)
+-- 	if msg ~= nil then
+
+-- 	else
+-- 		print("restart reply msg is nil")
+-- 	end
+
+-- 	local theErrorCode = msg.errorcode
+-- 	print("the errorCode: "..theErrorCode)
+
+-- 	if theErrorCode == 0 then
+-- 		Hotfix.CallDocumentMethod("NPCFavorDocument",true,"PlayFireWorkFx")
+
+-- 		if favorHandler ~= nil then
+-- 			selectedNpcID = PublicExtensions.GetPublicField(favorHandler,"_selectedNPCID") --c# int
+-- 			theOne = Hotfix.CallDocumentMethod("NPCFavorDocument",true,"GetOneNpc",selectedNpcID)
+-- 		end
+
+-- 		this.LvUpOrActiveShow(true)
+-- 		this.ActiveItemDisplay()
+
+-- 		Hotfix.RemoveTimer(timetoken)
+-- 		local delayTime = refreshTime * 3
+-- 		timetoken = Hotfix.LuaWait(delayTime, this.OnTimer)		
+-- 	end
+	
+-- end
+
+function XNPCFavorHandler.ResErr()
+
+end
+
+
+function XNPCFavorHandler.BeforeHandlerShow(go)
+	-- print(1333)
+end
+
+local ItemsTrans = nil
+
+function XNPCFavorHandler.AfterHandlerShow(go)
+	-- print(2333)
+
+	-- if ItemsTrans == nil then
+	-- 	ItemsTrans = go.transform:Find("NpcInfo/Panel/Items")
+	-- end
+
+	
+
+	-- Hotfix.RemoveTimer(timetoken)
+	-- timetoken = Hotfix.LuaWait(refreshTime , this.OnTimer)	
+
+	do return end
+
+	if costTipsLb == nil then
+		costTipsLb = go.transform:Find("NpcInfo/Panel/CostTips"):GetComponent("UILabel")
+		costTipsLb.text = Hotfix.GetStringTable("TaLoveGift")
+	end
+
+	ParentDlgObj = go.transform.parent.parent.gameObject
+
+	favorHandler = Hotfix.GetSingleMember("UI.XNPCFavorDlg", "m_favorHandler", false, true, false)
+
+	curPlayerLv = Hotfix.GetPlayer("Level")
+
+	if favorHandler ~= nil then
+		
+		selectedNpcID = favorHandler:GetPublicField("_selectedNPCID"); --PublicExtensions.GetPublicField(favorHandler) --c# int
+
+		theOne = Hotfix.CallDocumentMethod("NPCFavorDocument",true,"GetOneNpc",selectedNpcID)
+	end
+
+	LvUpCostPanelTrans = go.transform:Find("NpcInfo/Panel")
+	LvUpBtnTrans = go.transform:Find("NpcInfo/LevelUpBtn")
+	GoBtnTrans = go.transform:Find("NpcInfo/GoBtn")
+
+	PanelActiveTrans = go.transform:Find("NpcInfo/PanelActiveForLua")
+	
+	if LvUpCostPanelPos == nil then
+		LvUpCostPanelPos = PanelActiveTrans.localPosition
+	end
+	
+
+	ActiveBtnObj = go.transform:Find("NpcInfo/Activation").gameObject
+	ActiveBtnSpr = ActiveBtnObj:GetComponent("UISprite")
+	ActiveTitleTrans = go.transform:Find("NpcInfo/T1")
+
+	AcitveCostItemObj = PanelActiveTrans:Find("Items/Item").gameObject
+	local IconP = AcitveCostItemObj.transform:Find("Icon").gameObject
+
+	icon = AcitveCostItemObj.transform:Find("Icon/Icon"):GetComponent("UISprite")
+
+	redPointObj = ActiveBtnObj.transform:Find("RedPoint").gameObject
+
+
+	-- local childTrans = LvUpCostPanelTrans:Find("Items")
+	-- local childItemCount = childTrans.childCount
+	-- print("childCount: "..childItemCount)
+	-- for i = 1, childItemCount - 1 do
+
+	-- 	local theIndex = i - 1
+	-- 	local tempItem = childTrans:Find("item"..tostring(theIndex).."/Icon")
+	-- 	if not IsNil(tempItem) then
+	-- 		Hotfix.SetClickCallback(tempItem.gameObject, this.ShowItemAccessTips)
+	-- 	end
+	-- end
+
+	Hotfix.SetClickCallback(IconP,this.CostItemDetailTipDlg)	
+
+	Hotfix.SetClickCallback(ActiveBtnObj,this.ActiveBtnObjOnClick)	
+	
+	this.LvUpOrActiveShow(true)
+	this.ActiveItemDisplay()
+
+	Hotfix.RemoveTimer(timetoken)
+	timetoken = Hotfix.LuaWait(refreshTime , this.OnTimer)	
+
+end
+
+function XNPCFavorHandler.ActiveBtnObjOnClick(go)
+	-- this.ArgNpcFLReq()
+end
+
+function XNPCFavorHandler.Hide( )
+	print ("hide")
+	Hotfix.RemoveTimer(timetoken)
+end
+
+function XNPCFavorHandler.Unload()
+	Hotfix.RemoveTimer(timetoken)
+	-- timeConfigTable = nil
+end
+
+local needSetClickAgaint = false
+function XNPCFavorHandler.OnTimer( )
+
+	-- print ("selectedNpcID: "..selectedNpcID)
+	
+	-- if selectedNpcID ~= 0 then
+
+	-- 	local currCSharpV = PublicExtensions.GetPublicField(favorHandler,"_selectedNPCID") --c# int
+	-- 	if selectedNpcID ~= currCSharpV then
+	-- 		selectedNpcID = currCSharpV
+	-- 	else
+	-- 		Hotfix.RemoveTimer(timetoken)
+	-- 		timetoken = Hotfix.LuaWait(refreshTime , this.OnTimer)		
+	-- 		return 
+	-- 	end
+	-- else
+	-- 	Hotfix.RemoveTimer(timetoken)
+	-- 	timetoken = Hotfix.LuaWait(refreshTime , this.OnTimer)		
+	-- 	return
+	-- end
+
+	-- local childTrans = LvUpCostPanelTrans:Find("Items")
+	-- local childItemCount = childTrans.childCount
+	-- -- print("childCount: "..childItemCount)
+	-- for i = 1, childItemCount - 1 do
+
+	-- 	local theIndex = i - 1
+	-- 	local tempItem = childTrans:Find("item"..tostring(theIndex).."/Icon")
+	-- 	if not IsNil(tempItem) then
+	-- 		Hotfix.SetClickCallback(tempItem.gameObject, this.ShowItemAccessTips)
+	-- 	end
+	-- end
+	
+	-- this.LvUpOrActiveShow(false)
+
+	-- this.ActiveItemDisplay()
+	
+
+	Hotfix.RemoveTimer(timetoken)
+	timetoken = Hotfix.LuaWait(refreshTime , this.OnTimer)		
+end
+
+function XNPCFavorHandler.LvUpOrActiveShow(MoveImmediately)
+
+	if MoveImmediately then
+		if IsNil(theOne) then
+
+			GoBtnTrans.localPosition = farfarAwayPos
+			LvUpBtnTrans.localPosition = farfarAwayPos
+			LvUpCostPanelTrans.localPosition = farfarAwayPos
+
+			PanelActiveTrans.localPosition = LvUpCostPanelPos
+
+			-- print("x: "..tostring(LvUpCostPanelPos.x))
+			ActiveBtnObj.transform.localPosition = ActiveBtnPos
+			ActiveTitleTrans.localPosition = ActiveTitlePos
+
+		else
+
+			GoBtnTrans.localPosition = GoBtnPos
+			LvUpBtnTrans.localPosition = LvBtnPos
+			LvUpCostPanelTrans.localPosition = LvUpCostPanelPos
+
+			-- print("x: "..tostring(LvUpCostPanelPos.x))
+
+			PanelActiveTrans.localPosition = farfarAwayPos
+			ActiveBtnObj.transform.localPosition = farfarAwayPos
+			ActiveTitleTrans.localPosition = farfarAwayPos
+
+		end
+	end
+
+
+	local currCSharpV = favorHandler:GetPublicField("_selectedNPCID") --PublicExtensions.GetPublicField(favorHandler,"_selectedNPCID") --c# int
+	if selectedNpcID ~= currCSharpV then
+		
+		selectedNpcID = currCSharpV
+		theOne = Hotfix.CallDocumentMethod("NPCFavorDocument",true,"GetOneNpc",selectedNpcID)
+
+		if IsNil(theOne) then
+
+			GoBtnTrans.localPosition = farfarAwayPos
+			LvUpBtnTrans.localPosition = farfarAwayPos
+			LvUpCostPanelTrans.localPosition = farfarAwayPos
+
+			PanelActiveTrans.localPosition = LvUpCostPanelPos
+
+			-- print("x: "..tostring(LvUpCostPanelPos.x))
+			ActiveBtnObj.transform.localPosition = ActiveBtnPos
+			ActiveTitleTrans.localPosition = ActiveTitlePos
+
+		else
+
+			GoBtnTrans.localPosition = GoBtnPos
+			LvUpBtnTrans.localPosition = LvBtnPos
+			LvUpCostPanelTrans.localPosition = LvUpCostPanelPos
+
+			-- print("x: "..tostring(LvUpCostPanelPos.x))
+
+			PanelActiveTrans.localPosition = farfarAwayPos
+			ActiveBtnObj.transform.localPosition = farfarAwayPos
+			ActiveTitleTrans.localPosition = farfarAwayPos
+
+		end
+	end
+end
+
+
+function XNPCFavorHandler.CostItemDetailTipDlg(go)
+	Hotfix.LuaShowItemTooltipDialog(currCostItemId, go)
+end
+
+-- function XNPCFavorHandler.ShowItemAccessTips(go)
+	
+-- 	local itemid = go:GetComponent("XUISprite").ID
+
+-- 	print("the item id: "..itemid)
+
+-- 	Hotfix.LuaShowItemAccess(tonumber(itemid))
+	
+-- 	-- Hotfix.CallSingleMethod("UI.UiUtility", true, false, "ShowItemAccess",tonumber(itemid))
+-- end
+
+function XNPCFavorHandler.ActiveItemDisplay( )
+	
+	if not IsNil(theOne) then
+		return
+	end
+
+	if not IsNil(ParentDlgObj) and not ParentDlgObj.activeInHierarchy then
+		return
+	end
+
+	if ItemConfigTable == nil then
+		
+		local itemCostConfig = Hotfix.GetGlobalString("NpcFeelingActiviteItem")
+	
+		ItemConfigTable = itemCostConfig:split("|")
+
+	end
+
+	-- 	print ("ParentDlgObj name: "..ParentDlgObj.name)
+	-- print "66666"
+	--  print("the selectedNpcID: "..selectedNpcID)
+
+	for i = 1, #ItemConfigTable do
+				
+		local tempConfig = ItemConfigTable[i]
+		
+		local tempCostTable = tempConfig:split("=")
+
+		local theNpcId = tonumber(tempCostTable[1])
+
+		-- print "---------------------------------------------------"
+		-- print("npc id"..theNpcId)
+
+		local lvLimit = false
+		if  theNpcId == selectedNpcID then
+
+			-- print("the npc id: "..theNpcId)
+
+			local theItemId = tonumber(tempCostTable[2]) 
+			local theItemCount = tonumber(tempCostTable[3]) 
+
+			local hadItemCount = Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount",theItemId)
+
+			SelectItemObj = favorHandler:GetPrivateField("SelectedItem") --PrivateExtensions.GetPrivateField(favorHandler,"SelectedItem") --c# GameObject
+			if not IsNil(SelectItemObj) then
+				local lockLb = SelectItemObj.transform:Find("NoActive"):GetComponent("UILabel")
+				if not IsNil(lockLb) then
+					local needlvStr = lockLb.text
+					local lvTable = needlvStr:split(Hotfix.GetStringTable("LevelName"))
+
+					local needLv = tonumber(lvTable[1])
+					-- print("needLv: "..needLv)
+					-- print("curPlayerLv: "..curPlayerLv)
+
+					curPlayerLv = Hotfix.GetPlayer("Level")
+
+					if needLv ~= nil then
+						lvLimit = needLv > curPlayerLv
+					end
+					
+				end
+			end
+
+			-- print("hadItemCount: "..hadItemCount)
+			-- print("needItemCount: "..theItemCount)
+			-- print("lvLimit: "..tostring(lvLimit))
+
+			if hadItemCount < theItemCount or  lvLimit then
+				icon.color = Color.black
+				ActiveBtnSpr.color = Color.black
+				redPointObj:SetActive(false)
+			else
+				icon.color = Color.white
+				ActiveBtnSpr.color = Color.white
+				redPointObj:SetActive(true)
+			end
+
+
+			currCostItemId = theItemId
+
+			Hotfix.DrawItemView(AcitveCostItemObj,theItemId,theItemCount,true)	
+
+			break
+		end
+	end
+end
+
+
+
+
+
+
+
+return this

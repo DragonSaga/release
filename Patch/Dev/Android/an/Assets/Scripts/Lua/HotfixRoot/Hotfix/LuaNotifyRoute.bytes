@@ -1,0 +1,576 @@
+local this = nil
+--
+--  LuaNotifyRoute.lua
+--  Created by alexpeng on 2016/06/07 07:26:47
+--  Please make sure you file start with "Hotfix" or "Lua"
+--
+
+LuaNotifyRoute={}
+local this = LuaNotifyRoute
+local entityList = nil
+
+require "XSpActivity_pb.lua"
+require "HotfixCollectWordsDocument.lua"
+require "HotfixPartnerDayDocument.lua"
+require "HotfixHallDlg.lua"
+require "XBackFlowSealType_pb.lua"
+require "Lua520DayDocument.lua"
+require "XLoginReward_pb.lua"
+require "LuaLoginRewardDocument.lua"
+require "XBackFlowNtf_pb.lua"
+require "LuaFashionCompoundDlg.lua"
+require "LuaPureFashionCompoundDlg.lua"
+require "LuaKnightMedalDoucument.lua"
+require "XGiftCard_pb.lua"
+require "LuaGiftCardDocument.lua"
+--require "LuaTimedActivitiesDoc.lua"
+require "LuaJadeEquipDataModel.lua"
+--require "XArtifactEffectNotify_pb.lua"
+--require "XSpriteDrawLottery_pb.lua"
+--require "HotfixSpriteLotteryHandler.lua"
+require "XBuyActivityNtf_pb.lua"
+require "LuaBuyActivityDoc.lua"
+require "ReducingBurdenPrivilege_pb.lua"
+
+require("Lua520FestivityDoc.lua")
+require("XLoveFestivity_pb.lua")
+
+require "XPsychicSuitNotify_pb.lua"
+require "XSceneDamageRankNtf_pb.lua"
+require "XProfessionChallengeDamageNtf_pb.lua"
+
+
+require "LuaCharacterEquipBagDoc.lua"
+require "HotfixCharacterEquipBagHandler.lua"
+require "LuaTimeLimitActivityHandler.lua"
+
+require "XPsychicinfochangentf_pb.lua"
+require "HotfixEquipInjectPsychicDoc.lua"
+require "LuaCareerChallengesDoc.lua"
+
+require "XSmeltitemadditionNtf_pb.lua"
+
+require "LuaHolidayLoginDoc.lua"
+
+require "XNigBossTimeNtf_pb.lua"
+require "LuaBattleNightmareYardDoc.lua"
+require "XMyRiftFeatruesInfo_pb.lua"
+require "LuaTeamMysteriousDoc.lua"
+require "XRiftSceneInfoPtc_pb.lua"
+require "LuaReducingBurdenPrivilegeDoc.lua"
+
+require "LuaDragonkillingDoc.lua"
+
+require "XGuildAuctCurrencyPtc_pb.lua"
+
+require "LuaInvestmentPackageDoc.lua"
+
+require "XTeamLeagueV2Handler_pb.lua"
+require "HotfixTeamLeagueVersionTwoHandler.lua"
+require "LuaMysteriousActivity.lua"
+require "X520Show_pb.lua"
+require "Lua520EventDoc.lua" 
+require "LuaGreenDragonDoc.lua"
+require "LuaHappyCardsDoc.lua"
+require "LuaDailyDungeonDlg.lua"
+require "XReachAchieveNtf_pb.lua"
+
+require "LuaNewRechargeDocument.lua"
+
+require "XEquipreforgemoreattackattrPtc_pb.lua"
+require "XFashionRank_pb.lua"
+
+require "XBattleErrRes_pb.lua"
+
+require "LuaFashionCompoundData.lua"
+require "XOnFashionChangedntf_pb.lua"
+
+-- require "HotfixXTeamMonitorHandler.lua"
+
+require "LuaBopuDoc.lua"
+require "LuaFastSignalDoc.lua"
+require "LuaGrailElvesFrameDoc.lua"
+require "LuaSpriteRandomRefineDlg.lua"
+
+function LuaNotifyRoute.Regist25097(data,length) 
+	LuaDragonkillingDoc.OnPtcNoticeFirstPass()
+end
+
+function LuaNotifyRoute.Regist24832(data,length) 
+	local  msg = ParseProtoBufToTable("SpActivityChange",data)
+
+	
+	LuaKnightMedalDoucument.OnSpActivityChange()
+	HotfixCollectWordsDocument.OnSpActivityChange(msg.actid)
+	LuaHolidayLoginDoc.OnSpActivityChange(msg)
+	
+	HotfixPartnerDayDocument.OnSpActivityChange(msg)	
+
+	LuaTimeLimitActivityHandler.OnSpActivityChange(msg)	
+
+	LuaInvestmentPackageDoc.OnSpActivityChange(msg)	
+	LuaMysteriousActivity.OnSpActivityChange(msg)
+	LuaNewRechargeDocument.OnSpActivityChange(msg)
+	if msg.actid == 69 then
+		HallDlg.showSys520()
+	end
+	HallDlg.showSysFashionRank()
+	HallDlg.GalaxyTreasure()
+	--LuaTimedActivitiesDoc.OnTaskChanged(msg)
+end
+function LuaNotifyRoute.Regist15542(data, length)
+	local  msg = ParseProtoBufToTable("HintNotify" ,data)
+
+	for i = 1, #(msg.systemid) do
+		if msg.systemid[i] == XSys_HallOfFame then
+            HallDlg.HallOfFameRedPoint(msg.isremove)
+        end
+	end
+
+	local Pure = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'IsPureVersion')
+	if Pure == true then
+		local isMain = Hotfix.CallSingleMethod('UI.XMainInterface', true, false, 'IsVisible')
+		if isMain == true then
+			Hotfix.LuaWait(1000, HallDlg.OndeletSeasonActivity)
+		end
+	end
+	
+end
+
+function LuaNotifyRoute.Regist4059(data,length) 
+	local  msg = ParseProtoBufToTable("SpActivityOffsetDay" ,data)
+
+	Lua520DayDocument.OnTimeChange(msg)
+
+	HotfixCollectWordsDocument.Refresh()
+	HotfixPartnerDayDocument.Refresh()
+	LuaInvestmentPackageDoc.SetOffsetMsg(msg)
+	LuaGreenDragonDoc.RefreshTimeLab()
+	LuaNewRechargeDocument.OnTimeChange(msg)
+end
+
+function LuaNotifyRoute.Regist28079(data,length) 
+	print("<color=Red> LuaNotifyRoute.Regist28079 ==></color>")
+	local msg = ParseProtoBufToTable("ArtifactEffectWorkData",data)
+	
+	for i=1,#msg.effects do
+		local effect = msg.effects[i]
+		if effect ~= nil then
+			this.ArtifactEffectWorkProcess(effect)
+		end
+	end
+end
+
+function LuaNotifyRoute.Regist17738(data,length) 
+	print("<color=Green> LuaNotifyRoute.Regist17738 ==></color>")
+	LuaReducingBurdenPrivilegeDoc.GetInfo(data,length)
+end
+
+--购买活动
+function LuaNotifyRoute.Regist22619(data,length) 
+	print("<color=Green> LuaNotifyRoute.Regist22619 ==></color>")
+	local msg = ParseProtoBufToTable("BuyActivityDataNtf",data)
+	
+	LuaBuyActivityDoc.SetSeverData(msg)
+end
+
+function LuaNotifyRoute.Regist8803(data,length)
+	local msg = ParseProtoBufToTable("SmeltitemAdditionData",data)
+	--print("Regist8803 type = "..tostring(msg.type))
+	if msg.type == 1 then
+		--LuaSmeltMainHandlerDoc.PtcRefreshUi()
+	end
+end
+
+local m_stuntToken = 0
+function LuaNotifyRoute.Regist20270(data,length)
+	--LuaSmeltMainHandlerDoc.HidOld()
+	LuaHappyCardsDoc.RefreshTitan()
+	LuaBopuDoc.RefreshTitan()
+	-- GrailElvesFrameDoc.RefreshBagItems()
+	Hotfix.RemoveTimer(m_stuntToken)
+	m_stuntToken = Hotfix.LuaWait(100, this.RefreshStuntUI)
+
+	if LuaSpriteRandomRefineDlg.IsVisible() then
+		LuaSpriteRandomRefineDlg.RefreshRewardItems()
+	end
+end
+
+function LuaNotifyRoute.RefreshStuntUI()
+	Hotfix.CallDocumentMethod("XEquipStuntDoc", true, "RefreshStuntHandler")
+end
+
+	--function LuaNotifyRoute.ArtifactEffectWorkProcess(effect)
+--	print("<color=Red> effect uid = "..tostring(effect.uid).."</color>")
+--	local uid = Hotfix.GetLuaLong(effect.uid);
+--	local enumType =  Hotfix.GetEnumType("ItemType","31")
+--	local item = Hotfix.CallDocumentMethod("XBagDocument",true,"GetItemByUID",uid)
+--	if item ~= nil and item.type == enumType then
+		--print("<color=Red>type != 31 type = "..tostring(item.type).."</color>")
+--		local count = item.EffectInfoList.Count
+--		for i=0,count-1 do
+--			if #effect.isWork >= count and item.EffectInfoList[i] ~= nil then
+			--必须这样写否则赋值不正确
+--				local info = item.EffectInfoList[i];
+--				info.IsValid = effect.isWork[i+1]
+--				item.EffectInfoList[i] = info
+--			end
+--		end
+--	end
+--
+--end
+-- function LuaNotifyRoute.Regist11558( data,length )
+-- 	-- body
+
+-- 	local  msg = ParseProtoBufToTable("TeamUseTicketPara",data)
+-- 	if msg ~= nil then
+
+-- 		HotfixMyTeamDocument.SetUseTicket(msg.useticket)
+-- 	end
+-- 	print("XTeamUseTicket_pb ..Regist11558..."..tostring(msg.useticket))
+-- end
+
+function LuaNotifyRoute.Regist41168(data,length)
+	print("LuaNotifyRoute.Regist41168  ==>")
+	--HallDlg.ShowBackflowBtn()
+	--LuaTimedActivitiesDoc.OnSystemChanged()
+	--HallDlg.DragonSysShowSet()
+	HallDlg.SysShowSet("_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/SysQmtl",1016,HallDlg.DragonKillingDlgShow)
+	HallDlg.showSys520()
+	HallDlg.showSysBigRisk()
+	HallDlg.showSysFashionRank()
+	HallDlg.HappyCards()
+	HallDlg.GreenDragon()
+	HallDlg.BopeTreasure()
+	HallDlg.DailyDungeon()
+	HallDlg.RelickTreasure()
+	HallDlg.OnSystemChangedAbKnightMedal()
+
+	HallDlg.GalaxyTreasure()
+	HallDlg.HallOfFame_Pure()
+	HallDlg.ChristmasEvent()
+
+
+	HallDlg.RefreshGrid()
+end
+
+function LuaNotifyRoute.Regist3009(data,length)
+	print("LuaNotifyRoute.Regist3009 ==>")
+	local msg = ParseProtoBufToTable("BackFlowSealTypeNtfData",data)
+	print("msg = "..tostring(msg.levelSealType))
+end
+
+function LuaNotifyRoute.Regist34113(data,length)
+	print("LuaNotifyRoute.Regist34113  ==>")
+	local msg = ParseProtoBufToTable("LoginActivityStatus",data)
+	LuaLoginRewardDocument.SetStatus(msg.state)
+end
+
+function LuaNotifyRoute.Regist40338(data,length)
+	print("LuaNotifyRoute.Regist40338  ==>")
+
+	--LuaTimedActivitiesDoc.RefreshData()
+end
+-- function LuaNotifyRoute.Regist41168(data,length)
+-- 	print("LuaNotifyRoute.Regist41168  ==>")
+
+-- end
+
+function LuaNotifyRoute.Regist27749(data,length)
+	-- print("LuaNotifyRoute.Regist27749  ==>")
+	-- local  msg = ParseProtoBufToTable("BackFlowOpenNtf",data)
+
+	-- print(tostring(msg.isopen).."open open")
+	-- LuaBackflowDocument.SetBackFlowOpen(msg.isopen)
+end
+
+function LuaNotifyRoute.Regist23114(data,length)
+	-- body
+	local  msg = ParseProtoBufToTable("HintNotify",data)
+
+	for i = 1,#(msg.systemid) do 
+		-- if v == 994 then
+		-- 	print("HintNotifyData has 994")
+		-- 	LuaBackflowDocument.SetBfWelfareRedDot(true);
+		-- end
+		if msg.systemid[i] == 803 then
+			Debugger.LogWarning("HintNotifyData has 803")
+			HallDlg.showSys520Red(msg.isremove);
+		elseif msg.systemid[i] == 115 then
+			--HallDlg.showSys115Red(msg.isremove)
+
+		elseif msg.systemid[i] == XSys_HallOfFame  then
+			HallDlg.HallOfFameRedPoint(msg.isremove)
+		end
+	end
+end
+function LuaNotifyRoute.Regist1479(data,length)
+	local  msg = ParseProtoBufToTable("ReachAchieveNtf",data)
+
+	local Pure = Hotfix.CallSingleMethod("UI.UiUtility", true, false, "IsPureVersion")
+	local txt = Hotfix.GetStringTable("AchievementGeted")
+	
+	if msg.achivementID == nil then
+		return
+	end
+	local data = Hotfix.CallDocumentMethod("DesignationDocument",true,"FindAchieveByID", tonumber(msg.achivementID))
+
+	local Team = Hotfix.GetDocumentMember("TeamDocument","bInTeam",true,false)
+	if Pure == true and data ~= nil and Team == true then
+		Hotfix.CallDocumentMethod("InvitationDocument",true,"SendAchievemetInvitation",
+		210509,true, data.Achievement, txt, data.ID)
+	end
+end
+-- function LuaNotifyRoute.Regist27802(data,length)
+-- 	print("LuaNotifyRoute.Regist27802  ==>")
+-- 	local res = XSpriteDrawLottery_pb.DrawLotteryRes()
+
+-- 	SpriteLotteryHandler.OnDrawLottery(res)
+-- end
+
+function LuaNotifyRoute.RegistFashionBuy( ... )
+	-- body
+
+	if LuaPureFashionCompoundDlg.isPure==false then
+
+		if LuaFashionCompoundDlg.IsVisible then
+			LuaFashionCompoundDlg.RefreshBuyResp()
+		end
+	else
+		if LuaPureFashionCompoundDlg.IsVisible then
+			LuaPureFashionCompoundDlg.RefreshBuyResp()
+		end
+	end
+
+end
+
+function LuaNotifyRoute.RegistPayGiftNtf(data,length)
+	print("------------------------------------length: "..length)
+	local msg = ParseProtoBufToTable("PayGiftNtfData",data)	
+	LuaGiftCardDocument.OnPayGiftNtf(msg)
+end
+
+
+function LuaNotifyRoute.Regist51248(data,length)
+	--print "receive ptc"
+	--msg = ParseProtoBufToTable("JadeSlotInfo",data)	
+	--LuaJadeEquipDataModel.OperationOldAfterHandler(msg)
+end
+
+
+function LuaNotifyRoute.Regist28202(data,length)
+
+	print("LuaNotifyRoute.Regist28202  ==>")
+
+	local msg = ParseProtoBufToTable("Get520FestivalRedPacket",data)
+
+	Lua520FestivityDoc.RedBagPtc(msg)
+end
+
+function LuaNotifyRoute.Regist53668(data,length) 
+	print("LuaNotifyRoute.Regist53668   ==>")
+	local msg = ParseProtoBufToTable("NotifyPsychicSuitData",data)
+	LuaCharacterEquipBagDoc.OnGetPtcNotify(msg.psychicSuit)
+	CharacterEquipBagHandler.SetLevel()
+end
+
+function LuaNotifyRoute.Regist28932(data,length)
+	print("LuaNotifyRoute.Regist28932  ==>")	
+	local msg = ParseProtoBufToTable("DailyNotifyNtfData",data)
+	LuaJadeEquipDataModel.SaveCurrDailyNotify(msg)
+end
+
+--注灵历史最大等级
+function LuaNotifyRoute.Regist823(data,length)
+	print("LuaNotifyRoute.Regist823  ==>")
+	local msg = ParseProtoBufToTable("psychicInfoChangeData",data)
+	EquipInjectPsychicDoc.OnGetPtc(msg)
+end
+
+function LuaNotifyRoute.Regist26864(data,length)
+	local msg = ParseProtoBufToTable("SceneDamageRankNtf",data)
+	LuaCareerChallengesDoc.OnGetPtc(msg)
+end
+
+function LuaNotifyRoute.Regist65354(data,length)
+	local msg = ParseProtoBufToTable("ProfessionChallengeDamageData",data)
+	LuaCareerChallengesDoc.OnGetPtc(msg)
+end
+
+function LuaNotifyRoute.Regist50419(data,length)
+	local msg = ParseProtoBufToTable("NigBossViolentTime",data)
+	LuaBattleNightmareYardDoc.OnNigBossTipsNtf(msg)
+end
+
+function LuaNotifyRoute.Regist62059(data,length)
+	local msg = ParseProtoBufToTable("CrossRegtopFightPointPara",data)
+	TeamLeagueVersionTwoHandler.SetProgressData(msg)
+end
+
+--无限幻境主界面特性
+function LuaNotifyRoute.Regist10797(data,length)
+	local msg = ParseProtoBufToTable("MyRiftFeatruesInfoData",data)
+	LuaTeamMysteriousDoc.RefreshAttr(msg)
+end
+
+function LuaNotifyRoute.Regist17975(data,length)
+	local msg = ParseProtoBufToTable("RiftSceneInfoNtfData",data)
+	LuaTeamMysteriousDoc.RefreshBattleUI(msg.features)
+end
+
+function LuaNotifyRoute.Regist56227(data,length)
+	local currSceneid = Hotfix.GetSingleMember("XScene", "SceneID", true, false, false)
+	 if currSceneid == 1 then
+	local msg = ParseProtoBufToTable("ReveiveCraneUseLua",data)
+	  Lua520EventDoc.setPaperCraneReplyArg(msg.roelname ,msg.count)
+	  --Debugger.LogWarning("Regist56227.id == " .. msg.roelname )
+	  --Debugger.LogWarning("Regist56227.id == " .. msg.count )
+	  LuaUIManager.Instance:Load("UI/GameSystem/PaperCraneReply")
+	 end
+end
+
+function LuaNotifyRoute.Regist3949(data,length)
+	local msg = ParseProtoBufToTable("EquipReforgeMoreAttackAttr",data)
+
+	local attrId = msg.AttrID
+	print("Regist3949 =========================>>"..tostring(attrId))
+	local attrName = Hotfix.CallDocumentStaticMethod("XAttributeCommon",true,"GetAttrStr",attrId)
+	local tips = Hotfix.GetStringTable("EequipReforgeLargeAttrTips",attrName);
+	local ok = Hotfix.GetStringTable("COMMON_OK")
+	Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowModalDialog",tips,ok)
+end
+
+function LuaNotifyRoute.Regist25720(data,length)
+	-- XTeamMonitorHandler.ClearMembers()
+end
+
+function LuaNotifyRoute.Regist59840(data,length)
+	local msg = ParseProtoBufToTable("FashionAllNumData",data)
+	-- Debugger.LogWarning("Regist59840  " ..  msg.allnum)
+
+	local go = GameObject.Find("UIRoot(Clone)/PureExteriorDlg(Clone)/Bg/RightHander/ExteriorFashionFrame/PowerPoint")
+	if go ~= nil then
+		local FashionValue = go:GetComponent("UILabel")
+		FashionValue.text = " " .. msg.allnum
+	end
+end
+
+function LuaNotifyRoute.Regist29968(data, length)
+
+	print "222"
+	local  msg = ParseProtoBufToTable("BattleErrRes",data)  
+	-- msg:ParseFromString(data,length)
+
+	print("the Type: "..msg.type)
+	if msg.type == 3 then
+		print("the error: "..msg.error)
+		if msg.error == 1355 then
+			Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("ERR_HEROTEAM_INELIGIBLE"))
+		elseif msg.error == 1356 then
+			Hotfix.LuaShowSystemTip(Hotfix.GetStringTable("ERR_HEROCREAT_INELIGIBLE"))
+		end 
+	end
+end
+
+function LuaNotifyRoute.Regist4190(data, length)
+    LuaFastSignalDoc.OnReceiveBroadcast(data, length)
+end
+
+function LuaNotifyRoute.Regist12350(data, length)
+
+	local msg = ParseProtoBufToTable("FashionChangedData",data)
+	--print("LuaNotifyRoute.Regist12350  msg.UpdateFashionData  = "..tostring(msg.changeType))
+	if(msg.changeType == 1) then
+		--print("aaaaaaaaaaaaaaaaaaaa")
+		FashionCompoundData.UpdateBagData(msg.fashion)
+	end
+	
+end
+
+--匹配的ptc
+function LuaNotifyRoute.Regist11521(data,length)
+	local msg = ParseProtoBufToTable("RoleStateMatch",data)
+	
+	local matchType = msg.matchtype
+	print("<color=red>match type: </color>"..matchType)
+
+	local theDoc = XDocumentMgr.XTeamDocument--require "Game/Team/XTeamDocument"
+	assert(theDoc ~= nil, "XTeamDocument can not find")
+
+	theDoc:SavePTCInfo(msg)
+end
+
+--进场景的ptc
+function LuaNotifyRoute.Regist63366(data, length)
+
+	--todo：判断是否是圣诞乱斗，否则不进
+
+	local msg = ParseProtoBufToTable("SceneCfg",data)
+
+	local sceneid = msg.SceneID
+	print("sceneid: "..sceneid)
+
+	local XLoginStep = CS.XMainClient.XLoginStep
+	local typePlaying = XLoginStep.__CastFrom("Playing")
+	
+	local EXStage = CS.XMainClient.EXStage
+	local worldStage = EXStage.__CastFrom("World")
+
+	CS.XMainClient.XClientNetwork.singleton.XLoginStep = typePlaying
+	local SceneReady = CS.XMainClient.XScene.singleton.SceneReady
+
+	print("sceneReady: "..tostring(SceneReady))
+	if SceneReady then
+		if sceneid == 50089 then  	--走globalconfig配置
+			CS.XMainClient.XGame.singleton:SwitchTo(worldStage, sceneid)
+		end
+	end
+end
+
+--圣诞乱斗结算ptc
+function LuaNotifyRoute.Regist37933(data, length)
+	local msg = ParseProtoBufToTable("ChristmasResultNotifyData",data)
+
+	local rank = msg.rank
+	local score = msg.score
+	local killnum = msg.killnum
+
+	print("<color=yellow>rank,score,killnum: </color>"..rank.."  "..score.."  "..killnum)
+
+	local theDoc = XDocumentMgr.XChristmasEventDocument
+	theDoc.ResultNtf(rank, score, killnum)
+end
+
+--圣诞乱斗剩余人数ptc
+function LuaNotifyRoute.Regist20261(data, length)
+	local msg = ParseProtoBufToTable("ChristmasLeftnumNotifyData",data)
+
+	local leftNum = msg.leftnum
+
+	print("<color=yellow>leftNum: </color>"..leftNum)
+	local theDoc = XDocumentMgr.XChristmasEventDocument
+	theDoc.LeftNumNtf(leftNum)
+end
+
+--圣诞乱斗击杀ptc
+function LuaNotifyRoute.Regist32973(data, length)
+	local msg = ParseProtoBufToTable("ChristmasKillNotifyData",data)
+
+	local IsKillByRole = msg.iskillbyrole
+	if IsKillByRole == nil then IsKillByRole = false end
+
+	local deader = msg.deader == nil and "deader is nil" or msg.deader
+	local killer = "装置"
+	if IsKillByRole then
+		killer = msg.killer == nil and "装置" or msg.killer
+	end
+	
+
+	print("<color=yellow>deader, killer: </color>"..deader.."  "..killer)
+
+	local theDoc = XDocumentMgr.XChristmasEventDocument
+	theDoc.KillerNtf(deader, killer, IsKillByRole)
+end
+
+
+return this

@@ -1,0 +1,222 @@
+local this = nil
+
+require "HotfixDataPool.lua"
+-----------------------------Data ----------------------------
+XTaskData = XDatabase:new()
+function XTaskData:Constructor()
+	XDatabase.Constructor(self)
+
+	self.rewardid = {}
+	self.rewardcount = {}
+	self.maxvalue = 0
+	self.nowvalue = 0
+	self.state = 0
+	self.taskdes = ""
+
+	self.taskID = 0
+end
+
+function XTaskData:Recycle()
+	XDataPool:Recycle(XTaskData, self)
+end
+-----------------------------------------------------------------
+LuaHolidayLoginDoc = {}
+local this = LuaHolidayLoginDoc
+
+XSys_HolidayLogin = 1019
+
+local m_SuperActivityTimeTable = nil
+local m_SuperActivityTaskTable = nil
+
+local m_ActID = 0
+local m_SysID = 0
+local m_DataList = {}
+
+local m_OperatingActivityDlg
+local m_HolidayLoginFrame
+
+local m_bRedPoint = false
+local m_activitytimedes
+local print = Debugger.LogWarning
+
+function LuaHolidayLoginDoc.GetData()
+	return m_DataList
+end
+
+function LuaHolidayLoginDoc.InitTable()
+	if m_SuperActivityTaskTable == nil then
+		------print("Load tables")
+		m_SuperActivityTimeTable = Hotfix.GetDocumentStaticMember("XTempActivityDocument", "SuperActivityTimeTable", true, false)
+		m_SuperActivityTaskTable = Hotfix.GetDocumentStaticMember("XTempActivityDocument", "SuperActivityTaskTable", true, false)
+		
+	end
+end
+function LuaHolidayLoginDoc.GetTimeDes()
+	-- body
+	return m_activitytimedes
+end
+
+function LuaHolidayLoginDoc.GetSysId()
+	return m_SysID
+end
+ 
+function LuaHolidayLoginDoc.SetFrame(frame)
+	m_HolidayLoginFrame = frame
+end
+
+function LuaHolidayLoginDoc.SetDataBySysId(sysid)
+	this.RefreshData(sysid)
+end
+function LuaHolidayLoginDoc.Refresh(msg)
+	if m_SysID == 0 then
+	 	this.InitTable()
+		local superActivityTimeRowData = m_SuperActivityTimeTable:GetByactid(msg.actid)
+		if superActivityTimeRowData.systemid == XSys_HolidayLogin then m_SysID = XSys_HolidayLogin end
+	 	if m_SysID == 0 then return end
+	end
+	this.RefreshData(m_SysID)
+end
+
+function LuaHolidayLoginDoc.RefreshData(sys)
+    --body
+    -- print("refreshData sysid = "..tostring(sys))
+    m_SysID = sys
+    this.InitTable();
+	Hotfix.AttachSysRedPointRelative(600, sys, false)
+
+	local init = false
+	----print("init start")
+	if m_ActID == 0 then
+		init = true
+	end
+	
+	local Rowdata = Hotfix.CallDocumentMethod("TempActivityDocument",true,"GetDataBySystemID",sys)
+	m_ActID = Rowdata.actid
+
+	----print("LuaHolidayLoginDoc.RefreshData m_ActID is "..m_ActID)
+	if init then
+		for i = #m_DataList,1,-1 do
+			m_DataList[i]:Recycle()
+			m_DataList[i] = nil
+		end
+		-- print("<color=yellow>AAAAAAAAAAAAAAAAm_SuperActivityTaskTable length:  </color>"..m_SuperActivityTaskTable.Table.Length)
+		for i = 0, m_SuperActivityTaskTable.Table.Length - 1 do
+			local superActivityTaskRowData = m_SuperActivityTaskTable.Table[i]
+			if superActivityTaskRowData.actid == m_ActID then
+				--print("LuaHolidayLoginDoc.RefreshData's title "..superActivityTaskRowData.title)
+				local tasksData = XDataPool:GetData(XTaskData)
+				-- m_DataList[#m_DataList + 1] = tasksData
+				tasksData.taskID = superActivityTaskRowData.taskid
+				tasksData.maxvalue = superActivityTaskRowData.cnt
+				tasksData.nowvalue = 0
+				tasksData.taskdes = superActivityTaskRowData.title
+				tasksData.state = 0
+				if superActivityTaskRowData.items.Count > 0 then
+					local items = superActivityTaskRowData.items
+					for j = 0,items.Count - 1 do
+						tasksData.rewardid[j + 1] = Hotfix.ParseUIntSeqList(superActivityTaskRowData.items,j,0) 
+						tasksData.rewardcount[j + 1] = Hotfix.ParseUIntSeqList(superActivityTaskRowData.items,j, 1)
+					end
+				else
+					--print("tasksData add not item")
+					tasksData.rewardid = 0
+					tasksData.rewardcount = 0
+				end
+				m_DataList[#m_DataList + 1] = tasksData
+			end
+		end
+	end
+	--
+	this.RefreshCount(sys)
+	this.RefreshUI()
+end
+function LuaHolidayLoginDoc.RefreshCount(sys)
+	m_bRedPoint = false
+	for i=1,#m_DataList do
+		local tasksData = m_DataList[i]
+		-- print("LuaHolidayLoginDoc.RefreshCount is "..m_ActID.." "..m_DataList[i].taskID)
+		if tasksData.taskID == nil then return end
+		tasksData.nowvalue = Hotfix.CallDocumentMethod("TempActivityDocument", true, "GetActivityProgress", m_ActID, tasksData.taskID)
+		tasksData.state = Hotfix.CallDocumentMethod("TempActivityDocument", true, "GetActivityState", m_ActID, tasksData.taskID)
+		if tasksData.state == 1 then
+			m_bRedPoint = true
+		end
+	end
+	this._RefreshRedPoint(sys)
+end
+
+function LuaHolidayLoginDoc._RefreshRedPoint(sys)
+	--print("doc redpoint m_bRedPoint = "..tostring(m_bRedPoint).."   m_bUIOpenedRedPoint = "..tostring(m_bUIOpenedRedPoint))
+	Hotfix.ForceUpdateSysRedPointImmediately(sys, m_bRedPoint)
+	local sysenum = Hotfix.GetEnumType("XSysDefine","XSys_OperatingActivity")
+	Hotfix.CallSingleMethod("XGameSysMgr", true, false, "RecalculateRedPointState", sysenum)
+end
+
+function LuaHolidayLoginDoc.RefreshUI()
+	--print("LuaHolidayLoginDoc.refreshui")
+	if m_HolidayLoginFrame ~= nil and m_HolidayLoginFrame.IsVisible() then
+		--print("LuaHolidayLoginDoc.refreshui start")
+		m_HolidayLoginFrame.Refresh()
+	end
+
+	if m_OperatingActivityDlg ~= nil and Hotfix.CallSingleMethod("XOperatingActivityView", true, false, "IsVisible") then
+		m_OperatingActivityDlg.RefreshRedPoint()
+	end
+end
+
+function LuaHolidayLoginDoc.CheckRedPoint(index)
+	if index > #m_DataList then return false end
+	local giftsData = m_DataList[index]
+	for i = 1, #giftsData.task do
+		if giftsData.task[i].state == 1 then
+			return true
+		end
+	end
+	return false
+end
+
+function LuaHolidayLoginDoc.OnSpActivityChange( msg )
+	--print("LuaHolidayLoginDoc.OnSpActivityChange msg recevied")
+	this.Refresh(msg)
+end
+function LuaHolidayLoginDoc.SetOperatingActivityDlg(Dlg)
+	m_OperatingActivityDlg = Dlg
+end
+
+function LuaHolidayLoginDoc.OnGetRewardClick(task)
+	local  msg = GetProtoBufSendTable("GetSpActivityRewardArg")
+	msg.actid = m_ActID
+	msg.taskid = task
+
+	--print("send request msg: "..msg.taskid)
+
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		Hotfix.SendLuaByteRPC(7905, pb_data, this.OnGetReward, this.OnErr)
+	else
+		--print("test proto data is nil")
+	end
+end
+
+function LuaHolidayLoginDoc.OnGetReward(data,length)
+	local  msg = ParseProtoBufToTable("GetSpActivityRewardRes",data)
+	if msg ~= nil then
+
+		--print("errorcode is: "..tostring(msg.errorcode))
+		if msg.errorcode ~= 0 then
+			-- exclude INVALID_REQUEST
+			if msg.errorcode ~= ERR_INVALID_REQUEST then
+				Hotfix.LuaShowSystemTipErrCode(msg.errorcode)
+			end
+		else
+			m_HolidayLoginFrame.RefreshUI()
+		end
+	else
+		--print("change name reply msg is nil")
+	end
+end
+function LuaHolidayLoginDoc.OnErr()
+	-- body
+end
+return this

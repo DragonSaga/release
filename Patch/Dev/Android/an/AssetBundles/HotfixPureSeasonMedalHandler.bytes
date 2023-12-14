@@ -1,0 +1,36 @@
+local this = nil
+require "HotfixPureSeasonDocument.lua"
+
+PureSeasonMedalHandler = {}
+this = PureSeasonMedalHandler
+
+function PureSeasonMedalHandler.BeforeHandlerShow( go )
+
+end
+
+function PureSeasonMedalHandler.AfterHandlerShow( go )
+    
+    local bottomText = go.transform:Find("Bg/Bg/Text")
+
+    --修改底部tips
+    if not IsNil(bottomText) then
+        bottomText:GetComponent("XUILabelSymbol").InputText = Hotfix.CallSingleMethod("XStringDefineProxy", true, true, "GetString", "SeasonMedalTips")
+    end
+
+    --在每个item下增加当前成就已解锁的外显属性比例
+
+end
+
+function PureSeasonMedalHandler.ShowDescription(labelSymbol, seasonId, achiLv)
+  	local isPure = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'IsPureVersion')
+    if isPure then
+        labelSymbol.InputText = HotfixPureSeasonDocument.GetCurAchiLvDescription(seasonId, achiLv)
+        --labelSymbol.transform.gameObject.activeSelf = true
+    end
+end
+
+function PureSeasonMedalHandler.GetNeedSeverOpenday(seasonId, achiLv)
+  return HotfixPureSeasonDocument.GetNeedSeverOpenday(seasonId, achiLv)
+end
+
+return this

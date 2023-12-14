@@ -1,0 +1,249 @@
+--[[
+	界面容器，负责加载、卸载、通知界面事件
+]]--
+
+local LuaBehaviour = require "Framework/LuaBehaviour"
+local UIBase = require "Framework/UI/UIBase"
+local EmptyTweener = require "Framework/UI/Tweeners/EmptyTweener"
+local ResourcesLoaderMgr = CS.DC.Framework.Loaders.ResourceLoderMgr
+
+local M = class()
+local log = LogManager.GetLogger("Framework.UIContainer")
+
+-- 构造一个新的UIContainer
+-- uiConfig 即UIConfig里的指定配置
+function M:ctor(uiConfig)
+	self.Config = uiConfig
+	self.content = nil -- 界面所对应的GameObject
+	self.ui = nil -- 界面所对应的UIBase表
+	-- self.loader = nil -- 界面所使用的加载器对象
+	self.isEnter = false -- 界面是否已进入/恢复
+	self.cachedIsVisible = true
+	self.cachedIsFocus = false
+	self.cachedLayerOrder = 0
+    self.inloading = false
+    self.DlgBase = nil
+end
+
+function M:SetDlgBase(target)
+    self.DlgBase = target
+end
+
+function M:GetDlgBase()
+	return self.DlgBase
+end
+
+-- 获取界面退出的缓动器
+function M:GetTweener(key)
+	if self.ui then
+		return self.ui:GetTweener(key)
+	end
+	return EmptyTweener
+end
+
+-- 进入界面
+-- @tweening 是否允许播放进入动画
+function M:Enter(tweening)
+	self.shouldExitAfterContentLoaded = false
+	if not self:IsContentLoaded() then
+		log:error("content not exist")
+	else
+		if tweening then
+			-- self.ui:GetTweener("Enter"):Play("Enter")
+		end
+		self.ui:OnEnter()
+		self.ui:OnFocus(true)
+	end
+
+	self.isEnter = true
+end
+
+-- 退出界面
+-- @tweening 是否允许播放退出动画
+function M:Exit(tweening)
+	if not self.isEnter then
+		return
+	end
+	if self:IsContentLoaded() then
+		if tweening then
+			-- self.ui:GetTweener("Exit"):Play("Exit")
+		end
+		self.ui:OnFocus(false)
+		-- self.ui:OnExit()
+	else
+		if self.inloading then
+			self.shouldExitAfterContentLoaded = true	
+		end
+	end
+	self.isEnter = false
+end
+
+-- 挂起界面
+-- @tweening 是否允许播放挂起动画
+function M:Suspend(tweening)
+	if not self:IsContentLoaded() then
+		log:error("content not exist")
+	else
+		if tweening then
+			-- self.ui:GetTweener("Suspend"):Play("Suspend")
+		end
+		self.ui:OnFocus(false)
+		self.ui:OnSuspend()
+	end
+    self.isEnter = false
+    self.DlgBase:LeaveStackTop()
+end
+
+-- 恢复界面
+-- @tweening 是否允许播放恢复动画
+function M:Resume(tweening)
+	if not self:IsContentLoaded() then
+		log:error("content not exist")
+	else
+		if tweening then
+			self.ui:OnSetVisibility(true)
+			self.ui:GetTweener("Resume"):Play("Resume")
+		end
+		self.ui:OnFocus(true)
+		self.ui:OnResume()
+	end
+    self.isEnter = true
+    self.DlgBase:StackRefresh()
+end
+
+-- 界面获得焦点
+function M:Focus(isFocus)
+	if not self:IsContentLoaded() then
+		log:error("content not exist")
+	else
+		self.ui:OnFocus(isFocus)
+	end
+end
+
+-- 获取一个值，表示界面是否可见
+function M:GetVisibility()
+	return self.cachedIsVisible
+end
+
+-- 设置一个值，表示界面是否可见
+function M:SetVisibility(isVisible)
+	if isVisible == self.cachedIsVisible then
+		return
+	end
+
+	self.cachedIsVisible = isVisible
+	if self:IsContentLoaded() then
+		self.ui:OnSetVisibility(isVisible)
+	end
+end
+
+-- 获取界面层级
+function M:GetLayerOrder()
+	return self.cachedLayerOrder
+end
+
+-- 设置界面层级
+function M:SetLayerOrder(layerOrder)
+	if layerOrder == self.cachedLayerOrder then
+		return
+	end
+
+	if not self:IsContentLoaded() then
+		self.cachedLayerOrder = layerOrder
+	else
+		self.ui:OnSetLayerOrder(layerOrder)
+	end
+end
+
+-- 获取一个值，表示界面是否已经加载完毕
+function M:IsContentLoaded()
+	return self.content ~= nil
+end
+
+-- 获取一个值，表示界面是否已进入/恢复
+function M:IsEnter()
+	return self.isEnter
+end
+
+-- 获取当前界面所对应的GameObject
+function M:GetContent()
+	return self.content
+end
+
+function M:GetUI()
+	return self.ui
+end
+
+-- 加载当前界面所对应的GameObject
+-- callback 加载成功后的回调
+function M:LoadContent(callback)
+	log:trace("begin load content...Id=" .. self.Config.Id)
+	if self:IsContentLoaded() then
+		invoke(callback)
+		return
+	end
+
+    local prefabPath = "UI/"..self.Config.fileName
+    ResourcesLoaderMgr.CreateFromPrefabAsync(prefabPath,function(gameObj)
+        self.inloading = false;
+        self.content = gameObj
+		self.content.transform:SetParent(XGameUI.UIRoot, false) 
+		self.content.transform.localScale = Vector3.one
+		self.content.transform.localPosition = Vector3.zero
+		print("<color=yellow> has loaded</color>")
+        self:OnContentLoaded()
+        local shouldExit = self.shouldExitAfterContentLoaded
+        invoke(callback)
+        if shouldExit then
+            self.shouldExitAfterContentLoaded = false
+            self:Exit(false)
+        end
+    end)
+	self.inloading = true;
+end
+
+
+-- 支持外部使用协程方式调用LoadContent
+function M:LoadContentCo(callback)
+	local loading = true
+    self:LoadContent(function() 
+        print("loading: "..tostring(loading))
+            loading = false
+            print("loading: "..tostring(loading))
+            invoke(callback)
+		end)
+	-- while loading do
+	-- 	coroutine.step()
+	-- end
+end
+
+-- 卸载当前界面所对应的GameObject
+-- callback 卸载成功后的回调
+function M:UnloadContent(callback)
+	if not IsNil(self.content) then
+		--print("=====================================================>  UnloadContent")
+		Hotfix.CallSingleMethod("UI.UiUtility",true,false,"ShowTooltipDialogByUID","XLuaManagerDestroy",self.content)
+		self.content = nil
+	end
+		
+	if callback ~= nil then callback() end
+end
+
+-- 当界面的内容加载成功时调用此方法
+function M:OnContentLoaded()
+    -- log:trace("content loaded -> id=" .. tostring(self.Config.Id))
+    print("Config ID: "..self.Config.Id)
+	self.ui = LuaBehaviour.GetTable(self.content)
+	self.ui.container = self
+	-- self.ui:OnSetVisibility(self.cachedIsVisible)
+	-- self.ui:OnSetLayerOrder(self.cachedLayerOrder)
+	local panel = self.ui.gameObject:GetComponent(UIClassType.UIPanel)
+	if panel == nil then
+		log:error(self.content.name.." panel is null");
+		return
+	end
+	
+	-- GameObject.DontDestroyOnLoad(self.content)
+end
+
+return M

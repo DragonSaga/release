@@ -1,0 +1,1041 @@
+local this = nil
+require 'LuaHallFameDoc_Pure.lua'
+
+LuaHallFameDlg_Pure = {}
+local this = LuaHallFameDlg_Pure
+
+XSys_HallOfFame = 1526
+
+local ROLE_CHILDS = {name = 'TitleFrame/Name', title = 'TitleFrame', supportNum = 'TitleFrame/Zan', professionIcon = 'TitleFrame/Name/ProfIcon', snapshot = 'Snapshot'}
+local TWEEN_TYPE = {allHide2PartShow = 0, partShow2AllShow = 1, partShow2AllHide = 2, allShow2PartShow = 3, allShow2AllHide = 4}
+local TWEEN_STATE = {allHide = 0, partShow = 1, allShow = 2}
+local TWEEN_INVOKE_TYPE = {init = 0, reset = 1, manualClick = 2}
+local UINT32_MAXVALUE = 4294967295
+
+local _rootTransform
+local _btnQuit
+local _btnChooseProfession
+local _btnChooseSeason
+local _btnChooseDragonNest
+local _btnTotalList
+local _btnSupport
+local _btnSupport_RedDot
+local _blockProfession
+local _blockSeason
+local _blockDragonNest
+local _curProfessionLabel
+local _curSeasonLabel
+local _curDragonNestLabel
+
+local _tabs = {}
+local _tabRedPoints = {}
+local _roles6 = {}
+local _rolesChilds6 = {}
+local _roles5 = {}
+local _rolesChilds5 = {}
+local _rolesChilds
+local _professionTabTpl
+local _seasonTabTpl
+local _dragonNestTabTpl
+local _totals = {}
+local _dummyPool = -1
+local _redDotNum = {}
+local _curRankType
+local _bVisible
+local _lastChooseItem
+local _chooseProfessionTriangle
+local _chooseSeasonTriangle
+local _chooseDragonNestTriangle
+local _xFxMgr
+local _effect
+local _curSelectedIndex
+local _chooseProfession
+local _chooseDragonNest
+local _characterFrame5
+local _characterFrame6
+local _characterFrames5 = {}
+local _characterFrames6 = {}
+local _cur5 = true
+local _helpBtn
+local _chooseDragonNestTabs = {}
+local _chooseDragonNestTabs_total = {}
+local _chooseItemToken = -1
+local timeS = UnityTime
+local _startTime = 0
+local _startTime_support = 0
+local cdTime_support = 1
+local cdTime = 0
+local initSeasonTabCount
+
+-------------------total-------------
+local _initTotalOnlyOnce = {0, 0, 0, 0}
+
+local _totalTabTpls = {}
+local _totalCloses = {}
+local _totalRoleTpls = {}
+local _wrapContent
+
+local RANK_ITEM = {rankIcon = 'RankImage', rank = 'Rank', name = 'Name', level = 'Level', score = 'Point'}
+local MILITARY_ITEM = {rankIcon = 'RankImage', rank = 'Rank', name = 'Name', level = 'Level', score = 'Point', military = 'Military', value1 = 'Value1'}
+local DRAGON_NEST_ITEM = {names = 'Labs', difficulty = 'Diff', time = 'Time', rankIcon = 'RankImage', rank = 'Rank'}
+local ACHIEVEMENT_ITEM = {score = 'Point', name = 'Name', rankIcon = 'RankImage', rank = 'Rank'}
+
+-------------------detail-------------
+local _detailRoot
+local _detailTween
+local _detailName
+local _detailAvatar
+local _detailLast5Season
+local _detailLast5Season
+local _detailLastSeason_key1
+local _detailLastSeason_value1
+local _detailLastSeason_key2
+local _detailLastSeason_value2
+local _detailHistory_value1
+local _detailHistory_value2
+local _curTweenState
+local _detailTriangle
+local _detailTriangleDefaultScaleY
+local _curCanSupport
+local fashions
+local doc
+
+-------------------support-------------
+
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function LuaHallFameDlg_Pure.Awake(go)
+    _rootTransform = go.transform
+    doc = LuaHallFameDoc_Pure
+    doc.SetMainHandler(this)
+    doc.InitData()
+    doc.InitData_table()
+    this._AssignUIElement()
+    this._InitUI()
+    this._changeChooseDragonNestTab()
+    this._RegisterEvent()
+
+    this._Init_detail()
+
+    _initTotalOnlyOnce = {0, 0, 0, 0}
+    _dummyPool = -1
+    initSeasonTabCount = 0
+end
+
+function LuaHallFameDlg_Pure.Start()
+end
+
+function LuaHallFameDlg_Pure.OnEnable()
+    _bVisible = true
+end
+
+function LuaHallFameDlg_Pure.OnDisable()
+    _bVisible = false
+    Hotfix.CallSingleMethod('UI.XMainInterface', true, false, 'FakeShowSelf', true)
+end
+
+function LuaHallFameDlg_Pure.OnDestroy()
+    _bVisible = false
+    if m_cardItemPool ~= nil then
+        m_cardItemPool:ReturnAll()
+        m_cardItemPool = nil
+    end
+
+    if m_multiplePool ~= nil then
+        m_multiplePool:ReturnAll()
+        m_multiplePool = nil
+    end
+    this._removeFx()
+    _curSelectedIndex = nil
+    _chooseDragonNestTabs = {}
+    _chooseDragonNestTabs_total = {}
+    _curTweenState = nil
+
+    this.cleanDummy()
+    this.RemoveTimer()
+end
+
+---------------------------------------------------- 脚本调用函数 -------------------------------------------------
+function LuaHallFameDlg_Pure.OnHide()
+end
+
+function LuaHallFameDlg_Pure.OnShow()
+    this._HideMainCity()
+    doc.ReqRankList(true)
+end
+
+----------------------------------------------------1.section list-------------------------------------------------------------
+----------------------------------------------------------init------------------------------------------------------
+function LuaHallFameDlg_Pure._AssignUIElement()
+    _btnQuit = _rootTransform:Find('Bg/Close').gameObject
+    _btnChooseProfession = _rootTransform:Find('Bg/ProfFrame/Select/Bg').gameObject
+    _btnChooseSeason = _rootTransform:Find('Bg/ProfFrame1/Select/Bg').gameObject
+    _btnChooseDragonNest = _rootTransform:Find('Bg/ProfFrame2/Select/Bg').gameObject
+    _curProfessionLabel = _rootTransform:Find('Bg/ProfFrame/Select/T').gameObject:GetComponent('UILabel')
+    _curSeasonLabel = _rootTransform:Find('Bg/ProfFrame1/Select/T').gameObject:GetComponent('UILabel')
+    _curDragonNestLabel = _rootTransform:Find('Bg/ProfFrame2/Select/T').gameObject:GetComponent('UILabel')
+    _chooseProfessionTriangle = _rootTransform:Find('Bg/ProfFrame/Select/P')
+    _chooseSeasonTriangle = _rootTransform:Find('Bg/ProfFrame1/Select/P')
+    _chooseDragonNestTriangle = _rootTransform:Find('Bg/ProfFrame2/Select/P')
+    _btnTotalList = _rootTransform:Find('Bg/BtnShare').gameObject
+    _btnSupport = _rootTransform:Find('Bg/Support').gameObject
+    _btnSupport_RedDot = _rootTransform:Find('Bg/Support/RedPoint').gameObject
+    _blockProfession = _rootTransform:Find('Bg/ProfFrame1/Panel/Block').gameObject
+    _blockSeason = _rootTransform:Find('Bg/ProfFrame/Panel/Block').gameObject
+    _blockDragonNest = _rootTransform:Find('Bg/ProfFrame2/Panel/Block').gameObject
+    _professionTabTpl = _rootTransform:Find('Bg/ProfFrame/Panel/Grid/ProfTpl').gameObject
+    _seasonTabTpl = _rootTransform:Find('Bg/ProfFrame1/Panel/Grid/ProfTpl').gameObject
+    _dragonNestTabTpl = _rootTransform:Find('Bg/ProfFrame2/Panel/Grid/ProfTpl').gameObject
+    _chooseProfession = _rootTransform:Find('Bg/ProfFrame').gameObject
+    _chooseDragonNest = _rootTransform:Find('Bg/ProfFrame2').gameObject
+    _helpBtn = _rootTransform:Find('Bg/Help').gameObject
+
+    for i = 1, 4, 1 do
+        local tab = _rootTransform:Find('Bg/Tabs/Tab' .. i).gameObject:GetComponent('UIToggle')
+        _tabs[i] = tab
+        _tabRedPoints[i] = tab.transform:Find('RedPoint').gameObject
+    end
+
+    _characterFrame5 = _rootTransform:Find('Bg/RoleList/p5').gameObject
+    _characterFrame6 = _rootTransform:Find('Bg/RoleList/p6').gameObject
+    for index = 1, 5, 1 do
+        _characterFrames5[index] = _characterFrame5.transform:Find('CharacterFrame' .. index)
+    end
+    for index = 1, 6, 1 do
+        _characterFrames6[index] = _characterFrame6.transform:Find('CharacterFrame' .. index)
+    end
+
+    for i = 1, HALL_FAME_PURE_SHOW_NUM, 1 do
+        _roles6[i] = _rootTransform:Find('Bg/RoleList/p6/CharacterFrame' .. i)
+        _rolesChilds6[i] = {}
+        _rolesChilds6[i][ROLE_CHILDS.name] = _roles6[i]:Find(ROLE_CHILDS.name):GetComponent('UILabel')
+        _rolesChilds6[i][ROLE_CHILDS.professionIcon] = _roles6[i]:Find(ROLE_CHILDS.professionIcon):GetComponent('XUISprite')
+        _rolesChilds6[i][ROLE_CHILDS.snapshot] = _roles6[i]:Find(ROLE_CHILDS.snapshot):GetComponent('UIDummy')
+        _rolesChilds6[i][ROLE_CHILDS.supportNum] = _roles6[i]:Find(ROLE_CHILDS.supportNum):GetComponent('UILabel')
+        _rolesChilds6[i][ROLE_CHILDS.title] = _roles6[i]:Find(ROLE_CHILDS.title).gameObject
+    end
+    for i = 1, HALL_FAME_PURE_SHOW_NUM - 1, 1 do
+        _roles5[i] = _rootTransform:Find('Bg/RoleList/p5/CharacterFrame' .. i)
+        _rolesChilds5[i] = {}
+        _rolesChilds5[i][ROLE_CHILDS.name] = _roles5[i]:Find(ROLE_CHILDS.name):GetComponent('UILabel')
+        _rolesChilds5[i][ROLE_CHILDS.professionIcon] = _roles5[i]:Find(ROLE_CHILDS.professionIcon):GetComponent('XUISprite')
+        -- _rolesChilds5[i][ROLE_CHILDS.rank] = _roles5[i]:Find(ROLE_CHILDS.rank):GetComponent('UILabel')
+        _rolesChilds5[i][ROLE_CHILDS.snapshot] = _roles5[i]:Find(ROLE_CHILDS.snapshot):GetComponent('UIDummy')
+        _rolesChilds5[i][ROLE_CHILDS.supportNum] = _roles5[i]:Find(ROLE_CHILDS.supportNum):GetComponent('UILabel')
+        _rolesChilds5[i][ROLE_CHILDS.title] = _roles5[i]:Find(ROLE_CHILDS.title).gameObject
+    end
+    _rolesChilds = {[1] = _rolesChilds5, [2] = _rolesChilds6}
+
+    local achievementTotal = _rootTransform:Find('AchieveRankFrame')
+    local dragonNestTotal = _rootTransform:Find('DragonRankFrame')
+    local militaryTotal = _rootTransform:Find('MilitaryRankFrame')
+    local rankTotal = _rootTransform:Find('QualifierRankFrame')
+    _totals[1] = rankTotal
+    _totals[2] = militaryTotal
+    _totals[3] = dragonNestTotal
+    _totals[4] = achievementTotal
+
+    -- tra = m_parentTra:Find('Bg/Multiple')
+    -- m_multiplePool = Hotfix.SetupPool(tra.gameObject, tra:Find('Tpl').gameObject, 3)
+end
+function LuaHallFameDlg_Pure._InitUI()
+    local maxRoleCount = doc.GetMaxRoleCount()
+    for i = 0, maxRoleCount, 1 do
+        local profName = doc.GetProfNameByIndex(i)
+        local item = GameObject.Instantiate(_professionTabTpl)
+        item.transform.parent = _professionTabTpl.transform.parent
+
+        local basePos = _professionTabTpl.transform.localPosition
+        local spriteHeight = _professionTabTpl.transform:Find('P'):GetComponent('XUISprite').spriteHeight - 15
+        item.transform.localPosition = Vector3(basePos.x, basePos.y - i * spriteHeight, basePos.z)
+        item.transform.localScale = _professionTabTpl.transform.localScale
+
+        item.transform:Find('T'):GetComponent('UILabel').text = profName
+        item.name = i
+        Hotfix.SetClickCallback(item, this._OnClickChooseProfessionItem)
+    end
+
+    _professionTabTpl:SetActive(false)
+
+    _tabs[1].value = true
+    _tabs[1].transform:Find('Selected').gameObject:SetActive(true)
+end
+
+function LuaHallFameDlg_Pure._InitUI_seasonTab()
+    local seasonTable = doc.GetSeasonTable()
+    for i, value in ipairs(seasonTable) do
+        local item = GameObject.Instantiate(_seasonTabTpl)
+        item.transform.parent = _seasonTabTpl.transform.parent
+
+        local basePos = _seasonTabTpl.transform.localPosition
+        local spriteHeight = _seasonTabTpl.transform:Find('P'):GetComponent('XUISprite').spriteHeight - 15
+        item.transform.localPosition = Vector3(basePos.x, basePos.y - (i - 1) * spriteHeight, basePos.z)
+        item.transform.localScale = _seasonTabTpl.transform.localScale
+
+        item.transform:Find('T'):GetComponent('UILabel').text = seasonTable[i].Name
+        item.name = seasonTable[i].SeasonID
+        Hotfix.SetClickCallback(item, this._OnClickChooseSeasonItem)
+    end
+    _seasonTabTpl:SetActive(false)
+end
+
+function LuaHallFameDlg_Pure._playEff(index)
+    if _xFxMgr == nil then
+        _xFxMgr = CS.XUtliPoolLib.XFxMgr
+    end
+    if _effect == nil then
+        if _cur5 then
+            _effect = _xFxMgr.singleton:CreateUIFx('Effects/FX_Particle/UIfx/UI_HallFameDlg_fx01', _roles5[index])
+        else
+            _effect = _xFxMgr.singleton:CreateUIFx('Effects/FX_Particle/UIfx/UI_HallFameDlg_fx01', _roles6[index])
+        end
+    else
+        _effect:SetActive(true)
+        if _cur5 then
+            _effect:SetParent(_roles5[index])
+            _effect:Play(_roles5[index], Vector3.zero, Vector3.one, 1, true)
+        else
+            _effect:SetParent(_roles6[index])
+            _effect:Play(_roles6[index], Vector3.zero, Vector3.one, 1, true)
+        end
+    end
+end
+
+function LuaHallFameDlg_Pure._removeFx(all)
+    if _xFxMgr ~= nil then
+        if not IsNil(_effect) then
+            _xFxMgr.singleton:DestroyFx(_effect, true)
+            _effect = nil
+        end
+    end
+end
+
+function LuaHallFameDlg_Pure._RegisterEvent()
+    Hotfix.SetClickCallback(_btnQuit, this._OnClickQuit)
+    Hotfix.SetClickCallback(_blockProfession, this._OnClickBlock)
+    Hotfix.SetClickCallback(_blockSeason, this._OnClickBlock)
+    Hotfix.SetClickCallback(_blockDragonNest, this._OnClickBlock)
+    Hotfix.SetClickCallback(_btnTotalList, this._OnClickTotalList)
+    Hotfix.SetClickCallback(_btnSupport, this._OnClickSupport)
+    Hotfix.SetClickCallback(_btnChooseProfession, this._OnClickChooseProfession)
+    Hotfix.SetClickCallback(_btnChooseSeason, this._OnClickChooseSeason)
+    Hotfix.SetClickCallback(_btnChooseDragonNest, this._OnClickChooseDragonNest)
+    Hotfix.SetClickCallback(_helpBtn, this._OnClickHelp)
+
+    for index, value in ipairs(_tabs) do
+        Hotfix.SetClickCallback(value.gameObject, this._OnClickTab)
+    end
+    for index, value in ipairs(_roles6) do
+        Hotfix.SetClickCallback(value.gameObject, this._OnClickRole)
+    end
+    for index, value in ipairs(_roles5) do
+        Hotfix.SetClickCallback(value.gameObject, this._OnClickRole)
+    end
+end
+function LuaHallFameDlg_Pure._OnClickQuit(go)
+    if not this.canClickInCreatingDummy() then
+        Hotfix.LuaShowSystemTip(Hotfix.GetStringTable('HallOfFamePure_wait'))
+        return
+    end
+    this.DestroySelf()
+end
+function LuaHallFameDlg_Pure._OnClickBlock(go)
+    go.transform.parent.gameObject:SetActive(false)
+    this._resetTabsTriangle()
+end
+function LuaHallFameDlg_Pure._OnClickTab(go)
+    if not this.canClickInCreatingDummy() then
+        Hotfix.LuaShowSystemTip(Hotfix.GetStringTable('HallOfFamePure_wait'))
+        return
+    end
+    for index, value in ipairs(_tabs) do
+        value.value = false
+        value.transform:Find('Selected').gameObject:SetActive(false)
+    end
+    go:GetComponent('UIToggle').value = true
+    go.transform:Find('Selected').gameObject:SetActive(true)
+    local rankType = tonumber(string.sub(go.name, #go.name, #go.name))
+    if rankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+        _chooseProfession:SetActive(false)
+        _chooseDragonNest:SetActive(true)
+    elseif rankType == HALL_FAME_PURE_RANK_TYPE.achievement then
+        _chooseProfession:SetActive(false)
+        _chooseDragonNest:SetActive(false)
+    else
+        _chooseProfession:SetActive(true)
+        _chooseDragonNest:SetActive(false)
+    end
+    doc.SetCurRankType(rankType)
+    doc.ReqRankList(true)
+end
+function LuaHallFameDlg_Pure._OnClickTotalList(go)
+    _curRankType = doc.GetCurRankType()
+    for index, value in ipairs(_totals) do
+        value.gameObject:SetActive(false)
+    end
+    _totals[_curRankType].gameObject:SetActive(true)
+    this._Init_total()
+end
+function LuaHallFameDlg_Pure._OnClickSupport(go)
+    print( "_curCanSupport: "..tostring(_curCanSupport))
+
+    if not _curCanSupport or not this.canClickSupport() then
+        return
+    end
+    _startTime_support = timeS.realtimeSinceStartup
+    if _curSelectedIndex == nil then
+        Hotfix.LuaShowSystemTip(Hotfix.GetStringTable('HallOfFamePure_CannotSupportWithoutClickRole'))
+        return
+    end
+    local index = tonumber(string.sub(go.name, #go.name))
+    doc.ReqSupport(doc.GetCurRoleIDByIndex(_curSelectedIndex))
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseProfession(go)
+    _professionTabTpl.transform.parent.parent.gameObject:SetActive(true)
+    local scale = _chooseProfessionTriangle.localScale
+    _chooseProfessionTriangle.localScale = Vector3(scale.x, scale.y * -1, scale.z)
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseSeason(go)
+    _seasonTabTpl.transform.parent.parent.gameObject:SetActive(true)
+    local scale = _chooseSeasonTriangle.localScale
+    _chooseSeasonTriangle.localScale = Vector3(scale.x, scale.y * -1, scale.z)
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseDragonNest(go)
+    _dragonNestTabTpl.transform.parent.parent.gameObject:SetActive(true)
+    local scale = _chooseDragonNestTriangle.localScale
+    _chooseDragonNestTriangle.localScale = Vector3(scale.x, scale.y * -1, scale.z)
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseSeasonItem(go)
+    doc.SetCurSeason(tonumber(go.name))
+    doc.ChangeCurDragonNests()
+    doc.ChangeCurDragonNestRankType()
+    this._changeChooseDragonNestTab()
+    this._onclickTabItemCommon(go)
+end
+function LuaHallFameDlg_Pure._changeChooseDragonNestTab()
+    local levelNames = doc.GetLevelNames()
+    for i = 1, #_chooseDragonNestTabs, 1 do
+        _chooseDragonNestTabs[i]:SetActive(false)
+    end
+    local lastDragonNestRankTypes = doc.GetLastDragonNestRankTypes()
+    _dragonNestTabTpl:SetActive(true)
+    for i = 1, #levelNames, 1 do
+        if i <= #_chooseDragonNestTabs then
+            local dragonNest = doc.GetLastDragonNestRankTypeByIndex(i)
+            local item = _chooseDragonNestTabs[i]
+            item:SetActive(true)
+            item.transform:Find('T'):GetComponent('UILabel').text = levelNames[i]
+            item.name = doc.GetDragonNestRankTypeByIndex(i)
+        else
+            local item = GameObject.Instantiate(_dragonNestTabTpl)
+            item.transform.parent = _dragonNestTabTpl.transform.parent
+            local basePos = _dragonNestTabTpl.transform.localPosition
+            local spriteHeight = _dragonNestTabTpl.transform:Find('P'):GetComponent('XUISprite').spriteHeight - 15
+            item.transform.localPosition = Vector3(basePos.x, basePos.y - (i - 1) * spriteHeight, basePos.z)
+            item.transform.localScale = _dragonNestTabTpl.transform.localScale
+            item:SetActive(true)
+
+            item.transform:Find('T'):GetComponent('UILabel').text = levelNames[i]
+            item.name = doc.GetDragonNestRankTypeByIndex(i)
+            _chooseDragonNestTabs[i] = item
+            Hotfix.SetClickCallback(item, this._OnClickChooseDragonNestItem)
+        end
+    end
+    _dragonNestTabTpl:SetActive(false)
+end
+
+function LuaHallFameDlg_Pure._changeChooseDragonNestTab_total()
+    for i = 1, #_chooseDragonNestTabs_total, 1 do
+        _chooseDragonNestTabs_total[i]:SetActive(false)
+    end
+
+    local tpl = _totalTabTpls[_curRankType]
+    tpl:SetActive(true)
+    local levelNames = doc.GetLevelNames()
+    for i, value in ipairs(levelNames) do
+        if i <= #_chooseDragonNestTabs_total then
+            local item = _chooseDragonNestTabs_total[i]
+            item:SetActive(true)
+            item.transform:Find('Bg/SelectedTextLabel'):GetComponent('UILabel').text = value
+            item.transform:Find('Bg/TextLabel'):GetComponent('UILabel').text = value
+            item.name = i
+        else
+            local item = GameObject.Instantiate(tpl)
+            item.transform.parent = tpl.transform.parent
+            local basePos = tpl.transform.localPosition
+            local spriteHeight = tpl.transform:Find('Bg'):GetComponent('XUISprite').spriteHeight
+            item.transform.localPosition = Vector3(basePos.x, basePos.y - (i - 1) * spriteHeight, basePos.z)
+            item.transform.localScale = tpl.transform.localScale
+            item:SetActive(true)
+            item.transform:Find('Bg/SelectedTextLabel'):GetComponent('UILabel').text = value
+            item.transform:Find('Bg/TextLabel'):GetComponent('UILabel').text = value
+            item.name = i
+            if i == 1 then
+                item.transform:Find('Bg'):GetComponent('UIToggle').value = true
+            end
+            _chooseDragonNestTabs_total[i] = item
+            Hotfix.SetClickCallback(item.transform:Find('Bg').gameObject, this._OnClickChooseDragonNest_total)
+        end
+    end
+    _totalTabTpls[_curRankType]:SetActive(false)
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseProfessionItem(go)
+    doc.SetCurProfession(tonumber(go.name))
+    this._onclickTabItemCommon(go)
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseDragonNestItem(go)
+    doc.SetCurDragonNestRankType(tonumber(go.name))
+    this._onclickTabItemCommon(go)
+end
+
+function LuaHallFameDlg_Pure._onclickTabItemCommon(go)
+    doc.ReqRankList(true)
+    go.transform:Find('Selected').gameObject:SetActive(true)
+    _lastChooseItem = go
+    _chooseItemToken = Hotfix.LuaWait(80, this._chooseItemTimerCallBack)
+end
+
+function LuaHallFameDlg_Pure._chooseItemTimerCallBack()
+    Hotfix.RemoveTimer(_chooseItemToken)
+    _chooseItemToken = -1
+    _lastChooseItem.transform:Find('Selected').gameObject:SetActive(false)
+    _blockSeason.transform.parent.gameObject:SetActive(false)
+    _blockProfession.transform.parent.gameObject:SetActive(false)
+    _blockDragonNest.transform.parent.gameObject:SetActive(false)
+    this._resetTabsTriangle()
+end
+function LuaHallFameDlg_Pure._resetTabsTriangle()
+    local scale = _chooseProfessionTriangle.localScale
+    _chooseProfessionTriangle.localScale = Vector3(scale.x, 1, scale.z)
+    scale = _chooseSeasonTriangle.localScale
+    _chooseSeasonTriangle.localScale = Vector3(scale.x, 1, scale.z)
+    scale = _chooseDragonNestTriangle.localScale
+    _chooseDragonNestTriangle.localScale = Vector3(scale.x, 1, scale.z)
+end
+
+function LuaHallFameDlg_Pure._OnClickRole(go)
+    local index = tonumber(string.sub(go.name, #go.name))
+    local roleid = doc.GetCurRoleIDByIndex(index)
+    if roleid == -1 then
+        return
+    end
+    this._playEff(index)
+    if _curSelectedIndex ~= index then
+        _curSelectedIndex = index
+        doc.ReqDetails(roleid, _curSelectedIndex)
+    end
+end
+
+function LuaHallFameDlg_Pure._OnClickHelp(go)
+    Hotfix.CallSingleMethod('UI.XCommonHelpTipView', true, false, 'ShowHelp', XSys_HallOfFame)
+end
+
+function LuaHallFameDlg_Pure.RemoveTimer()
+    _chooseItemToken = -1
+    Hotfix.RemoveTimer(_chooseItemToken)
+end
+
+---------------------------------------------------public- msg------------------------------------------------------------------
+function LuaHallFameDlg_Pure.RefreshUI(rankList, toproleoutlook, likenum, canlike)
+    if initSeasonTabCount <= 0 then
+        this._InitUI_seasonTab()
+        initSeasonTabCount = initSeasonTabCount + 1
+    end
+    _curSeasonLabel.text = doc.GetCurSeasonName()
+    _curProfessionLabel.text = doc.GetCurProfessionName()
+    _curDragonNestLabel.text = doc.GetCurLevelName()
+
+    local len = 0
+    local idx = 0
+    _curRankType = doc.GetCurRankType()
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+        len = 6
+        idx = 2
+        _cur5 = false
+        _characterFrame5:SetActive(false)
+        _characterFrame6:SetActive(true)
+    else
+        len = 5
+        idx = 1
+        _cur5 = true
+        _characterFrame5:SetActive(true)
+        _characterFrame6:SetActive(false)
+    end
+
+    local createDummy = function(index, outlook)
+        local snapshot = _rolesChilds[idx][index][ROLE_CHILDS.snapshot]
+        local display_fashions = outlook.outlook.display_fashion.display_fashions
+        local table = Hotfix.GetDocumentStaticMember('XFashionDocument', '_fashionSuitTable', false, true)
+        fashions = table:GetBySuitID(99999).FashionID
+        for index = 1, fashions.Length, 1 do
+            fashions[index - 1] = 0
+        end
+        for i = 1, #display_fashions do
+            fashions[i - 1] = display_fashions[i]
+        end
+        local dummy = Hotfix.CreateCommonDummy(_dummyPool, outlook.profession % 10, snapshot, 1)
+        for index = 1, fashions.Length, 1 do
+            fashions[index - 1] = 0
+        end
+    end
+
+    for i = 1, len, 1 do
+        _rolesChilds[idx][i][ROLE_CHILDS.title]:SetActive(false)
+    end
+
+    if not doc.GetIsRefreshSupport() then
+        Hotfix.CallSingleMethod('X3DAvatarMgr', true, false, 'ReturnDummyPool', _dummyPool)
+        _dummyPool = Hotfix.CallSingleMethod('X3DAvatarMgr', true, false, 'AllocDummyPool', 'LuaHallFameDlg_Pure', HALL_FAME_PURE_SHOW_NUM)
+    end
+
+    for index = 1, math.min(len, #rankList), 1 do
+        local rankData = rankList[index]
+
+        _rolesChilds[idx][index][ROLE_CHILDS.name].text = rankData.RoleName
+        if likenum ~= nil and likenum[index] ~= nil then
+            _rolesChilds[idx][index][ROLE_CHILDS.supportNum].text = likenum[index]
+        end
+
+        if toproleoutlook ~= nil and toproleoutlook[index] ~= nil then
+            local outlook = toproleoutlook[index]
+
+            _rolesChilds[idx][index][ROLE_CHILDS.title]:SetActive(true)
+            local iconData = Hotfix.CallSingleMethod('XProfessionSkillMgr', true, false, 'GetByProfID', outlook.profession)
+            if iconData ~= nil then
+                _rolesChilds[idx][index][ROLE_CHILDS.professionIcon]:SetSprite(iconData.ProfIcon, iconData.ProIconAtlas)
+            end
+
+            if _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+                for i, value in ipairs(rankData.RoleNames) do
+                    if toproleoutlook ~= nil and toproleoutlook[i] ~= nil and likenum ~= nil and likenum[i] ~= nil then
+                        _rolesChilds[idx][i][ROLE_CHILDS.title]:SetActive(true)
+                        _rolesChilds[idx][i][ROLE_CHILDS.name].text = rankData.RoleNames[i]
+                        _rolesChilds[idx][i][ROLE_CHILDS.supportNum].text = likenum[i]
+
+                        local iconData = Hotfix.CallSingleMethod('XProfessionSkillMgr', true, false, 'GetByProfID', toproleoutlook[i].profession)
+                        if iconData ~= nil then
+                            _rolesChilds[idx][i][ROLE_CHILDS.professionIcon]:SetSprite(iconData.ProfIcon, iconData.ProIconAtlas)
+                        end
+
+                        createDummy(i, toproleoutlook[i])
+                        _startTime = timeS.realtimeSinceStartup
+                    end
+                end
+            end
+
+            if not doc.GetIsRefreshSupport() and _curRankType ~= HALL_FAME_PURE_RANK_TYPE.dragonNest then
+                createDummy(index, outlook)
+                _startTime = timeS.realtimeSinceStartup
+            end
+        end
+    end
+
+    if not doc.GetIsRefreshSupport() then
+        _curSelectedIndex = nil
+        if _effect ~= nil then
+            _effect:SetActive(false)
+        end
+        this._PlayTween(TWEEN_INVOKE_TYPE.reset)
+    else
+        doc.SetIsRefreshSupport(false)
+    end
+
+    local canlikeAll = false
+    local allClicked = true
+    for index, value in ipairs(canlike) do
+        --由于服务器的某些原因，发过来的极限龙穴的canlike在第三个
+        if index == 3 then
+            index = 4
+        elseif index == 4 then
+            index = 3
+        end
+        _tabRedPoints[index]:SetActive(value)
+        if value == true then
+            allClicked = false
+        end
+        if _curRankType == index then
+            _curCanSupport = value
+            _btnSupport_RedDot:SetActive(value)
+            _btnSupport:GetComponent('XUISprite'):SetGrey(value)
+        end
+    end
+
+    if allClicked == true then
+        local redPoint = _rootTransform.parent.parent:Find('HallDlg(Clone)/_canvas/SecondMenuFrame/SecondMenu/H2/SysGridH2_1/Sys_zHallOfFame_Pure/RedPoint')
+        redPoint.gameObject:SetActive(false)
+        Hotfix.ForceUpdateSysRedPointImmediately(XSys_HallOfFame, false)
+    end
+end
+
+function LuaHallFameDlg_Pure.cleanDummy()
+    Hotfix.CallSingleMethod('X3DAvatarMgr', true, false, 'ReturnDummyPool', _dummyPool)
+end
+
+function LuaHallFameDlg_Pure.canClickInCreatingDummy()
+    if timeS~=nil and timeS.realtimeSinceStartup~=nil and timeS.realtimeSinceStartup - _startTime < cdTime then
+        return false
+    end
+    return true
+end
+
+function LuaHallFameDlg_Pure.canClickSupport()
+    if timeS~=nil and timeS.realtimeSinceStartup~=nil and timeS.realtimeSinceStartup - _startTime_support < cdTime_support then
+        return false
+    end
+    return true
+end
+
+---------------------------------------------------public- other------------------------------------------------------------------
+function LuaHallFameDlg_Pure.DestroySelf()
+    if _bVisible == false then
+        return
+    end
+    LuaUIManager.Instance:Destroy('UI/GameSystem/HallFameDlg_Pure')
+end
+
+function LuaHallFameDlg_Pure.Reconnect(...)
+end
+
+-----------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
+--隐藏主城
+function LuaHallFameDlg_Pure._HideMainCity()
+    if _bVisible == false then
+        return
+    end
+    Hotfix.CallSingleMethod('UI.XMainInterface', true, false, 'FakeShowSelf', false)
+end
+
+--kill Timer
+function LuaHallFameDlg_Pure._KillToken(token)
+    if token ~= 0 then
+        Hotfix.RemoveTimer(token)
+        token = 0
+    end
+end
+
+----------------------------------------------------2.total list-------------------------------------------------------------
+
+----------------------------------------------------------init------------------------------------------------------
+function LuaHallFameDlg_Pure._Init_total()
+    if _initTotalOnlyOnce[_curRankType] == 0 then
+        this._AssignUIElement_total()
+        _initTotalOnlyOnce[_curRankType] = 1
+        this._InitUI_total()
+        this._RegisterEvent_total()
+    end
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+        this._changeChooseDragonNestTab_total()
+    end
+    doc.ReqRankList(false)
+end
+
+function LuaHallFameDlg_Pure._AssignUIElement_total()
+    _totalCloses[_curRankType] = _totals[_curRankType]:Find('Bg/Close')
+
+    if _curRankType ~= HALL_FAME_PURE_RANK_TYPE.achievement then
+        _totalTabTpls[_curRankType] = _totals[_curRankType]:Find('Tabs/TabTpl').gameObject
+    end
+
+    _totalRoleTpls[_curRankType] = _totals[_curRankType]:Find('Bg/Bg/ScrollView/wrap/RoleTpl')
+
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.rank then
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.military then
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.achievement then
+    end
+end
+
+function LuaHallFameDlg_Pure._InitUI_total()
+    local tpl = _totalTabTpls[_curRankType]
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.rank or _curRankType == HALL_FAME_PURE_RANK_TYPE.military then
+        for i = 0, doc.GetMaxRoleCount(), 1 do
+            local profName = doc.GetProfNameByIndex(i)
+            local item = GameObject.Instantiate(tpl)
+
+            item.transform.parent = tpl.transform.parent
+
+            local basePos = tpl.transform.localPosition
+            local spriteHeight = tpl.transform:Find('Bg'):GetComponent('XUISprite').spriteHeight
+            item.transform.localPosition = Vector3(basePos.x, basePos.y - i * spriteHeight, basePos.z)
+
+            item.transform.localScale = tpl.transform.localScale
+            item.transform:Find('Bg/SelectedTextLabel'):GetComponent('UILabel').text = profName
+            item.transform:Find('Bg/TextLabel'):GetComponent('UILabel').text = profName
+            item.name = i
+            if i == 0 then
+                -- item.transform:Find('Bg/Selected').gameObject:SetActive(true)
+                item.transform:Find('Bg'):GetComponent('UIToggle').value = true
+            end
+
+            Hotfix.SetClickCallback(item.transform:Find('Bg').gameObject, this._OnClickChooseProfession_total)
+        end
+    end
+
+    if tpl ~= nil then
+        tpl:SetActive(false)
+    end
+end
+
+function LuaHallFameDlg_Pure._RegisterEvent_total()
+    if _curRankType ~= HALL_FAME_PURE_RANK_TYPE.achievement then
+    -- _totalTabTpls[_curRankType]
+    end
+
+    Hotfix.SetClickCallback(_totalCloses[_curRankType].gameObject, this._HideTotal)
+end
+function LuaHallFameDlg_Pure._HideTotal()
+    _totals[_curRankType].gameObject:SetActive(false)
+end
+function LuaHallFameDlg_Pure._OnClickChooseProfession_total(go)
+    doc.SetCurProfession_total(tonumber(go.transform.parent.gameObject.name))
+    doc.ReqRankList(false)
+end
+
+function LuaHallFameDlg_Pure._OnClickChooseDragonNest_total(go)
+    local index = tonumber(go.transform.parent.gameObject.name)
+    local dragonNestRankType = doc.GetDragonNestRankTypeByIndex(index)
+    doc.SetDragonNestRankType_total(dragonNestRankType)
+    doc.ReqRankList(false)
+end
+
+function LuaHallFameDlg_Pure._wrapContentItemUpdate_total(transform, index)
+    index = index + 1
+    local data = doc.GetCurRankDataByIndex(index)
+    if data == nil then
+        return
+    end
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.rank then
+        transform:Find('Bg/' .. RANK_ITEM.name):GetComponent('UILabel').text = data.RoleName
+
+        if index <= 3 then
+            transform:Find('Bg/' .. RANK_ITEM.rankIcon).gameObject:SetActive(true)
+            transform:Find('Bg/' .. RANK_ITEM.rank).gameObject:SetActive(false)
+            transform:Find('Bg/' .. RANK_ITEM.rankIcon):GetComponent('XUISprite'):SetSprite('N' .. index)
+        else
+            transform:Find('Bg/' .. RANK_ITEM.rankIcon).gameObject:SetActive(false)
+            transform:Find('Bg/' .. RANK_ITEM.rank).gameObject:SetActive(true)
+            transform:Find('Bg/' .. RANK_ITEM.rank):GetComponent('UILabel').text = 'No.' .. index
+        end
+
+        transform:Find('Bg/' .. RANK_ITEM.score):GetComponent('UILabel').text = data.pkpoint
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.military then
+        transform:Find('Bg/' .. MILITARY_ITEM.name):GetComponent('UILabel').text = data.RoleName
+
+        if index <= 3 then
+            transform:Find('Bg/' .. MILITARY_ITEM.rankIcon).gameObject:SetActive(true)
+            transform:Find('Bg/' .. MILITARY_ITEM.rank).gameObject:SetActive(false)
+            transform:Find('Bg/' .. MILITARY_ITEM.rankIcon):GetComponent('XUISprite'):SetSprite('N' .. index)
+        else
+            transform:Find('Bg/' .. MILITARY_ITEM.rankIcon).gameObject:SetActive(false)
+            transform:Find('Bg/' .. MILITARY_ITEM.rank).gameObject:SetActive(true)
+            transform:Find('Bg/' .. MILITARY_ITEM.rank):GetComponent('UILabel').text = 'No.' .. index
+        end
+
+        local militarySpriteName = doc.GetMilitarySpriteNameByRank(data.military_info.military_rank)
+        transform:Find('Bg/' .. MILITARY_ITEM.military):GetComponent('XUISprite'):SetSprite(militarySpriteName)
+        transform:Find('Bg/' .. MILITARY_ITEM.score):GetComponent('UILabel').text = data.military_info.military_exploit
+        transform:Find('Bg/' .. MILITARY_ITEM.value1):GetComponent('UILabel').text = doc.GetMilitaryNameByRank(data.military_info.military_rank)
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+        local names = transform:Find('Bg/' .. DRAGON_NEST_ITEM.names)
+        for i = 1, names.childCount, 1 do
+            local name = names:GetChild(i - 1)
+            name:GetComponent('UILabel').text = ''
+        end
+        for index = 1, #data.RoleNames, 1 do
+            local name = names:GetChild(index - 1)
+            name:GetComponent('UILabel').text = data.RoleNames[index]
+        end
+
+        if index <= 3 then
+            transform:Find('Bg/' .. DRAGON_NEST_ITEM.rankIcon).gameObject:SetActive(true)
+            transform:Find('Bg/' .. DRAGON_NEST_ITEM.rank).gameObject:SetActive(false)
+            transform:Find('Bg/' .. DRAGON_NEST_ITEM.rankIcon):GetComponent('XUISprite'):SetSprite('N' .. index)
+        else
+            transform:Find('Bg/' .. DRAGON_NEST_ITEM.rankIcon).gameObject:SetActive(false)
+            transform:Find('Bg/' .. DRAGON_NEST_ITEM.rank).gameObject:SetActive(true)
+            transform:Find('Bg/' .. DRAGON_NEST_ITEM.rank):GetComponent('UILabel').text = 'No.' .. index
+        end
+
+        transform:Find('Bg/' .. DRAGON_NEST_ITEM.time):GetComponent('UILabel').text = this._adaptUseTime(data.usetime)
+        transform:Find('Bg/' .. DRAGON_NEST_ITEM.difficulty):GetComponent('UILabel').text = data.difficulty .. '%'
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.achievement then
+        transform:Find('Bg/' .. ACHIEVEMENT_ITEM.name):GetComponent('UILabel').text = data.RoleName
+
+        if index <= 3 then
+            transform:Find('Bg/' .. ACHIEVEMENT_ITEM.rankIcon).gameObject:SetActive(true)
+            transform:Find('Bg/' .. ACHIEVEMENT_ITEM.rank).gameObject:SetActive(false)
+            transform:Find('Bg/' .. ACHIEVEMENT_ITEM.rankIcon):GetComponent('XUISprite'):SetSprite('N' .. index)
+        else
+            transform:Find('Bg/' .. ACHIEVEMENT_ITEM.rankIcon).gameObject:SetActive(false)
+            transform:Find('Bg/' .. ACHIEVEMENT_ITEM.rank).gameObject:SetActive(true)
+            transform:Find('Bg/' .. ACHIEVEMENT_ITEM.rank):GetComponent('UILabel').text = 'No.' .. index
+        end
+
+        transform:Find('Bg/' .. ACHIEVEMENT_ITEM.score):GetComponent('UILabel').text = data.achievementPointCount
+    end
+end
+
+function LuaHallFameDlg_Pure._adaptUseTime(useTime)
+    local minute = math.floor(useTime / 60)
+    local second = useTime % 60
+    return minute .. '分' .. second .. '秒'
+end
+---------------------------------------------------public msg------------------------------------------------------------------
+function LuaHallFameDlg_Pure.RefreshUI_total(rankList)
+    _wrapContent = _totals[_curRankType]:Find('Bg/Bg/ScrollView/wrap').gameObject
+    Hotfix.InitWrapContent(_wrapContent, this._wrapContentItemUpdate_total)
+    Hotfix.SetWrapContentCount(_wrapContent, #rankList, true)
+end
+
+----------------------------------------------------3.detail-------------------------------------------------------------
+
+----------------------------------------------------init-------------------------------------------------------------
+function LuaHallFameDlg_Pure._Init_detail()
+    print("hallframe init detail")
+    this._AssignUIElement_detail()
+    this._initUI_detail()
+    this._RegisterEvent_detail()
+end
+
+function LuaHallFameDlg_Pure._AssignUIElement_detail()
+    _detailRoot = _rootTransform:Find('Bg/adapt/RoleDetail')
+    _detailTween = _detailRoot:GetComponent('UIPlayTween')
+    _detailName = _detailRoot:Find('Avatar/Name'):GetComponent('UILabel')
+    _detailAvatar = _detailRoot:Find('Avatar/Avatar'):GetComponent('UISprite')
+    _detailTriangle = _detailRoot:Find('P2')
+    _detailLast5Season = _detailRoot:Find('HistoryRecord/HistoryRecordValue'):GetComponent('UILabel')
+    _detailLastSeason_key1 = _detailRoot:Find('NOW/ShowValue_1/Content'):GetComponent('UILabel')
+    _detailLastSeason_value1 = _detailRoot:Find('NOW/ShowValue_1'):GetComponent('UILabel')
+    _detailLastSeason_key2 = _detailRoot:Find('NOW/ShowValue_2/Content'):GetComponent('UILabel')
+    _detailLastSeason_value2 = _detailRoot:Find('NOW/ShowValue_2'):GetComponent('UILabel')
+    _detailHistory_value1 = _detailRoot:Find('History/ChampionNum'):GetComponent('UILabel')
+    _detailHistory_value2 = _detailRoot:Find('History/TopTenNum'):GetComponent('UILabel')
+end
+
+function LuaHallFameDlg_Pure._initUI_detail()
+    _detailTriangleDefaultScaleY = _detailTriangle.localScale.y
+end
+
+function LuaHallFameDlg_Pure._RegisterEvent_detail()
+    Hotfix.SetClickCallback(_detailTriangle.gameObject, this._PlayTween)
+end
+
+----------------------------------------------------public-msg-------------------------------------------------------------
+function LuaHallFameDlg_Pure.RefreshUI_detail(data)
+    local spName = Hotfix.CallSingleMethod('XProfessionSkillMgr', true, false, 'GetProfHeadIcon2', data.profession)
+    _detailAvatar.spriteName = spName
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+        _detailName.text = data.RoleRankData.RoleNames[_curSelectedIndex]
+    else
+        _detailName.text = data.RoleRankData.RoleName
+    end
+    _detailHistory_value1.text = data.TopOneNum
+    _detailHistory_value2.text = data.TopTenNum
+    local strRecent = ''
+    for index, value in ipairs(data.RankRecent) do
+        local str = ''
+        if value.rank == UINT32_MAXVALUE or value.rank == 0 then
+            str = Hotfix.GetStringTable('NoRank')
+        else
+            str = string.gsub(Hotfix.GetStringTable('RANK'), '{0}', value.rank)
+        end
+        if index == 1 then
+            strRecent = strRecent .. str
+        else
+            strRecent = strRecent .. '、' .. str
+        end
+    end
+    _detailLast5Season.text = strRecent
+
+    local RoleRankData = data.RoleRankData
+    if _curRankType == HALL_FAME_PURE_RANK_TYPE.rank then
+        _detailLastSeason_key1.text = Hotfix.GetStringTable('HallOfFamePure_pkpoint')
+        _detailLastSeason_value1.text = RoleRankData.pkpoint
+        _detailLastSeason_key2.text = Hotfix.GetStringTable('HallOfFamePure_total_num')
+        _detailLastSeason_value2.text = RoleRankData.pkextradata.joincount
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.achievement then
+        _detailLastSeason_key1.text = Hotfix.GetStringTable('HallOfFamePure_achievement')
+        _detailLastSeason_value1.text = RoleRankData.achievementPointCount
+        _detailLastSeason_key2.text = ''
+        _detailLastSeason_value2.text = ''
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.dragonNest then
+        _detailLastSeason_key1.text = Hotfix.GetStringTable('HallOfFamePure_difficulty')
+        _detailLastSeason_value1.text = RoleRankData.difficulty .. '%'
+        _detailLastSeason_key2.text = Hotfix.GetStringTable('HallOfFamePure_usetime')
+        _detailLastSeason_value2.text = this._adaptUseTime(RoleRankData.usetime)
+    elseif _curRankType == HALL_FAME_PURE_RANK_TYPE.military then
+        _detailLastSeason_key1.text = Hotfix.GetStringTable('HallOfFamePure_military_rank')
+        _detailLastSeason_value1.text = doc.GetMilitaryNameByRank(RoleRankData.military_info.military_rank)
+        _detailLastSeason_key2.text = Hotfix.GetStringTable('HallOfFamePure_military_exploit')
+        _detailLastSeason_value2.text = RoleRankData.military_info.military_exploit
+    end
+    this._PlayTween(TWEEN_INVOKE_TYPE.init)
+end
+
+function LuaHallFameDlg_Pure._PlayTween(invokeState)
+    local tweenGroup = 0
+    if type(invokeState) ~= 'number' then
+        invokeState = TWEEN_INVOKE_TYPE.manualClick
+    end
+    if _curTweenState == nil then
+        _curTweenState = TWEEN_STATE.allHide
+    end
+
+    if invokeState == TWEEN_INVOKE_TYPE.init then
+        if _curTweenState == TWEEN_STATE.allHide then
+            tweenGroup = TWEEN_TYPE.allHide2PartShow
+            _curTweenState = TWEEN_STATE.partShow
+            this._changeDetailTriangle(true)
+        else
+            return
+        end
+    elseif invokeState == TWEEN_INVOKE_TYPE.reset then
+        if _curTweenState == TWEEN_STATE.allShow then
+            tweenGroup = TWEEN_TYPE.allShow2AllHide
+            _curTweenState = TWEEN_STATE.allHide
+        elseif _curTweenState == TWEEN_STATE.partShow then
+            _curTweenState = TWEEN_STATE.allHide
+            tweenGroup = TWEEN_TYPE.partShow2AllHide
+        elseif _curTweenState == TWEEN_STATE.allHide then
+            return
+        end
+    elseif invokeState == TWEEN_INVOKE_TYPE.manualClick then
+        if _curTweenState == TWEEN_STATE.allShow then
+            tweenGroup = TWEEN_TYPE.allShow2PartShow
+            _curTweenState = TWEEN_STATE.partShow
+            this._changeDetailTriangle(true)
+        elseif _curTweenState == TWEEN_STATE.partShow then
+            tweenGroup = TWEEN_TYPE.partShow2AllShow
+            _curTweenState = TWEEN_STATE.allShow
+            this._changeDetailTriangle(false)
+        end
+    end
+
+    _detailTween:ResetByGroup(true, tweenGroup)
+    _detailTween.tweenGroup = tweenGroup
+    _detailTween:Play(true)
+end
+
+function LuaHallFameDlg_Pure._changeDetailTriangle(isNormal)
+    local scale = _detailTriangle.localScale
+    if isNormal then
+        _detailTriangle.localScale = Vector3(scale.x, _detailTriangleDefaultScaleY, scale.z)
+    else
+        _detailTriangle.localScale = Vector3(scale.x, _detailTriangleDefaultScaleY * -1, scale.z)
+    end
+end
+
+----------------------------------------------------4.support-------------------------------------------------------------
+
+----------------------------------------------------public-msg-------------------------------------------------------------
+function LuaHallFameDlg_Pure.RefreshUI_support(data)
+    local num = tonumber(_rolesChilds6[_curSelectedIndex][ROLE_CHILDS.supportNum].text)
+    _rolesChilds6[_curSelectedIndex][ROLE_CHILDS.supportNum].text = num + 1
+end
+return this

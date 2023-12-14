@@ -1,0 +1,254 @@
+local this = nil
+require "XEggTwistingList_pb.lua" 
+
+-------------------------------------------------------------------------------------------------------------------
+
+--local print = Debugger.LogWarning
+LuaEggTwistingList = {}
+local this = LuaEggTwistingList
+local m_Go
+local m_rankDataTab = {}
+local m_scrollView
+local m_wrapContent
+local m_noTipsGo
+local m_rankRewardRowTab = {}
+local m_meTpl
+
+function LuaEggTwistingList.CloseUI()
+    -- body
+    m_isVisible = false
+    m_Go:SetActive(false)
+end
+
+function LuaEggTwistingList.OnRankBack(data,length)
+    --temp
+	local  msg = ParseProtoBufToTable("QueryRankListLuaRes",data)
+	if msg ~= nil then
+
+		print("errorcode is: "..tostring(msg.errorcode))
+		if msg.errorcode ~= 0 then
+			-- exclude INVALID_REQUEST
+			if msg.errorCode ~= ERR_UNKNOWN then
+				Hotfix.LuaShowSystemTipErrCode(msg.errorcode)
+			end
+			return
+		end
+	else
+		print("RankList msg is nil")
+		return
+	end
+
+	m_rankDataTab = {}
+	for i = 1,#msg.ranklist.rankdata  do
+		m_rankDataTab[i] = this.SetRankData(msg.ranklist.rankdata[i],i)
+    end
+    
+    if m_rankDataTab == nil then return end
+    
+    local data = msg.rolerankdata
+	if data == nil then return end
+	if data.total_num == nil then data.total_num = 0 end
+	if data.rolename == nil then data.rolename = Hotfix.GetPlayer("Name") end--"清档没清干净" end
+	print("LuaEggTwistingList.OnRankBack data.rank is "..data.rank.." "..data.rolename.." "..data.total_num)
+    this.SetRank(data.rank,m_meTpl.transform)
+    this.Setinfo(data.rolename,data.total_num,m_meTpl.transform,true)
+    this.SetReward(m_meTpl.transform,data.rank)
+
+
+	local count = #m_rankDataTab
+	--print("count = "..tostring(count))
+    if count == 0 then
+        m_noTipsGo:SetActive(true)
+		m_scrollView.gameObject:SetActive(false)
+    else
+        m_noTipsGo:SetActive(false)
+		m_scrollView.gameObject:SetActive(true)
+
+		if not IsNil(m_wrapContentGo) then
+			Hotfix.SetWrapContentCount(m_wrapContentGo, count, true)
+		end
+	end
+end
+function LuaEggTwistingList.Refresh()
+    this.ReqRank(53)
+end
+function LuaEggTwistingList.ReqRank(type)
+	local  msg = GetProtoBufSendTable("QueryRankListLuaArg")
+	msg.rankType = type
+	print("send request msg: "..msg.rankType)
+
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		Hotfix.SendLuaByteRPC(9895, pb_data, this.OnRankBack, this.OnErr)
+	else
+		print("test proto data is nil")
+	end
+end
+function LuaEggTwistingList.OnErr()
+
+end
+function LuaEggTwistingList.SetRankData(severData,rank)
+	local tab = {}
+    tab.roleid = severData.roleid
+    tab.rolename = severData.rolename
+    tab.total_num = severData.total_num
+    tab.rank = rank
+	return tab
+end
+
+function LuaEggTwistingList.GetRankRow(type,rank)
+	return Hotfix.CallDocumentMethod("XAnniversaryTreasureDocument",true,"GetTreasueRankReward",type,rank)
+end
+
+--------------------------------------------------------------UI----------------------------------------------------------
+
+function LuaEggTwistingList.Init()
+    m_scrollView = m_Go.transform:Find("Panel"):GetComponent("UIScrollView")
+    m_wrapContent = m_Go.transform:Find("Panel/FourNameList"):GetComponent("UIWrapContent")
+    m_noTipsGo = m_Go.transform:Find("Tips").gameObject
+	m_wrapContentGo = m_wrapContent.gameObject
+    Hotfix.InitWrapContent(m_wrapContentGo, this.WrapContentRankUpdated)
+    
+    m_meTpl = m_Go.transform:Find("MeTpl").gameObject
+end
+
+
+---@param t UnityEngine.Transform
+function LuaEggTwistingList.WrapContentRankUpdated(t,index)
+	print('index = '..tostring(index))
+	if index + 1 > #m_rankDataTab then
+		print("<color=Red> the index had out of tab Count index+1 = "
+				..tostring(index + 1).."  count = "..tostring(#m_rankDataTab).."</color>")
+		return
+	end
+
+	this.FillSingleWrap(t,index + 1)
+end
+
+function LuaEggTwistingList.FillSingleWrap(tra,index)
+
+	if IsNil(tra) then return end
+
+	print("index oo = "..index)
+	print("count = "..#m_rankDataTab)
+	local data = m_rankDataTab[index]
+	if data == nil then return end
+
+    this.SetRank(data.rank,tra)
+    this.Setinfo(data.rolename,data.total_num,tra,false)
+    this.SetReward(tra,data.rank)
+end
+
+function LuaEggTwistingList.DrawItem(go,id,num)
+	Hotfix.DrawItemView(go,id,num,false)
+	local icon = go.transform:Find("Icon"):GetComponent("UISprite")
+	icon.sid = tostring(id)
+	Hotfix.SetClickCallback(icon.gameObject,this.OnClickItem)
+end
+function LuaEggTwistingList.OnClickItem(go)
+	local spr = go.transform:GetComponent("UISprite")
+	print("sid = "..tostring(spr.sid))
+	Hotfix.LuaShowItemTooltipDialog(tonumber(spr.sid), go)
+end
+
+function LuaEggTwistingList.SetRank(rank,tra)
+	local spr = tra:Find("RankImage"):GetComponent("UISprite")
+	local lab = tra:Find("Rank"):GetComponent("UILabel")
+
+	spr.gameObject:SetActive(false)
+	lab.gameObject:SetActive(false)
+
+	local rankNum = tonumber(rank)
+	print("rank = "..rank)
+	if rankNum == 1 then
+		spr.gameObject:SetActive(true)
+		spr.spriteName = "N1"
+	elseif rankNum == 2 then
+		spr.gameObject:SetActive(true)
+		spr.spriteName = "N2"
+	elseif rankNum == 3 then
+		spr.gameObject:SetActive(true)
+		spr.spriteName = "N3"
+	elseif rankNum == 4294967295 then
+		lab.gameObject:SetActive(true)
+		lab.text = "未上榜"
+	else
+		lab.gameObject:SetActive(true)
+		lab.text = rank
+	end
+end
+function LuaEggTwistingList.Setinfo(name,num,tra,isMe)
+    local namelab = tra:Find("Labs/0"):GetComponent("UILabel")
+    local numlab = tra:Find("Labs/1"):GetComponent("UILabel")
+	namelab.text = name
+	if isMe == false then
+		numlab.text = num
+	end
+end
+
+function LuaEggTwistingList.SetReward(tra,index)
+    local items = {}
+    items[1] = tra:Find("ItemTpl").gameObject
+	items[2] = tra:Find("ItemTpl1").gameObject
+    items[3] = tra:Find("ItemTpl2").gameObject
+    items[1]:SetActive(false)
+	items[2]:SetActive(false)
+	items[3]:SetActive(false)
+	
+	if index == 4294967295 then return end
+    local row = this.GetRankRow(4,index)
+    if row == nil then return end
+    for i = 1, row.reward.Count do
+        items[i]:SetActive(true)
+        id = Hotfix.ParseUIntSeqList(row.reward,i-1,0)
+		num = Hotfix.ParseUIntSeqList(row.reward,i-1,1)
+		this.DrawItem(items[i],id,num)
+    end
+end
+
+function LuaEggTwistingList.SetMyNum(ext)
+	local chang = m_meTpl.transform:Find("Labs/1"):GetComponent("UILabel")
+	chang.text = tostring(ext)
+end
+--------------------------------------------------------------Mono 生命周期------------------------------------------------
+
+function LuaEggTwistingList.Awake(go)
+    -- body
+    m_Go = go
+    local m_btnClose = go.transform:Find("Close"):GetComponent("XUIButton")
+    Hotfix.SetClickCallback(m_btnClose.gameObject,this.CloseUI)
+    this.Init()
+end
+
+function LuaEggTwistingList.Start()
+    -- body
+end
+
+function LuaEggTwistingList.OnEnable()
+	print("LuaEggTwistingList vis true")
+	m_isVisible = true
+end
+
+function LuaEggTwistingList.OnDisable()
+	print("LuaEggTwistingList vis false")
+	m_isVisible = false
+end
+
+function LuaEggTwistingList.OnDestroy()
+	--print("LuaEggTwistingList vis false")
+	m_isVisible = false
+end
+
+function LuaEggTwistingList.OnShow()
+    print("LuaEggTwistingList Refresh start!")
+    this.Refresh()
+end
+function LuaEggTwistingList.OnHide()
+	print("LuaEggTwistingList vis false")
+	m_isVisible = false
+end
+function LuaEggTwistingList.IsVisible()
+	return m_isVisible
+end
+return this

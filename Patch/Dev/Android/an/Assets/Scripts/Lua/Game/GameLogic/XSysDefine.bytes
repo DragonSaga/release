@@ -1,0 +1,754 @@
+--系统id
+XSysDefine = {
+    XSys_Invalid = -1,
+    XSys_None = 0,
+    XSys_ExteriorDlg=9,
+    XSys_Character = 10,
+    XSys_Level = 11,
+    XSys_Item = 12,
+    XSys_Skill = 13,
+    XSys_Char = 14,
+    XSys_Horse = 15,
+    XSys_Fashion = 16,
+    XSys_Guild = 17,
+    XSys_Recycle = 18,
+    XSys_Bag = 19,
+    XSys_TShow = 20,
+    XSys_Confession = 21,
+    XSys_Auction = 22,
+    XSys_TShowRule = 23,
+    XSys_FlowerRank = 24,
+    XSys_CardCollect = 25,
+
+    XSys_Camp = 26,
+    XSys_Mail = 27,
+    XSys_Wifi = 28,
+    XSys_Design = 29,
+
+    XSys_SuperReward = 30,
+    XSys_Draw = 31,
+    XSys_Mall = 32,
+    XSys_Strong = 33,
+    XSys_Target = 34,
+    XSys_Reward = 35,
+    --XSys_FirstRecharge = 36,
+    XSys_ServerActivity = 37,
+    --XSys_NextDayReward = 38,
+    XSys_OnlineReward = 39,
+
+    XSys_Setting = 40,
+    XSys_Rank = 41,
+
+    XSys_LevelReward = 42,
+    --XSys_FindExp = 43,
+    XSys_ReceiveEnergy = 44,
+    XSys_EquipCreate = 45,
+    XSys_SystemActivity = 46,
+    XSys_LevelSeal = 47,
+    XSys_BossRush = 48,
+    XSys_SuperRisk = 49,
+    XSys_DragonCrusade = 50,
+    XSys_Arena = 51,
+    XSys_Activity = 52,
+    XSys_TimeLimitActivity = 53,
+    --XSys_ArenaList=53
+    XSys_Qualifying = 54,
+
+    XSys_MulActivity = 55,
+    XSys_Spectate = 56,
+    XSys_DailyAcitivity = 57,
+    XSys_PVPAcitivity = 58,
+    XSys_ExcellentLive = 59,
+    XSys_MobaAcitivity = 60,
+
+    XSys_Money = 61,
+    XSys_Coin = 62,
+    XSys_Power = 63,
+    XSys_DragonCoin = 64,
+    XSys_GameMall = 65,
+    XSys_Carnival = 67,
+    XSys_WeekShareReward = 68,
+    XSys_DungeonShareReward = 69,
+
+    XSys_OtherPlayerInfo = 70,
+    XSys_Chat = 71,
+    XSys_Friends = 72,
+    XSys_Maquee = 73,
+    XSys_SendFlower = 74,
+    XSys_Mentorship = 75,
+    XSys_PK = 76,
+    XSys_3GFree = 77,
+    XSys_ChatGroup = 78,
+    XSys_Broadcast = 80,
+    XSys_GuildHall = 81,
+    XSys_GuildRelax = 82,
+    --XSys_GuildBoon = 83,
+    --XSys_GuildDungeon = 84,
+    XSys_GuildDragon = 85,
+    XSys_GuildPvp = 86,
+    XSys_GuildRedPacket = 87,
+    XSys_GuildMine = 88,
+
+    XSys_CrossGVG = 89,
+
+    XSys_Team = 90,
+
+    XSys_GayValley = 91,
+    XSys_GayValleyManager = 92,
+    XSys_SevenActivity = 93,
+    XSys_Title = 94,
+
+    XSys_Task = 95,
+
+    XSys_Pandora = 96,
+    XSys_Personal_Career = 97,
+    XSys_MilitaryRank = 98,
+    XSys_CareerSkill = 99,
+
+    XSys_Recharge = 100,
+    XSys_VIP = 101,
+    --114波普宝藏lua占用
+    --115组合商城占用
+    --116历史充值反钻占用
+    --117遗迹宝藏lua占用 ob+13Codefix
+    XSys_RelicTreasure = 117,
+
+    XSys_Random_Gift = 102,
+    XSys_HallFame = 103,
+    XSys_TwoLevelPassword=104,
+    XSys_TimeLimitGift = 105,
+    --106被占用
+    XSys_DragonNestThree = 107,--重制版竞技龙本
+    XSys_Dragon_Rank=1032, --重置版屠龙排行榜
+    XSys_Stategy = 108,--基谷攻略
+
+    XSys_Level_Normal = 110,
+    XSys_Level_Elite = 111,
+    XSys_Level_Swap = 112,
+    XSys_Level_RedDragon = 113,
+    
+    XSys_Item_Inscription = 118,
+    XSys_Item_Reform = 119,
+    XSys_Item_Equip = 120,
+    XSys_Item_Enhance = 121,
+    XSys_Item_Jade = 122,
+    XSys_Item_SlotAttr = 123,
+    XSys_Item_Smelting = 124,
+    XSys_Item_Reinforce = 125,
+    XSys_Emblem_Smelting = 126,
+    XSys_Item_Enchant = 127,
+    XSys_Item_Forge = 128,
+    XSys_Item_InjectPsychic = 129,
+
+    XSys_Skill_Levelup = 130,
+    XSys_Skill_Promote = 131,
+
+    XSys_Equip_Reforge = 132,   --重铸
+    XSys_Equip_Stunt = 133,     --特技
+    XSys_Equip_Inherit = 134,   --继承
+
+    XSys_Skill_Recommeded = 136,
+
+    XSys_Char_Attr = 140,
+    XSys_Char_Emblem = 141,
+    XSys_Recruit_Main   = 145, --招募集结(主活动界面)
+    XSys_Recruit_RecTask  = 146, --招募集结(招募任务、招募列表界面)
+    XSys_Recruit_MassTask = 147, --招募集结(集结任务界面)
+    XSys_Recruit_Mass = 148, --招募集结(集结任务界面)
+
+    XSys_Home = 150,
+    XSys_Home_Cooking = 151,
+    XSys_Home_Fishing = 152,
+    XSys_Home_Plant = 153,
+    XSys_Home_Feast = 154,
+    XSys_Home_MyHome = 155,
+    XSys_Home_HomeFriends = 156,
+    XSys_Home_Remind = 157,
+
+    XSys_Horse_LearnSkill = 159,
+
+    XSys_Fashion_Fashion = 160,
+    --XSys_Fashion_Wardrobe = 161,
+    XSys_Fashion_Wearing = 162,--时装合成跳转
+    XSys_Fashion_OutLook = 161,
+    --XSys_Storage_Fashion = 164,
+    XSys_Storage_Equip = 165,
+
+    XSys_Item_Compose = 170,
+    XSys_Pet_Pairs = 171,--双人坐骑
+
+    XSys_Recycle_Equip = 180,
+    XSys_Recycle_Jade = 181,
+
+    XSys_NewServerRush = 188,--新服冲榜
+    XSys_Bag_Item = 190,
+
+    XSys_TShow_Vote = 200,
+    XSys_TShow_Main = 201,
+    --XSys_TShow_Reward = 202,
+
+    XSys_CustomBattle = 220,
+    XSys_CustomBattle_BountyMode = 221,
+    XSys_CustomBattle_CustomMode = 222,
+
+    XSys_ExPurchaseCrystal = 229,
+
+    XSys_WeekEndNest = 230,--周末星巢穴
+    XSys_Activity_DragonNest_Pure=231, --龙穴经典版
+
+    XSys_Camp_CampHall = 260,
+    XSys_Camp_MemberHall = 261,
+    XSys_Camp_Mission = 269,
+
+    XSys_DragonNest_Sweep = 270,
+
+    XSys_Mail_System = 271,
+    XSys_Mail_Player = 272,
+    XSys_Mail_Content = 273,
+
+    Xsys_DuelPVP = 280,     --角斗场，pvp，区别于1v1天梯靠微操技术，角斗场几乎纯战力式比拼，王者荣耀式的排位设计，勾引土豪充钱
+
+    SYS_Flopdraw = 285,--欢乐翻牌
+
+    XSys_AnniversaryTreasures = 286,
+    XSys_Design_Designation = 290,
+    XSys_Design_Achieve = 291,
+
+    XSys_Mall_Happy = 294,--294 到 345 为商店预留ID
+    XSys_Mall_New_One = 295,
+    XSys_Mall_New_Two = 296,
+    XSys_Mall_New_Three = 297,
+    XSys_Mall_New_Four = 298,
+    XSys_Mall_CharmPK = 300,
+    XSys_Mall_MystShop = 320,
+    XSys_Mall_Mall = 321,
+    XSys_Mall_Fasion = 322,
+    XSys_Mall_Honer = 323,
+    XSys_Mall_Guild = 324,
+    XSys_Mall_Tear = 325,
+    XSys_Mall_Card1 = 326,
+    XSys_Mall_Card2 = 327,
+    XSys_Mall_Card3 = 328,
+    XSys_Mall_Card4 = 329,
+    XSys_Mall_32A = 330,
+    XSys_Mall_40A = 331,
+    XSys_Mall_50A = 332,
+    XSys_Mall_60A = 333,
+    XSys_Mall_Home = 334,
+    XSys_LevelElite_Shop1 = 335,
+    XSys_LevelElite_Shop2 = 336,
+    XSys_LevelElite_Shop3 = 337,
+    XSys_LevelElite_Shop4 = 338,
+    XSys_Mall_Mentorship = 339,
+    XSys_Mall_Partner = 340,
+    XSys_Mall_Medal = 341,
+    XSys_Mall_SkillMark = 342,--纹章商店
+
+    XSys_Mall_Tattoo = 343,--纹身 羽翼 尾巴 
+    --XSys_Mall_Flying = 344,--
+    --XSys_Mall_Tail = 345,--
+    XSys_Mall_Mounts = 344,--坐骑
+    XSys_Mall_AllPkMatch = 345,--全民PK赛
+
+    XSys_Mall_ShopMax = 346,
+    XSys_Mall_WeddingLover = 347,
+    XSys_Mall_BackFlowShop = 348,
+
+    XSys_Strong_Brief = 349,
+
+    XSys_Reward_Achivement = 350,
+    XSys_Reward_Activity = 351,
+    --XSys_Reward_System = 352,
+    XSys_Reward_Login = 353,
+    --XSys_Reward_Level = 354,
+    XSys_Reward_Dragon = 355,
+    XSys_Prerogative = 356, --特权
+    XSys_Reward_Target = 357,
+
+    XSys_PrerogativeShop = 358,
+
+    XSys_AbyssParty = 360,
+    XSys_Mall_Rift = 366,
+    XSys_Artifact = 370,
+    XSys_Artifact_Comepose = 371,   --合成
+    XSys_Artifact_Atlas = 372,
+    XSys_Artifact_DeityStove = 373, --神炉
+    XSys_Artifact_Recast = 374,     --重铸
+    XSys_Artifact_Fuse = 375,       --融合
+    XSys_Artifact_Inscription = 376,--铭文
+    XSys_Artifact_Refined = 377,    --祭炼
+
+    XSys_Mall_JiGuShop = 379,--基谷商店
+
+    XSys_SmeltReturn = 380,--洗炼返还
+    XSys_EquipFusion = 381,--装备进阶
+    XSys_EquipUpgrade = 382,--装备升级
+
+    XSys_H5ObligateSysOne = 390,--H5预留系统1
+    XSys_H5ObligateSysTwo = 391,--H5预留系统2
+    XSys_H5ObligateSysThree = 392,--H5预留系统3
+    XSys_QQWallet = 393,--qq钱包
+    --XSys_GotoOtherSysOne = 394
+    --XSys_GotoOtherSysTwo = 395
+    --XSys_GotoOtherSysThree = 396
+    --XSys_GotoOtherSysFour = 397
+    --XSys_GotoOtherSysFive = 398
+    --XSys_ShadowCat_Two = 399
+
+    XSys_Rank_Rift = 408,
+    XSys_Rank_WorldBoss = 409,
+    XSys_Rank_PPT = 410,
+    XSys_Rank_Level = 411,
+    XSys_Rank_Guild = 412,
+    XSys_Rank_Fashion = 413,
+    XSys_Rank_TeamTower = 414,
+    XSys_Rank_GuildBoss = 415,
+    XSys_Rank_Pet = 416,
+    XSys_Rank_Sprite = 417,
+    XSys_Rank_Qualifying = 418,
+    XSys_Rank_BigMelee = 419,
+
+
+
+    XSys_Flower_Rank_Today = 420,
+    XSys_Flower_Rank_Yesterday = 421,
+    XSys_Flower_Rank_History = 422,
+    XSys_Flower_Rank_Week = 423,
+
+    XSys_Flower_Log = 424,
+    XSys_Flower_Log_Send = 425,
+    XSys_Flower_Log_Receive = 426,
+    XSys_Flower_Rank_Activity = 427,
+
+    XSys_Rank_DragonGuild = 430,
+    XSys_Rank_SkyArena = 431,
+    XSys_Rank_CampDuel = 432,
+    XSys_Rank_DuelPVP = 433,
+    XSys_Rank_ItemScore = 434,
+    XSys_Rank_ItemPsychic = 435,
+
+    XSys_Yorozuya = 440,
+    Xsys_EquipCollect = 441,
+
+    XSys_EquipCreate_EquipSet = 450,
+    XSys_EquipCreate_EmblemSet = 451,
+    XSys_EquipCreate_ArtifactSet = 452,
+    XSys_EquipCreate_Upgrade = 453,
+
+    XSys_SystemActivity_Other = 460,
+    XSys_EquipReturn = 465,
+    XSys_RandBoss_WorldBoss = 466, --随机boss，世界boss
+    XSys_RandBoss_GuildBoss = 467,--随机boss，公会boss
+    XSys_RandBoss_RareBoss = 468,--随机boss，稀有boss
+    XSys_LevelSeal_Tip = 470,
+    XSys_MentorshipMsg_Tip = 471,
+
+    Xsys_TimedAcivities = 480,--限时活动
+    Xsys_RechargeActitity = 481,--充值返利
+    Xsys_ConsumeAcivity = 482,--消费活动
+
+    Xsys_520Festivity = 486,
+
+    --transfer center
+    XSys_Transfer_Center = 488,
+    XSys_MonsterPet = 489,
+
+    --DNRoguelike·龙之秘境
+    XSys_DNRoguelike = 490,
+    XSys_DNRLRune = 491,
+
+
+    XSys_Nest_QuanMin = 510,--只用于显示巢穴全民模式的说明
+    XSys_DragonNest_QuanMin = 511,--只用于显示龙穴全民模式的说明
+
+    XSys_DragonNest_TopRune = 514,  --巅峰付文龙
+    
+    XSys_DragonNest_Remote = 515,   --远古龙穴
+    XSys_RemoteNest = 516,      --远古巢穴
+    XSys_RemoteNest_Hero = 517, --远古巢穴英雄模式的说明
+    XSys_DragonNest_Red = 518,  --红龙巢穴
+
+    XSys_NightmareYard = 519,   --噩梦庭院
+
+    XSys_Activity_Nest = 520,
+    XSys_Activity_SmallMonster = 521,
+    XSys_Activity_BossRush = 522,
+    XSys_Activity_Fashion = 523,
+    XSys_Activity_WorldBoss = 524,
+    XSys_Activity_ExpeditionFrame = 525,
+    XSys_Activity_DragonNest = 526,
+    XSys_Activity_TeamTower = 527,
+    XSys_Activity_CaptainPVP = 528,
+    XSys_Activity_GoddessTrial = 529,
+    XSys_Activity_TeamTowerSingle = 530,
+    XSys_BigMelee = 531,
+    XSys_BigMeleeEnd = 532,
+    XSys_Battlefield = 533,
+    XSys_EndlessAbyss = 540,
+    XSys_Shanggu = 541, --上古
+    XSys_Activity_WeekDragonNest = 542,
+    XSys_Activity_WeekDragonNestTwo = 543,
+    XSys_MulActivity_MulVoiceQA = 551,
+    XSys_MulActivity_SkyArena = 552,
+    XSys_MulActivity_Race = 553,
+    XSys_MulActivity_WeekendParty = 554,
+    XSys_MulActivity_SkyArenaEnd = 555,
+    XSys_MulActivity_LoveHug = 556,
+
+    XSys_Welfare = 560,
+    --XSys_Welfare_DiamondCard = 561,
+    XSys_Welfare_GiftBag = 562,
+    XSys_Welfare_StarFund = 563,
+    XSys_Welfare_FirstRechange = 564,
+    XSyS_Welfare_RewardBack = 565,
+    XSys_Welfare_MoneyTree = 566,
+    XSys_Welfare_KingdomPrivilege = 567,
+    XSys_Welfare_KingdomPrivilege_Court = 568,
+    XSys_Welfare_KingdomPrivilege_Adventurer = 569,
+    XSys_Welfare_KingdomPrivilege_Commerce = 570,
+    XSys_Welfare_NiceGirl = 571,
+    XSys_Welfare_YyMall = 572,
+    XSys_Welfare_PaivilegeGift = 573,
+
+    Xsys_Backflow = 580,                --回流系统总id lua
+    Xsys_Backflow_LavishGift = 581,     --回流重礼lua
+    Xsys_Backflow_Dailylogin = 582,     --回流每日登陆lua
+    Xsys_Backflow_GiftBag = 583,        --回流回归礼包, 等级lua
+    Xsys_Backflow_NewServerReward = 584,
+    Xsys_Server_Two = 585,
+    Xsys_Backflow_LevelUp = 586,
+    Xsys_Backflow_Task = 587,
+    Xsys_Backflow_Target = 588,
+    Xsys_Backflow_Privilege = 589,
+
+    Xsys_TaJieHelp = 590,           --塔姐帮帮
+    XSys_InGameAD = 599,
+    XSys_OperatingActivity = 600,
+    XSys_FirstPass = 601,
+    XSys_MWCX = 602,
+    XSys_GHJC = 603,
+    XSys_GuildRank = 604,
+    XSys_Flower_Activity = 605,
+    XSys_CrushingSeal = 606,
+    XSys_WeekNest = 607,
+    XSys_CollectWords = 608,
+    XSys_Holiday = 609,
+    XSys_Announcement = 610,
+    XSys_Patface = 611,
+    XSys_PandoraSDK = 612,
+    XSys_OldFriendsBack = 613,
+    XSys_CampDuel = 614,
+
+    XSys_Dance1 = 615,
+    XSys_Dance2 = 616,
+    XSys_Dance3 = 617,
+    XSys_Dance4 = 618,
+    XSys_Dance5 = 619,
+    XSys_Dance6 = 620,
+    XSys_Dance7 = 621,
+    XSys_Dance8 = 622,
+    XSys_Dance9 = 623,
+    XSys_Dance10 = 624,
+    XSys_Dance11 = 625,
+    XSys_Dance12 = 626,
+    XSys_Dance13 = 627,
+    XSys_Dance14 = 628,
+    XSys_Dance15 = 629,
+    XSys_Dance16 = 630,
+    XSys_Dance17 = 631,
+    XSys_Dance18 = 632,
+
+    XSys_LuckyTurntable = 633, -- 幸运转盘
+    XSys_LuckyToy = 634, -- 幸运扭蛋
+    XSys_LotteryFrame = 635, --星龙扭蛋
+    XSys_StarDragonShop = 636,
+
+    
+    XSys_FashionAllRank = 638,--时装排行榜
+    XSys_WeekFashion = 639,--基谷星秀
+
+    XSys_GameMall_Diamond = 650,
+    XSys_GameMall_Dragon = 651,
+    XSys_GameMall_Pay = 652,
+    XSys_GameMall_DWeek = 653,
+    XSys_GameMall_DCost = 654,
+    XSys_GameMall_DLongyu = 655,
+    XSys_GameMall_DFashion = 656,
+    XSys_GameMall_DRide = 657,
+    XSys_GameMall_DGift = 658,
+    XSys_GameMall_DVip = 659,
+    XSys_GameMall_GWeek = 660,
+    XSys_GameMall_GCost = 661,
+    XSys_GameMall_GLongyu = 662,
+    XSys_GameMall_GRide = 663,
+    XSys_GameMall_GGift = 664,
+    XSys_GameMall_GEquip = 665,
+    Xsys_GameMall_DEquip = 666,
+    XSys_GameMall_CRYSTAL = 667,
+
+    XSys_Carnival_Tabs = 670,
+    XSys_Carnival_Rwd = 671,
+    XSys_Carnival_Content = 672,
+
+    XSys_GameMall_CWeek = 675,
+    XSys_GameMall_CCost = 676,
+    XSys_GameMall_CLongyu = 677,
+    XSys_GameMall_CFashion = 678,
+    XSys_GameMall_CEquip = 679,
+    XSys_GameMall_CGift = 680,
+
+    XSys_BuyActivityOne = 690,
+    XSys_BuyActivityTwo = 691,
+    XSys_BuyActivityThree = 692,
+    XSys_BuyActivityFour = 693,
+    XSys_BuyActivityFive = 694,
+    XSys_BuyActivitySix = 695,
+
+    XSys_Partner = 700,
+    XSys_Parner_Liveness = 701,
+    XSys_Wedding = 702,
+
+    XSys_NPCFavor = 703,
+    XSys_Machine = 705,
+
+    XSys_GC_XinYueVIP = 710,                --心悦特权
+    XSys_GC_CustomService = 711,            --客服
+    XSys_GC_GameWebsite = 712,              --官网
+    XSys_GC_Forum = 713,                    --论坛
+    XSys_GC_Privilege = 714,                --V特权
+    XSys_GC_OfficialAccounts = 715,         --公众号
+    XSys_GC_DeepLink = 716,                 --抢福利
+    --XSys_Platform_StartPrivilege = 982,   --启动加成
+    XSys_GC_MiniCommunity = 718,            --微社区
+    --XSys_Broadcast = 80,                  --企鹅电竞
+    --XSys_Questionnaire = 962,             --调查问卷
+    XSys_GC_IOSLive = 721,                  --IOS直播
+    XSys_GC_TVStation = 722,                --电视台
+    XSys_GC_XiaoYueGuanJia = 723,           --小悦管家
+    XSys_GC_Libaozhongxin = 724,
+    XSys_GC_Reserve17 = 725,
+    XSys_GC_Reserve18 = 726,
+    XSys_GC_Reserve19 = 727,
+    XSys_GC_Reserve20 = 728,
+    XSys_GC_Reserve21 = 729,
+
+    --潘多拉sdk活动
+    XSys_Pandora730 = 730,
+    XSys_Pandora731 = 731,
+    XSys_Pandora732 = 732,
+    XSys_Pandora733 = 733,
+    XSys_Pandora734 = 734,
+    XSys_Pandora735 = 735,
+    XSys_Pandora736 = 736,
+    XSys_Pandora737 = 737,
+    XSys_Pandora738 = 738,
+    XSys_Pandora739 = 739,
+
+    XSys_Pandora740 = 740,--新增
+    XSys_Pandora741 = 741,--新增
+    XSys_Pandora742 = 742,--新增
+    XSys_Pandora743 = 743,--新增
+    XSys_Pandora744 = 744,--新增
+    XSys_Pandora745 = 745,--新增
+    XSys_Pandora746 = 746,--新增
+    XSys_Pandora747 = 747,--新增
+    XSys_Pandora748 = 748,--新增
+    XSys_Pandora749 = 749,--新增
+    XSys_PandoraTest = 750,--潘多拉测试
+
+    XSys_GroupRecruit = 760,
+    XSys_GroupRecruitAuthorize = 761,
+
+    XSys_ThemeActivity = 770,
+    XSys_ThemeActivity_HellDog = 771,--生化地狱犬
+    XSys_ThemeActivity_MadDuck = 772,--疯鸭围城
+    XSys_ThemeActivity_MadDuck2 = 774,--疯鸭围城2
+    XSys_ThemeActivity_MadDuck3 = 775,--疯鸭围城3
+    XSys_ThemeActivity_MadDuck4 = 776,--疯鸭围城4
+
+    XSys_SpriteEquipSmelt = 800,--精灵装备洗炼
+
+    XSys_GuildHall_SignIn = 810,
+    XSys_GuildHall_Approve = 811,
+    XSys_GuildHall_Skill = 812,
+    XSys_GuildHall_Member = 813,
+
+    XSys_GuildRelax_Joker = 820,
+    XSys_GuildRelax_VoiceQA = 821,
+    XSys_GuildRelax_JokerMatch = 822,
+    XSys_GuildLab_Consider = 823,
+    XSys_GuildLab_Build = 824,
+    XSys_GuildGrowthHunting = 825,
+    XSys_GuildGrowthDonate = 826,
+    XSys_GuildGrowthBuff = 827,
+    XSys_GuildGrowthLab = 828,
+    XSys_GuildFish = 829,       -- 公会钓鱼系统
+    
+
+    XSys_GuildBoon_RedPacket = 830,
+    XSys_GuildBoon_Shop = 831,
+    XSys_GuildBoon_DailyActivity = 832,
+    XSys_GuildBoon_Salay = 833,
+    XSys_GuildBoon_FixedRedPacket = 834,
+    XSys_GuildFish_Double = 835,       -- 公会钓鱼系统双倍奖励
+    XSys_LuckyBag = 836,-- 福袋分享
+
+    XSys_GuildDungeon_SmallMonter = 840,
+
+    --在Lua定义了以下系统ID，请不要占用
+    --XSys_CDKey = 841,
+    --XSys_OldPlayerReward = 842,
+    --XSys_OldPlayerDesignation = 843,
+    --XSys_IOSComment = 844,
+    --Sys_ValentineDay = 845,
+    --XSys_PartnerDay = 846,
+    --SYS_520Day = 847,
+    XSys_DailyRecharge = 849,
+    XSys_GuildChallenge = 850,
+    XSys_GuildChallenge_MemberRank = 851,
+    XSys_GuildChallenge_GuildRank = 852,
+    XSys_WorldBoss_EndRank = 855,
+    XSys_GuildQualifier = 860,
+    XSys_GuildMineMain = 880,
+    XSys_GuildDailyTask = 886,
+    XSys_GuildDialyDonate = 887,
+    XSys_GuildWeeklyDonate = 888,
+    XSys_GuildInherit = 890,
+    XSys_TimeLimitActivityOne = 891,
+    XSys_TimeLimitActivityTwo = 892,
+    XSys_TimeLimitActivityThree = 893,
+    XSys_SuperIdentification = 894,
+    XSys_TimeLimitActivityFive = 895,
+    XSys_TimeLimitActivitySix = 896,
+    XSys_TimeLimitActivitySeven = 897,
+    XSys_TimeLimitActivityEight = 889,
+    XSys_TimeLimitActivityNight = 899,
+    XSys_GradingGifts = 898,
+
+
+    XSys_JockerKing = 900,
+    XSys_Team_TeamList = 901,
+    XSys_Team_MyTeam = 902,
+    XSys_Team_Invited = 903,
+    XSys_GuildWeeklyBountyTask = 904,
+    XSys_GuildDailyRefresh = 905,
+    XSys_GuildDailyRequest = 906,
+    XSys_Team_HelperInvited = 907,
+
+    XSys_GayValley_Fashion = 910,
+    XSys_GayValley_Fishing = 911,
+    XSys_SkillEffect = 912,  -- 技能特效
+
+    XSys_Rename_DragonGuild = 918,
+    XSys_GayValleyManager_Return = 920,
+    XSys_Qualifying2 = 921,
+
+    XSys_IDIP_ZeroReward = 925,
+    XSys_Photo = 926,
+    xSys_Mysterious = 927,
+    XSys_SpriteSystem = 930,
+    XSys_SpriteSystem_Main = 931,
+    XSys_SpriteSystem_Lottery = 932,
+    XSys_SpriteSystem_Fight = 933,
+    XSys_SpriteSystem_Resolve = 934,
+    XSys_SpriteSystem_Detail = 935,
+    XSys_SpriteSystem_Shop = 936,
+    XSys_SpriteSystem_EquipMade = 937,
+    XSys_SpriteSystem_EquipBag = 938,
+
+    XSys_Title_Share = 941,
+    XSys_Link_Share = 942,
+    XSys_QuickRide = 943,
+    XSys_AppStore_Praise = 944,
+    XSys_Transform = 945,
+
+    XSys_WebView = 949,
+    XSys_GameCommunity = 950,
+    XSys_GameHorde = 951,
+    XSys_FriendCircle = 952,
+    XSys_QQVIP = 953,
+    XSys_SystemAnnounce = 954,
+    XSys_PrincipalBattle = 955,
+    XSys_HeroBattle = 956,
+    XSys_GuildBossMainInterface = 957,
+    XSys_GuildMineMainInterface = 958,
+    XSys_GuildPvpMainInterface = 959,
+    XSys_TeamLeague = 960,
+    XSys_ProfessionChange = 961,
+    XSys_Questionnaire = 962,
+    XSys_GuildMineEnd = 963,
+    XSys_CrossServerPK = 965,
+
+    XSys_GuildTerritory = 970,
+    XSys_GuildTerritoryAllianceInterface = 972,
+    XSys_GuildTerritoryIconInterface = 971,
+    XSys_GuildTerritoryMessageInterface = 973,
+    XSys_DragonSpiritLevelUp = 975,--龙魂升级，只是用来配置系统帮助了
+
+    XSys_Moba = 979,
+
+    XSys_Friends_Gift_Share = 980,
+    XSys_Guild_Bind_Group = 981,
+    XSys_Platform_StartPrivilege = 982,
+    XSys_Photo_Share = 983,
+    XSys_Friends_Pk = 984,
+    SYS_IBSHOP_GIFT = 985,
+    XSys_Cross_Server_Invite = 986,
+
+    XSys_Rename_Player = 988,
+    XSys_Rename_Guild = 989,
+
+    XSys_Exchange = 990,
+    XSys_GuildCollectMainInterface = 991,
+    XSys_GuildCollect = 992,
+    XSys_BackFlowMall = 993,
+    XSys_BackFlowWelfare = 994,
+    --XSys_LoginReward995 登录奖励        
+    XSys_GuildCollectSummon = 996,
+
+    XSys_DragonGuild = 996,--小分队
+    XSys_DragonGuildShop = 997,--小分队商店
+    XSys_DragonGuildLiveness = 998,--小分队活跃
+    XSys_DragonGuildTask = 999,--小分队战绩
+    XSys_DragonGuild_Bind_Group = 1000,
+    XSys_ShadowCat = 1001,--暗影喵
+    XSys_BOSCreditCard = 1002,  --银行信用卡活动 Lua中使用
+    XSys_Promotion = 1003,  --角色提升功能集中展示
+    XSys_ApplyFriends = 1004,
+    XSys_Treasure_Myself = 1005, --工会宝藏
+    XSys_Treasure_others = 1006,
+    XSys_Treasure=1007,
+    Xsys_TreasureBox=1008,
+    Xsys_BackFlowPayTask = 1009,
+    XSys_DragonNest_Red_Master=1010,
+    XSys_Gacha = 1011,--扭蛋机
+    XSys_AnniversaryTreasures_Pay = 1012,
+    XSys_ShenBingSys = 1013,
+    XSys_GuildBoss = 1014,--工会协力战
+    XSys_HideAndSeek = 1015,
+    XSys_DragonSpirit = 1017,--龙魂
+    XSys_KillDragonGameStory = 1018,--沙龙之殇
+    XSys_SevenDay = 1019, --七日登录
+    Xsys_RandomBoss = 1021, --随机boss ，总开关
+    XSys_RandomBossInvited = 1022, --随机boss组队消息
+
+    XSys_Machine_Item = 1030,--佣兵装备 
+    XSys_Machine_Task = 1031,--佣兵委派
+
+    XSys_Zombie = 1101, --日常·限时活动·生化模式
+    XSys_ChristmasEvent = 1102, --圣诞活动 6人乱斗
+
+    XSys_PureSeason = 1500,     --重置版赛季系统
+    XSys_BattlePass = 1502, --battlepass
+    Xsys_Rank_BattlePass = 1503, -- rank battlepass
+    XSys_PurePlay = 1510,       --重置版玩法系统
+    XSys_CommendRank = 1511,       --重置版点赞系统
+
+    XSys_PureSeasonActivity = 1515,--重置版赛季活动
+    XSys_KnightMedal = 1520,--骑士勋章
+
+
+    XSys_Item_Inscription_Upgrade = 1521,
+
+    XSys_Num = 2048,--1024,     --系统id最大值，每次扩容要和服务器同步一下（枚举）最大值,扩容好之后，记得要让服务器同步到公共服，否则再选角或者断线重连的时候同步服务器系统id列表，等用到的时候没同步会报数组越界
+}

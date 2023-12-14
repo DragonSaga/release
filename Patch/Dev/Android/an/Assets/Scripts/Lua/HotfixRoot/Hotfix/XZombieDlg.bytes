@@ -1,0 +1,554 @@
+--[[
+    限时活动-生化模式，类似限时活动-躲猫猫
+]]--
+local M = class(UIDlgBase)
+-- local log = LogManager.GetLogger("DragonNestView")
+local this = nil
+local uiBehaviour = nil
+
+local _doc, _teamdoc, _rankdoc = nil, nil, nil
+local theMatchType, theRankType = nil, nil
+
+local rankMyRankData, rankListData = nil, nil
+local rankListCount = 0
+
+local mineScore, mineRank = 0, nil
+
+local rankSprNamePrefix = "N"
+local noRankStr = nil
+
+--Override
+    local fileName = "Hall/ZombieDlg"
+    local autoload = true
+    local pushstack = true
+    local sysId = 1101
+
+    function M:Init()
+        this = M:GetInstance()
+        uiBehaviour = M.GetUIBehaviour(self)
+        assert(this ~= nil and uiBehaviour ~= nil,"this and uiBehaviour need evaluate in ctor!!!")
+        
+        print("<color=green>XZombie Init to attach</color>")
+
+        noRankStr = Hotfix.GetStringTable("NoRank")
+        local icon = uiBehaviour.MyRankRewardObj.transform:Find("Icon"):GetComponent(UIClassType.UISprite)
+        Hotfix.SetClickCallback(icon.gameObject, this.ShowIconTip)
+        
+        _doc = XDocumentMgr.XZombieDocument
+        
+        _teamdoc = XDocumentMgr.XTeamDocument
+
+        _rankdoc = XDocumentMgr.XRankDocument
+        theMatchType = GetNumberByPBEnum("KMatchType","KMT_GHOULMODE")
+        print("theMatchType: "..theMatchType)
+
+        theRankType = GetNumberByPBEnum("RankeType","GhoulModeRank")
+        --GetNumberByPBEnum("RankeType","GhoulModeRank")
+        --GetNumberByPBEnum("RankeType","PkRealTimeRank")
+        print("rank type: "..theRankType)
+
+        local contentStr = Hotfix.GetStringTable("ZombieMainViewContent")
+        uiBehaviour.ContentLb:SetText(contentStr)
+
+        --contentStr = Hotfix.GetStringTable("ZombieOpenTime")
+        uiBehaviour.OpentimeLb:SetText(stringEmpty)--(contentStr)
+    end
+    function M:OnLoad()	
+        print("<color=red>XZombie OnLoad</color>")
+    end
+    function M:OnShow()
+        print("<color=red>XZombie OnShow </color>")
+
+        _rankdoc:ReqRankList(theRankType)
+
+        M.RefreshMatchBtn()
+
+        Hotfix.CallSingleMethod("UI.TitanbarView", true, false, "SetVisible", false)
+
+        if uiBehaviour.RewardPool == nil then return end
+        uiBehaviour.RewardPool:FakeReturnAll()
+        local awardStr = Hotfix.GetGlobalString("ZombieAwardShow")
+        if string.IsNullOrEmpty(awardStr) then
+            awardStr = "800=2|2864=3"
+        end
+
+        local awardArray = awardStr:split("|")
+        local rewardCount = #awardArray 
+        local tplPos = uiBehaviour.RewardPool.TplPos
+        local tplWidth = uiBehaviour.RewardPool.TplWidth
+        for i= 0,rewardCount - 1 do
+            local obj = uiBehaviour.RewardPool:FetchGameObject()
+            local thePos = Vector3(tplPos.x + i* tplWidth, tplPos.y, tplPos.z)
+            obj.transform.localPosition = thePos    
+            --uiBehaviour.RewardPool.TplPos + i* uiBehaviour.RewardPool.TplWidth * Vector3.right
+            --Vector3 原表重载乘法运算符的时候__mul 数字乘以Vector3会触发报错  Vector3.lua,line：437
+            
+            local index = i + 1
+            -- print(" tempStr: "..awardArray[index])
+            local itemDataTable = awardArray[index]:split("=")
+            local itemId = itemDataTable[1]
+            local itemCount = itemDataTable[2]
+            
+            Hotfix.DrawItemView(obj, itemId, itemCount, true)
+            local icon = obj.transform:Find("Icon"):GetComponent(UIClassType.UISprite)
+            
+            icon.uid = itemId
+            Hotfix.SetClickCallback(icon.gameObject, this.ShowIconTip)
+        end
+
+        uiBehaviour._rwdRoot:SetActive(true)--todo：判断显示奖励弹窗obj  可以选择移出屏幕内
+        -- uiBehaviour.RewardPool:ActualReturnAll()
+        M.UpdateRankRewardsView()
+        M.UpdateParticipateRewardsVeiw()
+
+        uiBehaviour._rwdRoot:SetActive(false)   --todo：判断隐藏奖励弹窗obj  可以选择移出屏幕外
+    end
+    function M:OnHide()
+        print("<color=green>XZombie OnHide </color>")
+        --todo：请求停止单人匹配的协议
+
+        uiBehaviour.RewardPool:ActualReturnAll()
+        uiBehaviour.ItemPool:ActualReturnAll()
+        uiBehaviour.RankRewardPool:ActualReturnAll()
+    end
+    function M:OnUnload()
+        print("OnUnload")
+        uiBehaviour.RewardPool:ActualReturnAll()
+        uiBehaviour.ItemPool:ActualReturnAll()
+        uiBehaviour.RankRewardPool:ActualReturnAll()
+        
+        uiBehaviour = nil
+    end
+    function M:RegisterEvent()
+        assert(uiBehaviour ~= nil, "uiBehaviour is nil !!!")
+        assert(uiBehaviour._rwdRoot ~= nil, "can not get the Reward Root PanelObj, Please check it!!!")
+
+        --ui register
+            uiBehaviour.CloseBtn:RegisterClickEventHandler(M.OnCloseView)
+            uiBehaviour.RuleBtn:RegisterClickEventHandler(M.OnHelpClicked)
+            
+            uiBehaviour.RewardShowBtn:RegisterClickEventHandler(M.OnShowRewards)
+            uiBehaviour.RewardCloseBtn:RegisterClickEventHandler(M.OnCloseRewards)
+            --uiBehaviour._rankTab:RegisterOnCheckEventHandler(M.OnShowRankReward)
+            --uiBehaviour._patitionTab:RegisterOnCheckEventHandler(M.OnShowPaticipateReward)
+
+            uiBehaviour.StartMatchBtn:RegisterClickEventHandler(M.OnMatchEvent)
+            uiBehaviour.DuringMatchBtn:RegisterClickEventHandler(M.OnMatchEvent)
+            uiBehaviour.StartTeamMatchBtn:RegisterClickEventHandler(M.OnTeamMatchEvent)
+
+            Hotfix.NewInitWrapContent(uiBehaviour.RankWrapContent, M.OnInitWrapContent)
+            Hotfix.NewUpdateWrapContent(uiBehaviour.RankWrapContent, M.OnUpdateWrapContent)
+        --
+
+        RegisterEvent(XEventDefine.XEvent_RoleMatchStateNtf, M.RefreshMatchBtn)
+        RegisterEvent(XEventDefine.XEvent_RankListReq, M.RefreshRankList)
+        RegisterEvent(XEventDefine.XEvent_ZombieScoreReq, M.RefreshMyScore)
+        
+    end
+    function M:UnRegisterEvent()
+        print("OnUnRegisterEventLoad")
+
+        UnRegisterEvent(XEventDefine.XEvent_RoleMatchStateNtf, M.RefreshMatchBtn)
+        UnRegisterEvent(XEventDefine.XEvent_RankListReq, M.RefreshRankList)
+        UnRegisterEvent(XEventDefine.XEvent_ZombieScoreReq, M.RefreshMyScore)
+    end
+    function M:StackRefresh()
+        print("StackRefresh")
+    end
+    function M:LeaveStackTop()
+        print("LeaveStackTop")
+    end
+--
+
+--Click event
+    function M.OnCloseView(btn)
+        print("<color=red>do DeActive</color>")
+        this:SetVisible(false)
+        return true
+    end
+
+    function M.OnHelpClicked(btn)
+        Hotfix.CallSingleMethod("UI.XCommonHelpTipView",true,false,"ShowHelpForLua",XSysDefine.XSys_Zombie)
+        return true
+    end
+
+    --匹配按钮分为开始匹配、匹配中
+    function M.OnMatchEvent(btn)
+
+        local bInTeam = Hotfix.GetDocumentMember("TeamDocument","bInTeam",true,false)
+        if bInTeam == false then
+            if _teamdoc ~= nil then
+                _teamdoc:DoSoloMatchReq(theMatchType)
+            end
+		else
+			--string doc, bool isPublic, string method, params object[] args
+            Hotfix.CallDocumentStaticMethod("XTeamDocument",true,"ShouldLeaveTeamFirst")
+		end
+
+        return true
+    end
+
+    --组队匹配，前往组队界面
+    function M.OnTeamMatchEvent(btn)
+        -- this:SetVisible(false)
+        local theType = EnumTable.TeamLevelType.TeamLevelGhoulMode
+        Hotfix.CallDocumentMethod("TeamDocument",true,"SetAndMatchForLua", theType)
+        
+
+        return true
+    end
+
+    --展示奖励弹窗窗口
+    function M.OnShowRewards(btn)
+        uiBehaviour._rwdRoot:SetActive(true)
+        return true
+    end
+
+    --关闭奖励弹窗窗口
+    function M.OnCloseRewards(btn)
+        uiBehaviour._rwdRoot:SetActive(false)
+        return true
+    end
+
+    --参与奖励tab点击事件
+    function M.OnShowPaticipateReward(xuiCheckBox)
+        uiBehaviour.PartitionRwdRoot:SetActive(xuiCheckBox.bChecked);
+        return true
+    end
+
+    --排名奖励tab点击事件
+    function M.OnShowRankReward(xuiCheckBox)
+        uiBehaviour.RankrwdRoot:SetActive(xuiCheckBox.bChecked)
+        return true
+    end
+
+    function M.ShowIconTip(go)
+        Hotfix.LuaShowItemTooltipDialog(go:GetComponent("UISprite").uid, go)
+    end
+--
+
+-- wrap scrollview
+
+    --@param t UnityEngine.Transform
+    --@param index number
+    function M.OnUpdateWrapContent(t, index)
+        if index > rankListCount then
+            return
+        end
+
+        local theRank = index + 1
+        local rankInfo = rankListData[theRank]
+        assert(rankInfo ~= nil)
+
+        local PlayerId = Hotfix.GetPlayer("RoleID")
+        -- print("Player RoleId: "..PlayerId)
+
+        local isMine = rankInfo.id == PlayerId
+        
+        local color = isMine or "[dd8e00]" and "[3f3d2c]"
+        local nameLb = t:Find("Bg/Name"):GetComponent(UIClassType.XUILabel)
+        -- print("role name: "..rankInfo.RoleName)
+        local nameStr = color..rankInfo.RoleName.."[-]"
+        nameLb:SetText(nameStr)
+        
+        local rankImg = t:Find("Bg/RankImage"):GetComponent(UIClassType.XUISprite)
+        local rankLb = t:Find("Bg/RankNum"):GetComponent(UIClassType.XUILabel)
+        local rankPointLb = t:Find("Bg/Floor"):GetComponent(UIClassType.XUILabel)
+
+        local rankValue = rankInfo.Rank and rankInfo.Rank or index 
+        -- print("rankInfo.rank: "..rankValue)
+        -- print("theRank: "..theRank)
+        if rankValue < 3 then
+            rankImg:SetVisible(true)--gameObject:SetActive(true)
+            rankLb:SetVisible(false)--gameObject:SetActive(false)
+            rankImg:SetSprite(rankSprNamePrefix..theRank)
+        else
+            rankImg:SetVisible(false)--gameObject:SetActive(false)
+            rankLb:SetVisible(true)--gameObject:SetActive(true)
+            rankLb:SetText(tostring(theRank))
+        end
+        local pointStr = color..tostring(rankInfo.score).."[-]"
+        rankPointLb:SetText(pointStr)
+
+        local rewardRoot = t:Find("Bg/Rewards")
+        local childCount = rewardRoot.childCount
+        local info = _doc:GetRankTableInfoByRank(theRank)
+
+        local rewardTableCount = 1 --#info.RankReward    
+        print("reward id: "..info.RankReward)
+        local rewardCount = 1--rewardTableCount / 2
+
+        local indexCount = Mathf.Min(childCount, rewardCount)
+
+        for i = 1, childCount do
+            local index = i - 1
+            local itemObj = rewardRoot:Find("Item"..index).gameObject
+
+            if i <= indexCount  then
+                itemObj:SetActive(true)
+                local icon = itemObj.transform:Find("Icon"):GetComponent(UIClassType.UISprite)
+                --local theIndex = i * 2 + 1
+                -- print("theIndex: "..theIndex)
+                icon.uid = info.RankReward--[theIndex]
+
+                local itemId = info.RankReward--[theIndex]
+                local itemCount = 1--info.RankReward[theIndex + 1]
+                Hotfix.DrawItemView(itemObj, itemId, itemCount, true)
+            else
+                itemObj:SetActive(false)
+            end 
+        end
+    end
+
+    --@param t UnityEngine.Transform
+    --@param index number
+    function M.OnInitWrapContent(t, index)
+        if index > rankListCount then
+            return
+        end
+
+        local rewardRoot = t:Find("Bg/Rewards")
+        local childCount = rewardRoot.childCount
+
+        for i = 0, childCount - 1 do
+            local itemObj = rewardRoot:Find("Item"..i).gameObject
+            -- itemObj:SetActive(true)
+            local icon = itemObj.transform:Find("Icon"):GetComponent(UIClassType.UISprite)
+            Hotfix.SetClickCallback(icon.gameObject, this.ShowIconTip)
+        end
+    end
+--
+
+--刷新匹配按钮的状态 ，是否正在匹配中...
+function M.RefreshMatchBtn()
+
+    local matching = _teamdoc:GetSoloMatchType() == theMatchType
+    print("XZombieDlg matching: "..tostring(matching))
+
+    uiBehaviour.StartMatchBtn:SetVisible(not matching)
+    uiBehaviour.DuringMatchBtn:SetVisible(matching)
+end
+
+function M.RefreshMyScore(theScore, theRankValue)
+    uiBehaviour.MyRankScoreLb:SetText(tostring(theScore))
+
+    if theRankValue ~= nil and type(theRankValue) == "number" and theRankValue >= 1 then
+        if theRankValue <= 3 then
+            local theRankV = theRankValue --- 1
+            print("theRank: "..theRankV)
+            uiBehaviour.MyRankImg:SetVisible(true)--gameObject:SetActive(true)
+            uiBehaviour.MyRankImg:SetSprite(rankSprNamePrefix..theRankV)
+            uiBehaviour.MyRankLb:SetVisible(false)--gameObject:SetActive(false)
+        else
+            uiBehaviour.MyRankImg:SetVisible(false)--gameObject:SetActive(false)
+            uiBehaviour.MyRankLb:SetVisible(true)--gameObject:SetActive(true)
+            uiBehaviour.MyRankLb:SetText(tostring(theRankValue))
+        end
+
+        uiBehaviour.MyRankRewardObj:SetActive(true)
+        local info = _doc:GetRankTableInfoByRank(theRankValue)
+        local icon = uiBehaviour.MyRankRewardObj.transform:Find("Icon"):GetComponent(UIClassType.UISprite)
+        icon.uid = info.RankReward
+        local itemId = info.RankReward--[theIndex]
+        local itemCount = 1--info.RankReward[theIndex + 1]
+        Hotfix.DrawItemView(uiBehaviour.MyRankRewardObj, itemId, itemCount, true)
+        
+    else
+        uiBehaviour.MyRankRewardObj:SetActive(false)
+        uiBehaviour.MyRankImg:SetVisible(false)--gameObject:SetActive(false)
+        uiBehaviour.MyRankLb:SetVisible(true)--gameObject:SetActive(true)
+        uiBehaviour.MyRankLb:SetText(noRankStr)
+    end
+end
+
+--刷新排行榜列表，显示同步数据
+function M.RefreshRankList(Ranktype, myRankData, theRankList)
+    
+    assert(type(Ranktype) == "number")
+    print("ntf rankType: "..Ranktype)
+
+    if theRankType ~= Ranktype then
+        return
+    end
+    
+    --Legacy
+        -- if myRankData ~= nil then
+        --     local myRoleName = myRankData.RoleName or stringEmpty
+        --     local myRoleId = myRankData.RoleId or 0
+        --     local myRank = myRankData.Rank
+        --     local myScore = myRankData.score
+        
+        --     -- print("<color=red>my roleName</color>: "..myRoleName)
+        --     -- print("my roleId: "..myRoleId)
+        --     -- print("my rank: "..myRank)
+        --     -- print("my rank score: "..myScore)
+        --     uiBehaviour.MyRankScoreLb:SetText(tostring(myScore))
+
+        --     rankMyRankData = myRankData
+        --     print("<color=yellow>1</color>")
+        -- else
+
+            --print("<color=yellow>2</color>")
+            -- _doc:ReqGetGhoulScore()
+        -- end
+        
+        -- local myName = Hotfix.GetPlayer("Name")
+        -- print("myName: "..myName)
+        -- local myID = Hotfix.GetPlayer("RoleID")
+        -- print("myId: "..myID)
+        -- local theIDString = Hotfix.TansString(Hotfix.GetPlayer("RoleID"))
+        -- print("myIDStr: "..theIDString)
+    --end
+    mineScore = 0
+    mineRank = nil
+
+    if theRankList ~= nil then
+        rankListData = theRankList
+        rankListCount = #theRankList
+        -- print("rank list count: "..tostring(rankListCount))
+        
+        if rankListCount > 0 then
+            -- print("first data roleName: "..theRankList[1].RoleName)
+            -- print("first data roleId: "..theRankList[1].RoleId)
+            local PlayerId = Hotfix.GetPlayer("RoleID")
+            for i = 1, rankListCount do
+                local temp = theRankList[i]
+                if PlayerId == temp.RoleId then
+                    mineScore = temp.score
+                    mineRank = i--temp.Rank and temp.Rank or i 
+                end
+            end
+        end
+    else
+        rankListData = nil 
+        rankListCount = 0
+    end
+
+    M.RefreshMyScore(mineScore, mineRank)
+    
+    Hotfix.SetWrapContentCount(uiBehaviour.RankWrapContent, rankListCount, true)
+end
+
+--刷新排名奖励弹窗
+function M.UpdateRankRewardsView()
+    local theCount = _doc:GetRankRewardsCount()
+    print("theCount: "..theCount)
+    uiBehaviour.RankRewardPool:FakeReturnAll()
+    local tplPos = uiBehaviour.RankRewardPool.TplPos
+    local tplHeight = uiBehaviour.RankRewardPool.TplHeight
+
+    local itemTplWidth = uiBehaviour.ItemPool.TplWidth
+
+    for i = 0, theCount - 1 do
+        local obj = uiBehaviour.RankRewardPool:FetchGameObject()
+        local trans = obj.transform 
+        local rank = trans:Find("Bg/Rank/items")
+
+        local thePos = Vector3(tplPos.x, -1 * i * tplHeight + tplPos.y, tplPos.z)
+        trans.localPosition = thePos    
+        --uiBehaviour.RewardPool.TplPos + i* uiBehaviour.RewardPool.TplWidth * Vector3.right
+        --Vector3 原表重载乘法运算符的时候__mul 数字乘以Vector3会触发报错  Vector3.lua,line：437
+
+        local RankNumLb = trans:Find("Bg/Rank/RankNum"):GetComponent(UIClassType.XUILabel)
+        local index = i + 1  --lua表下标从1开始
+        local rankInfo = _doc:GetRankTableInfoByIndex(index)
+
+        if rankInfo ~= nil then
+
+            local textStr = stringEmpty
+
+            -- print("rankInfo.Rank[1]: "..rankInfo.Rank[1])
+            -- print("rankInfo.Rank[2]: "..rankInfo.Rank[2])
+            if rankInfo.Rank[1] == rankInfo.Rank[2] then
+                textStr = tostring(rankInfo.Rank[1])
+            else
+                textStr = tostring(rankInfo.Rank[1]).."--"..tostring(rankInfo.Rank[2])
+            end
+
+            RankNumLb:SetText(textStr)
+
+            local rewardTableCount = #rankInfo.Reward
+            print("<color=yellow>rewardCount: </color>"..rewardTableCount)
+            local rewardCount = rewardTableCount / 2
+            for j = 0, rewardCount - 1 do
+                local itemObj = uiBehaviour.ItemPool:FetchGameObject()
+                local itemTrans = itemObj.transform
+                itemTrans.parent = rank
+                local itemPos = Vector3(itemTplWidth * j, 0, 0)
+                itemTrans.localPosition = itemPos
+
+                local jIndex = j * 2 + 1
+                local countIndex = jIndex + 1
+                
+                local itemId = rankInfo.Reward[jIndex]
+                local itemCount = rankInfo.Reward[countIndex]
+                
+                Hotfix.DrawItemView(itemObj, itemId, itemCount, true)
+
+                local itemIcon = itemTrans:Find("Icon"):GetComponent(UIClassType.UISprite) --(UIClassType.XUISprite)
+                itemIcon.uid =  itemId
+                Hotfix.SetClickCallback(itemIcon.gameObject, this.ShowIconTip)
+
+            end
+        else
+            obj:SetActive(false)
+        end
+    end
+
+    uiBehaviour.RankRewardPool:ActualReturnAll()
+    -- uiBehaviour.ItemPool:ActualReturnAll()
+end
+
+--刷新参与奖励弹窗
+function M.UpdateParticipateRewardsVeiw()
+
+    -- uiBehaviour.ItemPool:FakeReturnAll()
+
+    local rankTrans = uiBehaviour.PartitionRwdRoot.transform:Find("Bg/Rank/items")
+
+    local awardStr = Hotfix.GetGlobalString("ZombieAward")
+    if string.IsNullOrEmpty(awardStr) then
+        awardStr = "800=2|2864=3"
+    end
+
+    local awardArray = awardStr:split("|")
+    local rewardCount = #awardArray 
+
+    local tplPos = uiBehaviour.ItemPool.TplPos
+    local tplWidth = uiBehaviour.ItemPool.TplWidth
+    for i= 0,rewardCount - 1 do
+        local obj = uiBehaviour.ItemPool:FetchGameObject()
+        obj.transform.parent = rankTrans
+        local thePos = Vector3(i* tplWidth, 0, 0)
+        obj.transform.localPosition = thePos    
+        --uiBehaviour.RewardPool.TplPos + i* uiBehaviour.RewardPool.TplWidth * Vector3.right
+        --Vector3 原表重载乘法运算符的时候__mul 数字乘以Vector3会触发报错  Vector3.lua,line：437
+        
+        local index = i + 1
+        -- print(" tempStr: "..awardArray[index])
+        local itemDataTable = awardArray[index]:split("=")
+        local itemId = itemDataTable[1]
+        local itemCount = itemDataTable[2]
+        
+        Hotfix.DrawItemView(obj, itemId, itemCount, true)
+        local icon = obj.transform:Find("Icon"):GetComponent(UIClassType.UISprite)
+        
+        icon.uid = itemId
+        Hotfix.SetClickCallback(icon.gameObject, this.ShowIconTip)
+    end
+
+    -- uiBehaviour.ItemPool:ActualReturnAll()
+end
+
+
+function M.ctor(self)
+    self.fileName = fileName and fileName or stringEmpty
+    self.autoload = autoload and autoload or false
+    self.pushstack = pushstack and pushstack or false
+    self.sysId = sysId and sysId or 0
+
+    --构造函数里不能再去写对象实例化
+    -- M:GetInstance() 基类回调ctor构造哈数 进而会触发死循环
+end
+
+return M

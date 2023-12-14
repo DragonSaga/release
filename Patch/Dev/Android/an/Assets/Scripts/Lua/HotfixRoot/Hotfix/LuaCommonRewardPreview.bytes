@@ -1,0 +1,213 @@
+local this = nil
+local m_data = require "LuaCommonRewardPreviewData.lua"
+
+LuaCommonRewardPreview = {}
+local M = LuaCommonRewardPreview
+this = M
+
+local m_Trans, m_Obj m_isVisible = nil, nil, false
+
+--返回按钮
+local m_closedGo = nil
+
+--标题Lb, 提示文字Lb
+local m_TitleLb, m_tipsLb = nil, nil
+
+--ngui uitable组件
+local m_UITabelComp = nil
+
+--单个奖励物品对象池
+local m_itemPool = nil 
+
+local ParentTransList = nil
+
+local stringEmpty = nil
+
+local function Init()
+
+	m_data:SetDlg(M)
+
+	stringEmpty = ""
+	m_closedGo = m_Trans:Find("Bg/Close").gameObject
+
+	m_TitleLb = m_Trans:Find("Bg/Tittle"):GetComponent("UILabel")
+	m_tipsLb = m_Trans:Find("Tip"):GetComponent("UILabel")
+
+	m_UITabelComp = m_Trans:Find("Bg/ScrollView/Table"):GetComponent("UITable")
+	
+	--奖励物品对象池初始化
+	local tplParent = m_Trans:Find("Bg/ScrollView")
+	local tplObj = tplParent:Find("ItemTpl").gameObject
+	m_itemPool = Hotfix.SetupPool(tplParent.gameObject, tplObj, 5)
+
+	local LTrans = m_Trans:Find("Bg/ScrollView/Table/L")
+	local STrans = m_Trans:Find("Bg/ScrollView/Table/S")
+	local ATrans = m_Trans:Find("Bg/ScrollView/Table/A")
+	local BTrans = m_Trans:Find("Bg/ScrollView/Table/B")
+	local CTrans = m_Trans:Find("Bg/ScrollView/Table/C")
+	ParentTransList = {LTrans, STrans, ATrans, BTrans, CTrans}
+end
+
+--事件注册
+local function RegisterEvent()
+	Hotfix.SetClickCallback(m_closedGo, M.OnClosed)
+end
+
+--标题文字刷新
+local function RefershTitleAndTips()
+
+	if IsNil(m_TitleLb) or IsNil(m_tipsLb) then return end
+	if m_data == nil then return end
+	
+	local tipsText = m_data:GetTipsText()
+	local titleText = m_data:GetTitleText()
+	-- print("tipsText: "..tipsText)
+	-- print("titleText: "..titleText)
+
+	m_tipsLb.text = tipsText == nil and stringEmpty or tipsText
+	m_TitleLb.text = titleText == nil and stringEmpty or titleText
+end
+
+--刷新单条品质等级的奖励集
+local function RefershSingleRewardLv(theTrans, dataList, lvIndex)
+	if theTrans == nil or dataList == nil then return end
+	if type(dataList) ~= "table" then return end
+
+	local gridTrans = theTrans:Find("Grid")
+	local TitleNameLb = theTrans:Find("TypeL/Name"):GetComponent("UILabel")
+	TitleNameLb.text = Hotfix.GetStringTable("RelicRewardLv"..lvIndex)
+
+	local dataCount = #dataList
+	-- if dataCount % 2 ~= 0 then return end
+	if dataCount % 3 ~= 0 then return end
+
+	print "<color=yellow>--------------------------------</color>"
+	-- local realCount = dataCount * 0.5
+	local realCount = dataCount / 3
+	for i = 1, realCount do
+		-- local itemCountIndex = i * 2
+		-- local itemIdIndex = itemCountIndex-1
+
+		local itemIdIndex = (i-1) * 3 + 1
+		local itemCountIndex = itemIdIndex + 1
+
+		local tempGo = m_itemPool:FetchGameObject()
+		local tempTrans = tempGo.transform
+		tempTrans.parent = gridTrans
+
+		local itemId = dataList[itemIdIndex]
+		local itemCount = dataList[itemCountIndex]
+		print("itemId: "..itemId)
+
+		Hotfix.DrawItemView(tempGo, itemId, itemCount, true)
+		local spr = tempTrans:Find("Icon"):GetComponent("UISprite")
+		spr.sid = itemId
+		Hotfix.SetClickCallback(spr.gameObject, M.OnClickItem)
+	end
+
+	gridTrans:GetComponent("UIGrid"):Reposition()
+end
+
+--刷新整个奖励预览列表
+local function RefreshRewardPreview()
+	if m_data == nil or m_itemPool == nil then return end
+
+	local theRewardDic = m_data:GetRewardDic()
+
+	if theRewardDic == nil or type(theRewardDic) ~= "table" then return end
+
+	-- print("theRewardDic count: "..#theRewardDic)
+
+	m_itemPool:FakeReturnAll()
+	
+	local theDicCount = #theRewardDic
+	local theTransCount = #ParentTransList
+	
+	for i = 1, theTransCount do 
+		local tempTrans = ParentTransList[i]
+		local tempGo = tempTrans.gameObject
+
+		if i <= theDicCount then
+			local tempList = theRewardDic[i]
+
+			-- print("<color=yellow>tempList dataCount: "..#tempList.."</color>")
+
+			if not tempGo.activeSelf then
+				tempGo:SetActive(true)
+			end
+			RefershSingleRewardLv(tempTrans, tempList, i)
+		else
+			if tempGo.activeSelf then
+				tempGo:SetActive(false)
+			end
+		end
+	end
+
+	m_itemPool:ActualReturnAll()
+
+	m_UITabelComp:Reposition()
+end
+
+--关闭
+function M.OnClosed(go)
+	-- LuaUIManager.Instance:Destroy("UI/GameSystem/CommonRewardPreviewDlg")
+	LuaUIManager.Instance:Hide("UI/Common/CommonRewardPreview")
+end
+
+--Itemtips
+function M.OnClickItem(go)
+	local spr = go.transform:GetComponent("UISprite")
+	Hotfix.LuaShowItemTooltipDialog(tonumber(spr.sid), go)
+end
+
+function M.OnHide()
+	m_isVisible = false
+end
+function M.OnShow()
+	m_isVisible = true
+end
+function M:Show(needRefresh)
+	if not m_isVisible then
+		m_isVisible = true
+		m_Obj:SetActive(true)
+	end
+
+	if needRefresh then
+		RefreshRewardPreview()
+	end
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function M.Awake(go)
+	m_Obj = go
+	m_Trans = m_Obj.transform 	--:Find("Bg")
+	Init()
+	RegisterEvent()
+end
+
+function M.Start()
+	RefershTitleAndTips()
+	RefreshRewardPreview()
+end
+
+function M.OnEnable()
+	
+end
+
+function M.OnDisable()
+end
+
+function M.OnDestroy()
+	m_data:SetDlg(nil)
+	m_Trans, m_Obj, m_isVisible = nil, nil, false
+ 	m_TitleLb, m_tipsLb = nil, nil
+ 	m_UITabelComp, m_closedGo = nil, nil
+	ParentTransList = nil
+	stringEmpty = nil
+
+	if m_itemPool ~= nil then
+		m_itemPool:ReturnAll()
+		m_itemPool = nil
+	end
+end
+
+return this

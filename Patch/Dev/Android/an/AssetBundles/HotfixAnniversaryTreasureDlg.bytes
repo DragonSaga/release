@@ -1,0 +1,102 @@
+local this = nil
+
+require "XBeginPushAnn_pb.lua"
+
+AnniversaryTreasureDlg={}
+local url
+local m_go
+local m_token = 0
+local m_token_two = 0
+this = AnniversaryTreasureDlg
+function AnniversaryTreasureDlg.BeforeRefresh(go)
+	return false
+end
+
+
+function AnniversaryTreasureDlg.AfterRefresh(go)
+	print ("AnniversaryTreasureDlg refresh")
+	
+	if not IsNil(go) then
+		m_go = go
+		
+	AnniversaryTreasureDlg.RefreshUI()
+	if m_token ~= 0 then
+		Hotfix.RemoveTimer(m_token)
+		m_token = 0
+	end
+		-- m_token = Hotfix.LuaLoop(100,0,AnniversaryTreasureDlg.RefreshStar)
+		m_token = Hotfix.LuaWait(100,AnniversaryTreasureDlg.RefreshStar)
+	end
+	
+	
+	if m_token_two ~= 0 then
+		Hotfix.RemoveTimer(m_token_two)
+		m_token_two = 0
+	end
+		m_token_two = Hotfix.LuaWait(300, AnniversaryTreasureDlg.SendNewBeginPush)
+	return false
+end
+
+function AnniversaryTreasureDlg.RefreshUI(...)
+	local icon1 = m_go.transform:Find("Bg/Rank/OpenBtn1/key"):GetComponent("XUISprite")
+	local icon2 = m_go.transform:Find("Bg/Rank/OpenBtn5/key"):GetComponent("XUISprite")
+	local items = Hotfix.CallSingleMethod("XGlobalConfig",true,false,"GetValue","OneHuntConsume")
+	local pos = string.find(items, '=');
+	local itemid = tonumber(string.sub(items, 1, pos - 1))
+	local itemData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",itemid)
+	icon1:SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+	icon2:SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+end
+function AnniversaryTreasureDlg.RefreshStar(...)
+	Hotfix.RemoveTimer(m_token)
+
+	local starbar = m_go.transform:Find("Bg/StarBar")
+	local value = Hotfix.CallSingleMethod("XGlobalConfig",true,false,"GetIntList","TreasLuaChest")
+	local length = 2
+	for i = 0,length,1 do
+		local item = starbar.transform:Find("item"..i)
+		if IsNil(item) then
+			break
+		end
+		local num = item.transform:Find("Num1"):GetComponent("UILabel")
+		num.text = value[2*i].."-"..value[2*i+1]
+	end
+	
+	m_token = Hotfix.LuaWait(100,AnniversaryTreasureDlg.RefreshStar)
+end
+
+function AnniversaryTreasureDlg.SendNewBeginPush()
+	local msg = GetProtoBufSendTable("NullNtfData") --XBeginPushAnn_pb.NullNtfData()
+	local pb_data = msg:SerializeToString()
+	pb_data = pb_data
+	if pb_data ~= nil then
+		print("SendLuaPtc 50432")
+		Hotfix.SendLuaBytePtc(50432, pb_data)
+	end
+
+	Hotfix.RemoveTimer(m_token_two)
+end
+
+function AnniversaryTreasureDlg.Hide( )
+	-- if m_token ~= 0 then
+		Hotfix.RemoveTimer(m_token)
+		m_token = 0
+	-- end
+	-- if m_token_two ~= 0 then
+		Hotfix.RemoveTimer(m_token_two)
+		m_token_two = 0
+	-- end
+end
+
+function AnniversaryTreasureDlg.Unload()
+
+	-- if m_token ~= 0 then
+		Hotfix.RemoveTimer(m_token)
+		m_token = 0
+	-- end
+	-- if m_token_two ~= 0 then
+		Hotfix.RemoveTimer(m_token_two)
+		m_token_two = 0
+	-- end
+end
+return this

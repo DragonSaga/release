@@ -1,0 +1,43 @@
+local this = nil
+require 'HotfixPureSeasonDocument.lua'
+
+FashionBagHandler = {}
+this = FashionBagHandler
+
+function FashionBagHandler.BeforeHandlerShow(go)
+end
+
+function FashionBagHandler.AfterHandlerShow(go)
+    local isPure = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'IsPureVersion')
+    print("isPure: "..tostring(isPure))
+
+    if isPure then
+        local doc = Hotfix.GetDocument('PureSeasonDocument')
+
+        local TipAdd = go.transform:Find('AttrTotal/ToolTip/TipAdd')
+        local Tip1 = go.transform:Find('AttrTotal/ToolTip/Tip1')
+
+        local curSeasonId = doc.CurrSeasonId
+        local curSeasonAchiLv = doc.CurrSeasonAchiLv
+
+        local attrPercent = HotfixPureSeasonDocument.GetCurAchiLvAttrPercent(curSeasonId, curSeasonAchiLv)
+        if attrPercent == nil then attrPercent = 0 end
+        local text = '当前属性加成生效' .. attrPercent .. '%'
+
+        if not IsNil(TipAdd) then
+            TipAdd:GetComponent('XUILabel'):SetText(text)
+        end
+
+        local data = HotfixPureSeasonDocument.GetOneHundredAttrPercentAchiLv(curSeasonId)
+
+        local str = ''
+        if nil ~= data then
+            str = Hotfix.CallSingleMethod('XLabelSymbolHelper', true, true, 'FormatAnimation', data.titleAtlas, data.titleIcon, 0)
+            if not IsNil(Tip1) then
+                Tip1:GetComponent('XUILabelSymbol').InputText = '升至' .. str .. '可以100%激活属性加成'
+                Tip1:Find('Sprite').localPosition = Vector3(-110, 0, 0)
+            end
+        end
+    end
+end
+return this

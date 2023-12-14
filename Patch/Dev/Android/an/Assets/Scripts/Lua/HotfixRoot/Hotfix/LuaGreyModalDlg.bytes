@@ -1,0 +1,131 @@
+local this = nil
+local m_data = require "LuaGreyModalData.lua"
+
+LuaGreyModalDlg = {}
+local this = LuaGreyModalDlg
+
+local m_Trans, m_isVisible = nil, false
+
+--返回按钮
+local m_closedGo, m_okBtnGo, m_cancelBtnGo = nil
+
+--标题Lb, 表达内容Lb，开关内容
+local m_TitleLb, m_ContentLb, m_ToggleLb = nil, nil, nil
+local stringEmpty = nil
+
+--ngui uitable组件
+local m_UIToggleComp = nil
+
+local m_btnPos0
+local m_btnPos1
+
+local function Init()
+    stringEmpty = ''
+    m_closedGo = m_Trans:Find('Bg/Close').gameObject
+
+    m_TitleLb = m_Trans:Find('Bg/Title'):GetComponent('UILabel')
+    m_ContentLb = m_Trans:Find('Bg/Label'):GetComponent('UILabel')
+    m_ToggleLb = m_Trans:Find('Bg/NoTip/T'):GetComponent('UILabel')
+
+    m_okBtnGo = m_Trans:Find('Bg/OK').gameObject
+    m_cancelBtnGo = m_Trans:Find('Bg/Cancel').gameObject
+    m_cancelBtnGo.gameObject:SetActive(false)
+
+    m_UIToggleComp = m_Trans:Find('Bg/NoTip/NoTip'):GetComponent('UIToggle')
+
+    m_btnPos0 = m_Trans:Find('Bg/TwoButtonPos0')
+    m_btnPos1 = m_Trans:Find('Bg/TwoButtonPos1')
+end
+
+--事件注册
+local function RegisterEvent()
+    Hotfix.SetClickCallback(m_closedGo, this.OnClosed)
+    Hotfix.SetClickCallback(m_okBtnGo, this.OnClickOK)
+    Hotfix.SetClickCallback(m_cancelBtnGo, this.OnClosed)
+end
+
+--标题文字刷新
+local function RefershContent()
+    if IsNil(m_TitleLb) or IsNil(m_ContentLb) then
+        return
+    end
+    if m_data == nil or IsNil(m_ContentLb) then
+        return
+    end
+
+    local titleText = m_data:GetTitleText()
+    local contentText = m_data:GetContentText()
+    local toggleText = m_data:GetToggleText()
+
+    m_TitleLb.text = titleText == nil and stringEmpty or titleText
+    m_ContentLb.text = contentText == nil and stringEmpty or contentText
+    m_ToggleLb.text = toggleText == nil and stringEmpty or toggleText
+
+    local hasTitle, hasCloseBtn, hasCancelBtn = m_data:GetExtraData()
+    m_TitleLb.gameObject:SetActive(hasTitle)
+    m_closedGo:SetActive(hasCloseBtn)
+    if hasCancelBtn then
+        m_okBtnGo.transform.localPosition = Vector3(m_btnPos0.localPosition.x, m_btnPos0.localPosition.y, m_btnPos0.localPosition.z)
+        m_cancelBtnGo.transform.localPosition = Vector3(m_btnPos1.localPosition.x, m_btnPos1.localPosition.y, m_btnPos1.localPosition.z)
+        m_cancelBtnGo:SetActive(true)
+    else
+        m_okBtnGo.transform.localPosition = Vector3(0, -90, 0)
+        m_cancelBtnGo:SetActive(false)
+    end
+end
+
+--关闭
+function this.OnClosed(go)
+    m_data:ResetExtraData()
+
+    if IsNil(m_UIToggleComp) == nil then
+        return
+    end
+    local TargetV = m_UIToggleComp.value
+
+    print('TargetV: ' .. tostring(TargetV))
+    m_data:DoToggleFunc(TargetV)
+
+    LuaUIManager.Instance:Destroy('UI/Common/GreyModalDlg')
+
+    -- if TargetV then
+    -- 	LuaUIManager.Instance:Destroy("UI/Common/GreyModalDlg")
+    -- else
+    -- 	LuaUIManager.Instance:Hide("UI/Common/GreyModalDlg")
+    -- end
+end
+
+function this.OnClickOK(go)
+	m_data:DoClickOKFunc()
+	this.OnClosed(go)
+end
+
+function this.OnHide()
+    m_isVisible = false
+end
+
+function this.OnShow()
+    m_isVisible = true
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function this.Awake(go)
+    m_Trans = go.transform
+    Init()
+    RegisterEvent()
+end
+
+function this.Start()
+    RefershContent()
+end
+function this.OnEnable()
+end
+function this.OnDisable()
+end
+function this.OnDestroy()
+    m_Trans, m_isVisible = nil, false
+    m_closedGo, m_okBtnGo = nil, nil
+    m_TitleLb, m_ContentLb, m_ToggleLb = nil, nil, nil
+    stringEmpty = nil
+    m_UIToggleComp = nil
+end
+return this

@@ -1,0 +1,329 @@
+local this = nil
+require 'LuaSpriteRandomRefineDoc.lua'
+
+LuaSpriteRandomRefineDlg = {}
+local this = LuaSpriteRandomRefineDlg
+
+local XAttr_MaxHP_Basic = 13
+local XAttr_MagicAtk_Basic = 21
+local arrowUpName = 'zb_up'
+local arrowDownName = 'zb_down'
+local Login = 'Login'
+local SelectChar = 'SelectChar'
+local doc
+local rootTransform
+local isVisible = false
+local LuaGreyModalData = require 'LuaGreyModalData.lua'
+local canReplace = false
+local curValueColors = {'[FFFFFF]', '[56BA2C]', '[1985EA]', '[E69020]', '[AB3EDE]'}
+
+local keys = {}
+local values = {}
+local deltaValues = {}
+local progressBars = {}
+local arrows = {}
+local itemSprites = {}
+local itemNums = {}
+local rewardItems = {}
+local itemQualities = {}
+
+local replaceBtn
+local randomRefineBtn
+local rewardItemTpl
+local qualityItemTpl
+
+local notShowTipsAgain_randomRefine = false
+local notShowTipsAgain_replace = false
+-----------------------------------------HotfixSpriteSystemDlg will invoke these functions-------------------------------------
+function LuaSpriteRandomRefineDlg.Init(go)
+    doc = LuaSpriteRandomRefineDoc
+    rootTransform = go.transform
+    isVisible = true
+    this.InitNotShowTipsAgain()
+
+    doc.SetMainHandler(this)
+    doc.InitData()
+    doc.InitData_table()
+
+    this.AssignUIElement()
+    this.InitUI()
+    this.RegisterEvent()
+    doc.ReqSpriteRandomRefineByType(SPRITE_RANDOM_REFINE_REQUEST_TYPE.query)
+end
+function LuaSpriteRandomRefineDlg.Hide()
+    isVisible = false
+end
+function LuaSpriteRandomRefineDlg.Unload()
+    isVisible = false
+    keys = {}
+    values = {}
+    deltaValues = {}
+    progressBars = {}
+    arrows = {}
+    itemSprites = {}
+    itemNums = {}
+    rewardItems = {}
+    itemQualities = {}
+end
+
+---------------------------------------------------------init------------------------------------------------------------------------
+function LuaSpriteRandomRefineDlg.AssignUIElement()
+    rewardItemTpl = rootTransform:Find('SpriteCost/ItemList/ItemTpl').gameObject
+    qualityItemTpl = rootTransform:Find('SpriteValue/Grid/Tpl').gameObject
+    randomRefineBtn = rootTransform:Find('StarUpBtn').gameObject
+    replaceBtn = rootTransform:Find('AwakeBtn').gameObject
+end
+
+function LuaSpriteRandomRefineDlg.InitUI()
+    if #itemSprites <= 0 then
+        local itemRow = doc.GetCurItemData()
+        if itemRow == nil then
+            print('<color=red>=================itemRow is nil !</color>')
+            return
+        end
+
+        for i = 1, #itemRow, 2 do
+            local index = math.ceil(i / 2)
+            local itemID = itemRow[i]
+            local itemData = Hotfix.CallDocumentStaticMethod('XBagDocument', true, 'GetItemConf', itemID)
+            if itemData ~= nil then
+                local item = GameObject.Instantiate(rewardItemTpl).transform
+                item.parent = rewardItemTpl.transform.parent
+                local spriteWidth = item:GetComponent('XUISprite').spriteWidth
+                item.localPosition = Vector3(rewardItemTpl.transform.localPosition.x + spriteWidth * (index - 1), rewardItemTpl.transform.localPosition.y, 0)
+                item.localScale = Vector3(1, 1, 1)
+                item.gameObject:SetActive(true)
+                item:GetComponent('UISprite').uid = itemID
+                Hotfix.SetClickCallback(item.gameObject, this.OnClickRewardItem)
+
+                rewardItems[index] = item.gameObject
+                itemSprites[index] = item:Find('Icon/Icon'):GetComponent('XUISprite')
+                itemQualities[index] = item:Find('Quality'):GetComponent('XUISprite')
+                itemNums[index] = item:Find('Num'):GetComponent('XUILabel')
+                itemSprites[index]:SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+                local ItemQualityStr = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'GetItemQualityFrame', itemData.ItemQuality, 0)
+                itemQualities[index]:SetSprite(ItemQualityStr)
+            end
+        end
+        rewardItemTpl:SetActive(false)
+    end
+    this.RefreshRewardItems()
+    rootTransform:Find('SpriteCost/Title'):GetComponent('UILabel').text = Hotfix.GetStringTable('SpriteRandomRefine_cost')
+end
+
+function LuaSpriteRandomRefineDlg.InitUI_quality(len)
+    for i = 1, len, 1 do
+        local item = GameObject.Instantiate(qualityItemTpl).transform
+        item.parent = qualityItemTpl.transform.parent
+        item.localScale = Vector3(1, 1, 1)
+        item.gameObject:SetActive(true)
+
+        keys[i] = item:Find('Name'):GetComponent('XUILabel')
+        values[i] = item:Find('ValueMax'):GetComponent('XUILabel')
+        deltaValues[i] = item:Find('Up'):GetComponent('XUILabel')
+        progressBars[i] = item:Find('Progress Bar'):GetComponent('UISlider')
+        arrows[i] = item:Find('Up/Sprite'):GetComponent('XUISprite')
+    end
+    qualityItemTpl:SetActive(false)
+    qualityItemTpl.transform.parent:GetComponent('UIGrid'):Reposition()
+end
+
+function LuaSpriteRandomRefineDlg.RegisterEvent()
+    Hotfix.SetClickCallback(randomRefineBtn, this.OnClickRandomRefineBtn)
+    Hotfix.SetClickCallback(replaceBtn, this.OnClickReplaceBtn)
+end
+----------------------------------------------click callback------------------------------------------------------------------------------
+function LuaSpriteRandomRefineDlg.OnClickRandomRefineBtn()
+    if notShowTipsAgain_randomRefine or not canReplace  then
+        this.OnOKRandomRefine()
+    else
+        local titleStr = ''
+        local contentStr = Hotfix.GetStringTable('SpriteRandomRefine_confirmRandomRefineContent')
+        local toggleStr = Hotfix.GetStringTable('SpriteRandomRefine_confirmRandomRefineToggleContent')
+        LuaGreyModalData:SetTitleContentToggle(titleStr, contentStr, toggleStr)
+        LuaGreyModalData:SetExtraData(false, false, true)
+        LuaGreyModalData:SetToggleCallback(this.OnToggleRandomRefine)
+        LuaGreyModalData:SetClickOKCallback(this.OnOKRandomRefine)
+        LuaUIManager.Instance:Load('UI/Common/GreyModalDlg')
+    end
+end
+
+function LuaSpriteRandomRefineDlg.OnClickReplaceBtn()
+    if not canReplace then
+        return
+    end
+    if notShowTipsAgain_replace then
+        this.OnOKReplace()
+    else
+        local titleStr = ''
+        local contentStr = Hotfix.GetStringTable('SpriteRandomRefine_confirmReplaceContent')
+        local toggleStr = Hotfix.GetStringTable('SpriteRandomRefine_confirmReplaceToggleContent')
+        LuaGreyModalData:SetTitleContentToggle(titleStr, contentStr, toggleStr)
+        LuaGreyModalData:SetExtraData(false, false, true)
+        LuaGreyModalData:SetToggleCallback(this.OnToggleReplace)
+        LuaGreyModalData:SetClickOKCallback(this.OnOKReplace)
+        LuaUIManager.Instance:Load('UI/Common/GreyModalDlg')
+    end
+end
+
+function LuaSpriteRandomRefineDlg.OnToggleRandomRefine(isCheck)
+    notShowTipsAgain_randomRefine = isCheck
+end
+
+function LuaSpriteRandomRefineDlg.OnToggleReplace(isCheck)
+    notShowTipsAgain_replace = isCheck
+end
+
+function LuaSpriteRandomRefineDlg.OnOKRandomRefine()
+    doc.ReqSpriteRandomRefineByType(SPRITE_RANDOM_REFINE_REQUEST_TYPE.randomRefine)
+end
+
+function LuaSpriteRandomRefineDlg.OnOKReplace()
+    doc.ReqSpriteRandomRefineByType(SPRITE_RANDOM_REFINE_REQUEST_TYPE.replace)
+end
+
+function LuaSpriteRandomRefineDlg.OnClickRewardItem(go)
+    Hotfix.LuaShowItemTooltipDialog(go:GetComponent('UISprite').uid, go)
+end
+----------------------------------------------msg callback--------------------------------------------------------------------------------
+--data: refineAddValue--精炼后的资质属性
+--         AddValue          --可能的最大值
+function LuaSpriteRandomRefineDlg.RefreshUI(data)
+    local realData
+    if data.refineAddValue == nil or #data.refineAddValue <= 0 then
+        realData = data.addValue
+        canReplace = false
+    else
+        realData = data.refineAddValue
+        canReplace = true
+    end
+
+    local spriteInfo = doc.GetCurSpriteInfo()
+    local attrIDs = spriteInfo.AttrID
+    local curValues = spriteInfo.AddValue
+    local count = tonumber(Hotfix.GetObjectString(attrIDs, 'Count', true, false))
+    if #keys <= 0 then
+        --物攻魔攻合一显示
+        this.InitUI_quality(count - 1)
+    end
+    for i = 1, count, 1 do
+        if i ~= 2 then
+            local displayIndex = i
+            if i > 2 then
+                displayIndex = i - 1
+            end
+
+            local displayValue = tonumber(string.format('%.2f', realData[i]))
+            local displayMaxValue = this.CutOffAndRoundOff(doc.GetCurMaxAttr(i))
+            local curValue = this.CutOffAndRoundOff(curValues[i - 1])
+            local attrID = attrIDs[i - 1]
+
+            --生命资质显示整数
+            if attrID == XAttr_MaxHP_Basic then
+                displayValue = this.RoundOff(realData[i])
+                displayMaxValue = this.RoundOff(doc.GetCurMaxAttr(i))
+                curValue = this.RoundOff(curValues[i - 1])
+            end
+
+            local sectionIndex = doc.GetSectionIndex(attrID, curValue / doc.GetCurBaseAttr(i), #curValueColors)
+
+            local key
+            if i == 1 then
+                key = 'SpriteRandomRefine_physicAndMagicAttack'
+            else
+
+                
+                local tt = tostring(Hotfix.GetEnumType('XAttributeDefine', tostring(attrID))):split(":")[1]
+                key = 'Sprite_' ..tt.. '1'
+                -- key = 'Sprite_' .. tostring(Hotfix.GetEnumType('XAttributeDefine', tostring(attrID))) .. '1'
+            end
+            keys[displayIndex]:SetText(Hotfix.GetStringTable(key))
+            values[displayIndex]:SetText(curValueColors[sectionIndex] .. curValue .. '[-]' .. '/' .. displayMaxValue)
+            progressBars[displayIndex].value = curValue / displayMaxValue
+
+            local deltaValue = this.CutOffAndRoundOff(displayValue - curValue)
+            if not canReplace then
+                deltaValues[displayIndex]:SetText('')
+                arrows[displayIndex].spriteName = ''
+            elseif deltaValue > 0 then
+                deltaValues[displayIndex]:SetText('[63ff85]' .. deltaValue .. '[-]')
+                arrows[displayIndex].spriteName = arrowUpName
+            elseif deltaValue < 0 then
+                deltaValues[displayIndex]:SetText('[FF0000]' .. deltaValue .. '[-]')
+                arrows[displayIndex].spriteName = arrowDownName
+            end
+        end
+    end
+
+    replaceBtn.transform:GetComponent('XUISprite'):SetGrey(canReplace)
+
+    this.RefreshRewardItems()
+end
+
+----------------------------------------------public------------------------------------------------------------
+function LuaSpriteRandomRefineDlg.RefreshRewardItems()
+    local itemRow = doc.GetCurItemData()
+    if itemRow == nil then
+        print('<color=red>=================itemRow is nil !</color>')
+        return
+    end
+    for i = 1, #itemRow, 2 do
+        local index = math.ceil(i / 2)
+        local itemID = itemRow[i]
+        local itemCount = itemRow[i + 1]
+        local strMyItemCount = Hotfix.CallDocumentLongMethod('XBagDocument', false, 'GetItemCount', itemID)
+        if tonumber(strMyItemCount) >= itemCount then
+            itemNums[index]:SetText(strMyItemCount .. '/' .. itemCount)
+        else
+            itemNums[index]:SetText('[FF0000]' .. strMyItemCount .. '[-]' .. '/' .. itemCount)
+        end
+
+        rewardItems[index]:GetComponent('UISprite').uid = itemID
+
+        local itemData = Hotfix.CallDocumentStaticMethod('XBagDocument', true, 'GetItemConf', itemID)
+        if itemData ~= nil then
+            itemSprites[index]:SetSprite(itemData.ItemIcon[0], itemData.ItemAtlas[0])
+            local ItemQualityStr = Hotfix.CallSingleMethod('UI.UiUtility', true, false, 'GetItemQualityFrame', itemData.ItemQuality, 0)
+            itemQualities[index]:SetSprite(ItemQualityStr)
+        end
+    end
+end
+
+function LuaSpriteRandomRefineDlg.IsVisible()
+    return isVisible and rootTransform.gameObject.activeInHierarchy
+end
+
+function LuaSpriteRandomRefineDlg.InitNotShowTipsAgain()
+    local curStageType
+    local curStage = Hotfix.GetSingleMember('XGame', 'CurrentStage', true, false, false)
+    if curStage ~= nil then
+        curStageType = tostring(curStage.Stage)
+    end
+
+    if curStageType == Login or curStageType == SelectChar then
+        notShowTipsAgain_randomRefine = false
+        notShowTipsAgain_replace = false
+    end
+end
+----------------------------------------------utils------------------------------------------------------------
+--保留小数点后两位并四舍五入
+function LuaSpriteRandomRefineDlg.CutOffAndRoundOff(value)
+    local factor = 1
+    if value < 0 then
+        factor = -1
+        value = -1 * value
+    end
+    value = value * 100
+    value = math.floor(value + 0.5)
+    value = value / 100
+    local integer, decimal = math.modf(value)
+    if decimal <= 0 then
+        return integer * factor
+    end
+    return value * factor
+end
+
+function LuaSpriteRandomRefineDlg.RoundOff(value)
+    return math.floor(value + 0.5)
+end
+return this

@@ -1,0 +1,59 @@
+--LuaCommonRewardPreviewData = {}
+local M = {}--LuaCommonRewardPreviewData
+
+local tipsText = nil
+local titleText = nil
+
+local rewardDic = nil
+
+local theDlg = nil
+
+local prefabPath = "UI/Common/CommonRewardPreview"
+
+function M:GetTipsText()
+	-- print("<color=yellow>tipsText"..tipsText.."</color>")
+	return tipsText
+end
+
+function M:GetTitleText()
+	-- print("<color=yellow>titleText："..titleText.."</color>")
+	return titleText
+end
+
+function M:GetRewardDic()
+	return rewardDic
+end
+
+function M:SetDlg(dlg)
+	theDlg = dlg
+end
+
+function M:SetTipsAndTitle(theTips, theTitle, theDic)
+	-- print("tips: "..theTips)
+	-- print("theTitle: "..theTitle)
+	tipsText = theTips
+	titleText = theTitle
+	rewardDic = theDic
+end
+
+function M:LoadDlg(needRefresh)
+	if theDlg ~= nil then
+		print("<color=yellow>555555555</color>") 
+		theDlg:Show(needRefresh)
+	else
+		print("<color=yellow>6666666666</color>") 
+		LuaUIManager.Instance:Load(prefabPath)
+	end
+end
+
+function M:OnDestroy()
+	print("commonRewardPreviewData OnDestroy")
+	tipsText = nil
+	titleText = nil
+	rewardDic = nil
+	theDlg = nil
+
+	LuaUIManager.Instance:Destroy(prefabPath)
+end
+
+return M

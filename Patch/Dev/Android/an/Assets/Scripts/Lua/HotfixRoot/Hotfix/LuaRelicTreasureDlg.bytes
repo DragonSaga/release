@@ -1,0 +1,1649 @@
+local m_doc = require "LuaRelicTreasureDoc.lua"
+local m_rewardPreviewData = require "LuaCommonRewardPreviewData.lua"
+-- UnityVector3 = CS.UnityEngine.Vector3
+-- local UnityVector3 = UnityEngine.UnityVector3
+
+LuaRelicTreasureDlg = {}
+-- LuaRelicTreasureDlg = {}
+local M = LuaRelicTreasureDlg --{}--LuaRelicTreasureDlg
+
+local m_Trans, m_isVisible = nil,false
+
+--返回按钮,帮助按钮,奖励预览按钮,兑换商城按钮
+local m_closedGo, m_helpGo, m_rewardPreGo, m_gotoShopGo = nil, nil, nil, nil
+
+local rewardPreTitleStr, rewardPreTipsStr = nil, nil
+
+--活动时间Lb, 提示文字Lb
+local m_duringTimeLb, m_tipsLb = nil, nil
+
+--探宝消耗icon,探宝消耗num, 探宝消耗的itemid
+local m_drawCostIcon, m_drawCostNumLb, m_drawCostItemId = nil, nil, nil
+
+--重置消耗icon,重置消耗num, 重置消耗按钮, 重置剩余次数 
+local m_resetIcon, m_resetCostLb, m_resetGo, m_resetRemainNum, m_resetTextTrans = nil, nil, nil, nil, nil
+--重置剩余样式文字,今日重置样式文字,活动内重置样式文字,重置物品id
+local m_resetRemainLb, todayRRemainStr, activityRRmainStr, m_resetItemId = nil, nil, nil, nil
+
+--终极奖励展示icon,获取进度Lb
+local m_bigRewardGo, m_bigRewardProcessLb = nil, nil
+
+--惊喜奖励展示icon,获取进度Lb
+local m_spRewardGo, m_spRewardProcessLb = nil, nil
+local m_spSprName = nil  --后面跟1、2、3、4、5、6
+local spSprList = nil --原始图3*2,从左往右从上到下,1,2,3,4,5,6一共六个格子
+
+--遗迹点奖励说明详情,遗迹点奖励条目对象池, 遗迹点数无尽滚动组件对象, 
+local m_relicPointDesLb, m_relicPRewardPool, m_uiWrapContentObj = nil, nil, nil
+
+--左侧遗迹页签对象池,左侧滚动视图,--k为第几个遗迹index(number), v为uilabel(userdata)
+local m_relicTabPool, m_tabScollView, relicProcessLbList = nil, nil, {} 	
+local lastTabId, toTargetTabId, targetTabId = 0, 0, 0
+local tabHLAlphaShowV, tabHLAlphaHideV = 0.8, 0
+local normalScale, bigScale = nil, nil
+
+--是否要刷新预览奖励
+local needPreRewardRefresh = false
+
+local relicTabGridTrans = nil
+
+--中间格子对象池, 格子父节点的grid, --index与服务器数据一一对应,格子的transform缓存列表
+local m_cellPool, cellGridTrans, cellTransList = nil, nil, nil
+local blackShowV, blackHideV = 0, 0.596	--152/255
+
+local BoxUpV3, BoxLeftV3, BoxRightV3 = nil, nil, nil
+
+local stringEmpty = nil
+local m_cellAtlasPath = nil
+local m_backCellSprName, m_backCellSprName2, m_bottomCellSprName = nil, nil
+
+local m_itemPool = nil --单个奖励物品对象池
+
+--泰坦条
+local m_titanIcon1,m_titanIcon2 = nil, nil
+local m_titanLab1,m_titanLab2 = nil, nil
+local m_titanAdd1,m_titanAdd2 = nil, nil 
+local mdrawCostItemId, mresetItemId = 0, 0
+
+--终极奖励和惊喜奖励获得时的拍脸图
+local treasureBigResultShowObj, bigRewardFxObj = nil, nil
+local resultShowNameBigObj, resultShowNameSpObj = nil, nil
+local resultItemObj, hideResultBtn = nil, nil
+
+local m_cdTime, m_startTime = 0.5, 0
+local timeS = UnityTime
+
+local curTargetCellIndex = 0
+
+--特效
+local m_token = 0
+local vanishObj = nil
+local showType = -1
+local isBig = false
+local type2FirstFlyDone = false
+
+local FlyAwayTweenObj, flyAwaySpr, flyAwaySpRObj = nil, nil, nil
+local FlyTweenScaleComp, FlyTweenPosComp = nil, nil
+local FlyTweenScaleComp2, FlyTweenPosComp2 = nil, nil
+local flyToBigRewardLocalPos = nil
+local flyToSpecialRewardLocalPos = nil
+local curCellTransLocalPosX, curCellTransLocalPosY = 0
+local spBoxStartLocalPosX, spBoxStartLocalPosY = 0
+
+local itemBigData = nil
+local itemSpSprName = nil, nil
+
+local waitingFx = false
+
+local brickAtlas = stringEmpty
+local brickIconList = {}
+
+local function InitForLimit60Upvalue()
+	m_spSprName = "Smsb_0"--"Yjtb_0"  --后面跟1、2、3、4、5、6
+	lastTabId, toTargetTabId, targetTabId = 0, 0, 0
+	tabHLAlphaShowV, tabHLAlphaHideV = 0.8, 0
+	normalScale, bigScale = UnityVector3(1, 1, 1), UnityVector3(1.1, 1.1, 1.1)
+	needPreRewardRefresh = false
+	blackShowV, blackHideV = 0, 0.596	--152/255
+	BoxUpV3, BoxLeftV3, BoxRightV3 = UnityVector3(0, 0, 0), UnityVector3(0, 0, 90), UnityVector3(0, 0, 270)
+	stringEmpty = ""
+	m_cellAtlasPath = "atlas/UI/GameSystem/RelicTreasure/RelicTreasure"
+	m_backCellSprName, m_backCellSprName2 = "bg_yjtb1", "bg_yjtb4"
+	m_bottomCellSprName = "bg_yjtb1"
+
+	flyToBigRewardLocalPos = UnityVector3(600, -120, 0)
+	flyToSpecialRewardLocalPos = UnityVector3(600, -240 ,0)--UnityVector3(600, -250 ,0)
+	curCellTransLocalPosX, curCellTransLocalPosY = 0
+	spBoxStartLocalPosX, spBoxStartLocalPosY = 0
+
+	rewardPreTitleStr = Hotfix.GetStringTable("SpriteAwardPreview")
+	rewardPreTipsStr = stringEmpty-- Hotfix.GetStringTable("RelicRewardPreTips")
+
+	m_drawCostItemId = Hotfix.GetGlobalString("DigItemId")
+	if m_drawCostItemId == nil or m_drawCostItemId == "0" then 
+		m_drawCostItemId = 7 
+	else
+		m_drawCostItemId = tonumber(m_drawCostItemId)
+	end
+
+	mdrawCostItemId, mresetItemId = 0, 0
+	
+	itemBigData = nil
+	itemSpSprName = "Yjtb_box"
+	
+	showType = -1
+	isBig = false
+	type2FirstFlyDone = false
+	M:SetLockSateWaitingFx(false)
+
+	brickAtlas = stringEmpty
+	brickIconList = {}
+end
+local function Init()
+	m_isVisible = true
+
+	InitForLimit60Upvalue()
+
+	m_doc:SetDlg(M)
+	-- CreateFxMgr()
+	
+	local FlyAwayTweenTrans = m_Trans:Find("Bg/GameBg/FlyAwayTween")
+	
+	local flyAwaySpRTrans = FlyAwayTweenTrans:Find("FlyAwayTween2")
+	flyAwaySpRObj = flyAwaySpRTrans.gameObject
+	flyAwaySpRObj:SetActive(false)
+	FlyTweenScaleComp2 = flyAwaySpRTrans:GetComponent("TweenScale")
+	FlyTweenPosComp2 = flyAwaySpRTrans:GetComponent("TweenPosition")
+
+	local flyAwayBigRTrans = FlyAwayTweenTrans:Find("FlyAwayTween1")
+	FlyAwayTweenObj = flyAwayBigRTrans.gameObject
+	flyAwaySpr = flyAwayBigRTrans:Find("Stone"):GetComponent("UISprite")
+	FlyTweenScaleComp = flyAwayBigRTrans:GetComponent("TweenScale")
+	FlyTweenPosComp = flyAwayBigRTrans:GetComponent("TweenPosition")
+
+	m_closedGo = m_Trans:Find("Bg/Close").gameObject
+	m_helpGo = m_Trans:Find("Bg/Help").gameObject
+
+	m_rewardPreGo = m_Trans:Find("Bg/BtnView").gameObject
+	m_gotoShopGo = m_Trans:Find("Bg/GotoShop").gameObject
+	local sysId = Hotfix.GetGlobalString("RelicShop")
+	if sysId == nil or sysId == "0" then
+		m_gotoShopGo:SetActive(false)
+	else
+		m_gotoShopGo:SetActive(true)
+	end
+
+	m_duringTimeLb = m_Trans:Find("Bg/TipTime"):GetComponent("UILabel")
+	m_duringTimeLb.text = Hotfix.GetStringTable("RelicTime")
+	m_tipsLb = m_Trans:Find("Bg/Tips"):GetComponent("UILabel")
+
+	m_tipsLb.text = Hotfix.GetStringTable("RelicTreasureTips")
+
+	m_drawCostIcon = m_Trans:Find("Bg/Key"):GetComponent("UISprite")
+	m_drawCostNumLb = m_Trans:Find("Bg/Key/Num"):GetComponent("UILabel")
+
+	m_resetIcon = m_Trans:Find("Bg/SweepButton/Item/Icon/Icon"):GetComponent("UISprite")
+	m_resetCostLb = m_Trans:Find("Bg/SweepButton/Item/Cost"):GetComponent("UILabel")
+	m_resetTextTrans = m_Trans:Find("Bg/SweepButton/T1")
+	m_resetRemainLb = m_Trans:Find("Bg/Times/t"):GetComponent("UILabel")
+	m_resetRemainNum = m_Trans:Find("Bg/Times"):GetComponent("UILabel")
+	m_resetGo = m_Trans:Find("Bg/SweepButton").gameObject
+
+	todayRRemainStr =  Hotfix.GetStringTable("RelicTodayResetNum")
+	activityRRmainStr =  Hotfix.GetStringTable("RelicActivityResetNum")
+
+	--终极大奖
+	m_bigRewardGo = m_Trans:Find("Bg/Boxes/FinalBox/boxbg").gameObject
+	m_bigRewardProcessLb = m_Trans:Find("Bg/Boxes/FinalBox/t/Num"):GetComponent("UILabel")
+
+	--惊喜奖励
+	m_spRewardGo = m_Trans:Find("Bg/Boxes/SurpriseBox/grid").gameObject
+	m_spRewardProcessLb = m_Trans:Find("Bg/Boxes/SurpriseBox/t/Num"):GetComponent("UILabel")
+
+	m_relicPointDesLb = m_Trans:Find("Bg/Tips1"):GetComponent("UILabel")
+	m_relicPointDesLb.text = Hotfix.GetStringTable("RelicPointTips")
+	
+	--右侧遗迹点数奖励对象池初始化
+	m_uiWrapContentObj = m_Trans:Find("Bg/RelicPointScrollV/WrapContent").gameObject
+	Hotfix.InitWrapContent(m_uiWrapContentObj, M.RPRWrapContentItemUpdated)
+	
+	--左侧页签对象池初始化
+	local tplParent = m_Trans:Find("Bg/Tab/Panel")
+	relicTabGridTrans = tplParent:Find("grid")
+	local tplGo = tplParent:Find("TabTpl").gameObject
+	m_relicTabPool = Hotfix.SetupPool(tplParent.gameObject, tplGo, 5)
+
+	--当中7x7格子奖池的对象池
+	tplParent = m_Trans:Find("Bg/GameBg")
+	cellGridTrans = m_Trans:Find("Bg/GameBg/grid")
+	tplGo = tplParent:Find("StoneTpl").gameObject
+	m_cellPool = Hotfix.SetupPool(tplParent.gameObject, tplGo, 10)
+	
+	local tra = m_Trans:Find("Bg/TitanFrame")
+	m_titanIcon1 = tra:Find("ItemTpl1/icon"):GetComponent("UISprite")
+	m_titanLab1 = tra:Find("ItemTpl1/value"):GetComponent("UILabel")
+	m_titanAdd1 = tra:Find("ItemTpl1/Bg").gameObject
+
+	m_titanIcon2 = tra:Find("ItemTpl2/icon"):GetComponent("UISprite")
+	m_titanLab2 = tra:Find("ItemTpl2/value"):GetComponent("UILabel")
+	m_titanAdd2 = tra:Find("ItemTpl2/Bg").gameObject
+
+	local treasureShowTrans =  m_Trans:Find("Bg/TreasureBigResultShow")
+	treasureBigResultShowObj = treasureShowTrans.gameObject
+	resultShowNameBigObj = treasureShowTrans:Find("Bg/ResultFrame/NameBig").gameObject
+	resultShowNameSpObj = treasureShowTrans:Find("Bg/ResultFrame/NameSp").gameObject
+	bigRewardFxObj = treasureShowTrans:Find("Bg/ResultFrame/BigFx").gameObject
+	resultItemObj = treasureShowTrans:Find("Bg/ResultFrame/ResultTpl/ItemTpl").gameObject
+	hideResultBtn = treasureShowTrans:Find("Bg/ResultFrame/OkButton").gameObject
+	
+	M.InitAllGridTrans()
+	M.InitLeftTab()	--一定要在用到RelicId的最上,会初始化第一个遗迹id
+	M.InitTopReward()
+end
+
+--事件注册
+local function RegisterEvent()
+	Hotfix.SetClickCallback(m_closedGo, M.OnClosed)
+	Hotfix.SetClickCallback(m_helpGo, M.OnClickHelp)
+	Hotfix.SetClickCallback(m_resetGo, M.OnResetBtnClick)
+	Hotfix.SetClickCallback(m_gotoShopGo, M.OnGotoShopBtnClick)
+	Hotfix.SetClickCallback(m_rewardPreGo, M.OnPreviewRewardBtnClick)
+
+	Hotfix.SetClickCallback(m_titanAdd1, M.OnTiTanAccessClick)
+	Hotfix.SetClickCallback(m_titanAdd2, M.OnTiTanAccessClick)
+
+	Hotfix.SetClickCallback(m_bigRewardGo, M.OnClickItem)
+	Hotfix.SetClickCallback(m_spRewardGo, M.OnClickItem)
+	
+	Hotfix.SetClickCallback(resultItemObj.transform:Find("Icon").gameObject, M.OnClickItem)
+	Hotfix.SetClickCallback(hideResultBtn, M.OnHideResultShowBtnClick)
+end
+
+--初始化左侧遗迹页签
+function M.InitLeftTab()
+	-- print("11")
+	local relicTable = m_doc:GetRelicTable()
+	if relicTable == nil or m_relicTabPool == nil then return end
+
+	relicProcessLbList = {}
+
+	m_relicTabPool:FakeReturnAll()
+	local relicCount = #relicTable
+	for i = 1, #relicTable do
+		local relicData = relicTable[i]
+		local relicGo = m_relicTabPool:FetchGameObject()
+		local relicTrans = relicGo.transform
+		relicTrans.parent = relicTabGridTrans
+
+		local IconSpr = relicTrans:Find("Icon"):GetComponent("UISprite")
+		if not IsNil(iconSpr) ~= nil then
+			IconSpr.sid = relicData.relicid
+
+			if relicData.relicicon ~= stringEmpty then
+				IconSpr:SetAtlas("atlas/UI/"..relicData.relicatlas)
+				IconSpr.spriteName = relicData.relicicon
+			end
+		end
+
+		local NameLb = relicTrans:Find("Name"):GetComponent("UILabel")
+		if NameLb ~= nil and relicData.relicname ~= stringEmpty then 
+			NameLb.text = relicData.relicname
+		end
+
+		local DigProcessLb = relicTrans:Find("Num"):GetComponent("UILabel")
+		if DigProcessLb ~= nil then
+			relicProcessLbList[i] = DigProcessLb
+		end
+
+		local highLightSpr = relicTrans:Find("hightLight"):GetComponent("UISprite")
+		highLightSpr.alpha = tabHLAlphaHideV
+
+		Hotfix.SetClickCallback(relicGo, M.OnRelicTabClick)
+
+		if i == 1 then
+			M.OnRelicTabClick(relicGo)
+		end
+	end
+	m_relicTabPool:ActualReturnAll()
+	relicTabGridTrans:GetComponent("UIGrid"):Reposition()
+end
+
+-- local randomBackImgIndex = {}
+--初始化所有格子信息
+function M.InitAllGridTrans()
+	if m_cellPool == nil then return end
+
+	-- randomBackImgIndex = {}
+	-- math.randomseed(tostring(os.time()):reverse():sub(1,7))
+	-- local relicTable = m_doc:GetRelicTable()
+	-- if relicTable == nil then print("color=red 遗迹配表 有问题加载不到 </color>") return end
+	-- local relicCount = #relicTable
+
+	-- for i = 1, relicCount do
+	-- 	local tempList = {}
+	-- 	randomBackImgIndex[i] = tempList
+	-- 	for j = 1, 7 do
+	-- 		local theFirstIndex = math.random(1, 7)
+	-- 		local theSecondeIndex = 0
+	-- 		if theFirstIndex >= 6 then
+	-- 			theSecondeIndex = math.random(1, 4)
+	-- 		else 
+	-- 			if theFirstIndex < 4 then
+	-- 				theSecondeIndex = theFirstIndex + math.random(2, 4)
+	-- 			else
+	-- 				theSecondeIndex = theFirstIndex + 2
+	-- 			end
+	-- 		end
+	
+	-- 		local everyfloorDiff = (j-1)*7
+	-- 		theFirstIndex = theFirstIndex + everyfloorDiff
+	-- 		theSecondeIndex = theSecondeIndex + everyfloorDiff
+	
+	-- 		randomBackImgIndex[i][theFirstIndex] = 1
+	-- 		randomBackImgIndex[i][theSecondeIndex] = 1
+	-- 	end
+	-- end
+	
+	
+	cellTransList = {}
+
+	m_cellPool:FakeReturnAll()
+
+	--todo:可以走配置,但是感觉没必要,后面会根据实际数据的大小来动态扩容
+	local allGridCount = 49  
+
+	for i = 1, allGridCount do
+		local cellGo = m_cellPool:FetchGameObject()
+		local cellTrans = cellGo.transform
+		cellTrans.parent = cellGridTrans
+		cellTransList[i] = cellTrans
+
+		Hotfix.SetClickCallback(cellGo, M.OnCellClick)
+	end
+
+	m_cellPool:ActualReturnAll()
+
+	cellGridTrans:GetComponent("UIGrid"):Reposition()
+end
+
+
+local mBigRewardId, mSpRewardId = 0, 0
+local function RefreshTopRewardIdAndIcon()
+	local bigRewardId = m_doc:GetBigRewardItemId() 
+	local specialId = m_doc:GetSpecialRewardItemId()
+
+	-- print("<color=yellow>bigRewardId: "..bigRewardId.."</color>")
+	-- print("<color=yellow>specialId: "..specialId)
+
+	-- print("<color=yellow>mBigRewardId: "..mBigRewardId)
+	-- print("<color=yellow>mSpRewardId: "..mSpRewardId)
+
+	if mBigRewardId ~= bigRewardId then
+		local bigRewardObjSpr = m_bigRewardGo:GetComponent("UISprite")
+		local bigRewardIcon = m_bigRewardGo.transform:Find("Icon"):GetComponent("UISprite")
+		mBigRewardId = bigRewardId
+		bigRewardObjSpr.sid = mBigRewardId
+
+		itemBigData = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", mBigRewardId)
+		if itemBigData ~= nil then
+			bigRewardIcon:SetAtlas("atlas/UI/"..itemBigData.ItemAtlas[0])
+			bigRewardIcon.spriteName = itemBigData.ItemIcon[0]
+		end
+	end
+
+	if mSpRewardId ~= specialId then
+		local spRewardSpr = m_spRewardGo:GetComponent("UISprite")
+		mSpRewardId = specialId
+		spRewardSpr.sid = mSpRewardId
+		print("特殊奖励id："..mSpRewardId)
+	end
+end
+--初始化终极大奖和惊喜奖励
+function M.InitTopReward()
+	RefreshTopRewardIdAndIcon()
+	
+	spSprList = {}
+	for i = 1, 6 do 
+		local spSprTrans = m_spRewardGo.transform:Find("SurpriseBox"..i.."/Stone")
+		if not IsNil(spSprTrans) then
+			local sprSpr = spSprTrans:GetComponent("UISprite")
+			sprSpr.spriteName = m_spSprName..i
+			spSprList[i] = sprSpr
+		end
+	end
+end
+
+--刷新化右侧遗迹宝藏列表
+function M.RPRWrapContentItemUpdated(t, index)
+	-- local relicPRewardTable = m_doc:GetRelicPointRewardTable()
+	local ownRelicPoint = m_doc:GetOwnRelicPoint()
+	local relicPRewardDatas = m_doc:GetRelicPointRList()
+	-- print(" index: "..index)
+	-- print("ownRPoint: "..ownRelicPoint)
+
+	-- if relicPRewardTable == nil then return end
+	if relicPRewardDatas == nil then return end
+	--or m_relicPRewardPool == nil then return end
+	-- or m_itemPool == nil then return end
+
+	-- m_relicPRewardPool:FakeReturnAll()
+
+	-- m_itemPool:FakeReturnAll()
+
+	-- local rprTableCount = #relicPRewardTable
+
+	local theIndex = index + 1 --c#传过来的index从0开始,lua是从1开始
+
+	-- print("theIndex: "..theIndex)
+
+	-- for i = 1, rprTableCount do
+	-- 	local tempGo = m_relicPRewardPool:FetchGameObject()
+		local tempTrans = t--tempGo.transform
+		local tempGo = tempTrans.gameObject
+		
+		local serverData = relicPRewardDatas[theIndex]
+		local isOpen = serverData.isopen
+
+		local needPoint = serverData.num--rowData.point
+
+		-- print("<color=yellow>needPoint: "..needPoint.."</color>")
+		local rowData = m_doc:GetRelicPRRowDataByPoint(needPoint)--relicPRewardTable[theIndex]
+
+		local processLab = tempTrans:Find("Num"):GetComponent("UILabel")
+		if not IsNil(processLab) then
+			processLab.text = ownRelicPoint.."/"..needPoint
+		end
+
+		local canGet = ownRelicPoint >= needPoint
+		local bgFxObj = tempTrans:Find("Bg_fx").gameObject
+
+		local redPointObj = tempTrans:Find("RedPoint").gameObject
+
+		local MaskObj = tempTrans:Find("Mask").gameObject
+		if isOpen then
+			Hotfix.SetClickCallback(tempGo, M.OnClickNil)
+			if not MaskObj.activeSelf then
+				MaskObj:SetActive(true)
+			end
+			if bgFxObj.activeSelf then
+				bgFxObj:SetActive(false)
+			end
+			if redPointObj.activeSelf then
+				redPointObj:SetActive(false)
+			end
+		else
+			local spr = tempTrans:GetComponent("UISprite")
+			spr.sid = needPoint
+			Hotfix.SetClickCallback(tempGo, M.OnClickRelicPointReward)
+
+			if MaskObj.activeSelf then
+				MaskObj:SetActive(false)
+			end
+
+			if canGet then
+				if not bgFxObj.activeSelf then
+					bgFxObj:SetActive(true)
+				end
+				if not redPointObj.activeSelf then
+					redPointObj:SetActive(true)
+				end
+			else
+				if bgFxObj.activeSelf then
+					bgFxObj:SetActive(false)
+				end
+				if redPointObj.activeSelf then
+					redPointObj:SetActive(false)
+				end
+			end
+		end
+
+		local itemTpl1Tra = tempTrans:Find("ItemTpl1")
+		local itemTpl2Tra = tempTrans:Find("ItemTpl2")
+		
+		if not IsNil(itemTpl1Tra) and not IsNil(itemTpl2Tra) then
+			
+			local itemTplList = {itemTpl1Tra, itemTpl2Tra}
+	
+			if rowData == nil then return end
+
+			local rewardDataCount = #rowData.reward
+			local rewardTplDataCount = rewardDataCount/2
+			
+			for i = 1,2 do
+				local tplTra = itemTplList[i]
+				local tplGo = tplTra.gameObject
+				if i <= rewardTplDataCount then
+					local itemIndexId = i*2 -1
+					local itemIndexCount = i*2
+
+					local itemId = rowData.reward[itemIndexId]
+					local itemCount = rowData.reward[itemIndexCount]
+
+					Hotfix.DrawItemView(tplGo,itemId,itemCount,true)
+					local spr = itemTpl1Tra:Find("Icon"):GetComponent("UISprite")
+					spr.sid = itemId
+					Hotfix.SetClickCallback(spr.gameObject, M.OnClickItem)
+				else
+					tplGo:SetActive(false)
+				end
+			end
+		end	
+	-- end
+
+	-- m_relicPRewardPool:ActualReturnAll()
+end
+
+local function IsWaitingFx()
+	return waitingFx
+end
+
+--判断该格子是否可挖,已挖格子的十字相邻格子
+local function IsCanDigCell(targetIndex)
+	if type(targetIndex) ~= "number" then return false end
+
+	--7*7的大盘下,十字相邻格子的水平偏移和上线偏移
+	local horizontalDiff, verticalDiff = 1, 7
+	
+	local curAllGridData = m_doc:GetAllGridSeverData()
+	local dataLength = #curAllGridData
+
+	if targetIndex > dataLength or targetIndex < 0 then
+		return false
+	end
+
+	local targetData = curAllGridData[targetIndex]
+
+	local targetPosY = targetData.y
+
+	local leftIndex = targetIndex - horizontalDiff
+	if leftIndex > 0 then
+		local leftData = curAllGridData[leftIndex]
+		if leftData.isopen and leftData.y == targetPosY then 
+			return true
+		end
+	end 
+
+	local rightIndex = targetIndex + horizontalDiff
+	if rightIndex <= dataLength then
+		local rightData = curAllGridData[rightIndex]
+		if rightData.isopen and rightData.y == targetPosY then
+			return true
+		end
+	end
+
+	local topIndex = targetIndex - verticalDiff
+	if topIndex > 0 and curAllGridData[topIndex].isopen then
+		return true
+	end 
+
+	local bottomIndex = targetIndex + verticalDiff
+	if bottomIndex <= dataLength and curAllGridData[bottomIndex].isopen then
+		return true
+	end
+
+	return false
+end
+
+--抽中特殊奖励icon处理,因为是例如2*3或者3*2的拼图,一个格子是显示其1/6
+local function SpecialRewardIconDeal(gridIndex, cellTrans)
+	-- Towards: 0竖着向上,1左,2右
+	local theRotate = BoxUpV3
+	local theTowards = m_doc:GetSpRewadBoxTowards()
+	if theTowards == 0 then 
+		theRotate = BoxUpV3
+	elseif theTowards == 1 then 
+		theRotate = BoxLeftV3
+	elseif theTowards == 2 then 
+		theRotate = BoxRightV3
+	end
+	-- print("<color=yellow>theGridIndex: "..gridIndex.."</color>")
+	local spriteNameIndex = m_doc:GetSpRewardSpNameIndex(gridIndex)
+	if spriteNameIndex == nil then spriteNameIndex = 1 end
+
+	cellTrans.localEulerAngles = theRotate
+
+	local theAtlasPath = m_cellAtlasPath--"atlas/UI/GameSystem/RelicTreasure/RelicTreasure"
+	local theSprName = m_spSprName..spriteNameIndex--"Yjtb_0"..spriteNameIndex
+
+	return theAtlasPath, theSprName
+end
+local bigRewardCellSpr = nil 
+local RecodeAtlasPath, RecodeSprName = nil, nil --大奖伪随机，特殊奖励真随机，极端情况会出现重叠
+local spRewardCellSprList = { }
+local function FillCellByData(index, cellData, cellTrans)
+	local isAnyCellOpen = m_doc:GetIsAnyCellOpen()
+	-- print("是否有任意宝箱已经开启: "..tostring(isAnyCellOpen))
+
+	local theReqType =  m_doc:GetReqType()
+	local hadSpReward = m_doc:GetHadSpReward()
+
+	local cellGo = cellTrans.gameObject
+	local blackSpr = cellTrans:Find("Black"):GetComponent("UISprite") 
+	local iconSpr = cellTrans:Find("Stone"):GetComponent("UISprite")
+	iconSpr.sid = index --recode the Index
+	-- print("spr.sid: "..iconSpr.sid)
+
+	if IsNil(iconSpr) or IsNil(blackSpr) then return end
+
+	local theAtlasPath = m_cellAtlasPath
+	RecodeAtlasPath = m_cellAtlasPath
+	local theSprName = stringEmpty
+	if cellData.isopen then	
+		if cellData.isfirsttreasure then	
+			--大奖
+			bigRewardCellSpr = iconSpr
+			
+			if theReqType == 2 then --挖格子请求
+				local bigRewardId = m_doc:GetBigRewardItemId()
+				print("大奖id: "..bigRewardId)
+				local itemData = 
+				Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",bigRewardId)	
+				if not IsNil(itemData) then
+					theAtlasPath = "atlas/UI/"..itemData.ItemAtlas[0]
+					theSprName = itemData.ItemIcon[0]
+				end
+			end
+
+			if theReqType == 1 then --info请求
+				--大奖伪随机，特殊奖励真随机，极端情况会出现重叠
+				if cellData.issptreasure and not hadSpReward then 
+					local theLength = #spRewardCellSprList + 1
+					spRewardCellSprList[theLength] = iconSpr
+					theAtlasPath, theSprName = SpecialRewardIconDeal(index, cellTrans)
+				end
+			end
+			
+		elseif cellData.issptreasure then 	
+			--特殊奖励
+			local theLength = #spRewardCellSprList + 1
+			spRewardCellSprList[theLength] = iconSpr
+			
+			if theReqType == 2 or not hadSpReward then
+				theAtlasPath, theSprName = SpecialRewardIconDeal(index, cellTrans)
+			end
+		else 								
+			--底板
+			-- iconSpr.spriteName = theSprName
+		end			
+		-- print("index: "..index)
+		-- print("isopen: "..tostring(cellData.isopen))
+		-- print("theSprName: "..theSprName)
+		-- print("the atlas path: "..theAtlasPath)
+		iconSpr:SetAtlas(theAtlasPath)
+		iconSpr.spriteName = theSprName
+		blackSpr.alpha = blackShowV
+	else	
+		cellTrans.localEulerAngles = UnityVector3.zero
+
+		local IsCanDig = IsCanDigCell(index)
+		local theAlphaV = blackShowV
+		if isAnyCellOpen then
+			theAlphaV = IsCanDig and blackShowV or blackHideV
+		end
+		blackSpr.alpha = theAlphaV
+		theSprName = m_backCellSprName
+		iconSpr:SetAtlas(brickAtlas) --iconSpr:SetAtlas(theAtlasPath)
+		
+		-- print("<color=yellow>-------------------</color>")
+		-- print("targetTabId: "..toTargetTabId)
+		-- print("index: "..index)
+		-- if randomBackImgIndex[toTargetTabId][index] ~= nil then
+		-- 	theSprName = m_backCellSprName2
+		-- else
+		-- 	theSprName = m_backCellSprName
+		-- end
+
+		local sprName = brickIconList[index]
+		sprName = sprName == nil or stringEmpty and sprName
+		-- print("<color=yellow>-------------------</color>")
+		-- print("index: "..index)
+		-- print("sprName: "..sprName)
+		iconSpr.spriteName = sprName
+	end
+end
+
+--刷新填充整个翻格子界面：如7X7的布局
+local function RefreshAllCell()
+	local curAllGridData = m_doc:GetAllGridSeverData()
+	if curAllGridData == nil or m_cellPool == nil then return end
+
+	brickAtlas = m_doc:GetCurRelicBrickAtlas()
+	if brickAtlas == nil or brickAtlas == stringEmpty then return end
+	brickAtlas = "atlas/UI/"..brickAtlas
+
+	spRewardCellSprList = {}	
+
+	local gridsTransCount = #cellTransList
+	local gridsDataCount = #curAllGridData
+
+	brickIconList = m_doc:GetCurRelicBrickIconList()
+	if brickIconList == nil or #brickIconList ~= gridsDataCount then return end
+	-- print("brick icon list count: "..tostring(#brickIconList))
+
+	local needReposition = false
+
+	for i = 1, gridsDataCount do
+		local cellData = curAllGridData[i]
+
+		local cellTrans = nil
+		local cellGo = nil
+
+		if i <= gridsTransCount then
+			cellTrans = cellTransList[i]
+			cellGo = cellTrans.gameObject
+		else
+			cellGo = m_cellPool:FetchGameObject()
+			cellTrans = cellGo.transform
+			cellTransList[i] = cellTrans
+			needReposition = true
+		end
+			
+		FillCellByData(i, cellData, cellTrans)
+	end
+
+	if needReposition then cellGridTrans:GetComponent("UIGrid"):Reposition() end
+end
+
+--刷新单抽消耗泰坦条
+local function refreshDrawCostTitan()
+	if mdrawCostItemId ~= m_drawCostItemId then
+		mdrawCostItemId = m_drawCostItemId
+		
+		local spr1 = m_titanAdd1:GetComponent("UISprite")
+		spr1.sid = mdrawCostItemId
+
+		local ItemData1 = 
+			Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",mdrawCostItemId)
+		if ItemData1 ~= nil then
+			m_titanIcon1:SetAtlas("atlas/UI/"..ItemData1.ItemAtlas[0])
+			m_titanIcon1.spriteName = ItemData1.ItemIcon[0]
+		end
+	end
+
+	local hadNum = 
+		Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount", mdrawCostItemId)
+	m_titanLab1.text = tostring(hadNum)
+end
+--刷新重置消耗泰坦条,RefreshResetType()一定要在这个之后
+local function refreshResetCostTitan()
+
+	print("<color=yellow>mresetItemId: "..mresetItemId.."</color>")
+	print("<color=yellow>m_resetItemId: "..m_resetItemId.."</color>")
+
+	local titan1ParentTra = m_titanAdd1.transform.parent
+	local titan2ParentObj = m_titanAdd2.transform.parent.gameObject
+
+	if mresetItemId ~= m_resetItemId then
+		mresetItemId = m_resetItemId
+
+		if mresetItemId ~= 0 then 
+			if not titan2ParentObj.activeSelf then
+				titan2ParentObj:SetActive(true)
+			end
+
+			local spr2 = m_titanAdd2:GetComponent("UISprite")
+			spr2.sid = m_resetItemId
+	
+			local ItemData2 = 
+				Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", mresetItemId)
+			if ItemData2 ~= nil then
+				m_titanIcon2:SetAtlas("atlas/UI/"..ItemData2.ItemAtlas[0])
+				m_titanIcon2.spriteName = ItemData2.ItemIcon[0]
+			end
+
+			local hadNum2 = 
+				Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount", mresetItemId)
+			m_titanLab2.text = tostring(hadNum2)
+
+			titan1ParentTra.localPosition = UnityVector3(-170, 0, 0)
+
+		else
+			if titan2ParentObj.activeSelf then
+				titan2ParentObj:SetActive(false)
+			end
+
+			titan1ParentTra.localPosition = UnityVector3.zero
+		end
+
+	elseif mresetItemId == 0 then
+		titan1ParentTra.localPosition = UnityVector3.zero
+
+		if titan2ParentObj.activeSelf then
+			titan2ParentObj:SetActive(false)
+		end
+	end
+end
+
+local curRelicResetCostNum = 0
+local curRelicResetCostName = stringEmpty
+--刷新重置按钮上的消耗、重置次数、重置样式
+local function RefreshResetType()
+	if IsNil(m_resetRemainLb) then return end
+
+	if todayRRemainStr == nil or activityRRmainStr == nil then return end
+
+	local curResetNum = m_doc:GetCurResetNum()
+	local curRelicRowData = m_doc:GetCurRelicRowData()
+	if curResetNum == nil or curRelicRowData == nil then return end
+	
+	local resetType = curRelicRowData.resettype
+	if resetType == nil or type(resetType) ~= "table" and #resetType ~= 4 then
+		return
+	end
+
+	local isToday = resetType[1] == 0
+	m_resetRemainLb.text = isToday and todayRRemainStr or activityRRmainStr 
+
+	local resetMaxNum = resetType[2]
+	local theNum = resetMaxNum - curResetNum
+	m_resetRemainNum.text = theNum.."/"..resetMaxNum
+
+	if IsNil(m_resetIcon) or IsNil(m_resetCostLb) then return end
+
+	m_resetItemId = resetType[3]
+	-- print("m_resetItemId: "..m_resetItemId)
+	if m_resetItemId <= 0 then
+		if m_resetIcon.gameObject.activeSelf then
+			m_resetIcon.gameObject:SetActive(false)
+		end
+		if m_resetCostLb.gameObject.activeSelf then
+			m_resetCostLb.gameObject:SetActive(false)
+		end
+
+		--重置文字居中
+		m_resetTextTrans.localPosition = UnityVector3(-19,-2,0)
+
+		return
+	else
+		m_resetTextTrans.localPosition = UnityVector3(11,-2,0)
+	end
+	
+	if not m_resetIcon.gameObject.activeSelf then
+		m_resetIcon.gameObject:SetActive(true)
+	end
+
+	local itemRow = 
+		Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf", m_resetItemId)
+	if itemRow ~= nil then
+		curRelicResetCostName = itemRow.ItemName[0]
+		m_resetIcon:SetAtlas("atlas/UI/"..itemRow.ItemAtlas1[0])
+		m_resetIcon.spriteName = itemRow.ItemIcon1[0]
+	end
+
+	curRelicResetCostNum = resetType[4]
+	print("curRelicResetCostNum: "..curRelicResetCostNum)
+	if not m_resetCostLb.gameObject.activeSelf then
+		m_resetCostLb.gameObject:SetActive(true)
+	end
+
+	m_resetCostLb.text = tostring(curRelicResetCostNum)
+end
+
+--展示大奖拍脸图
+local function DoBigRewardResultShow()
+	--0表示大奖,1表示惊喜奖励,2表示先大奖后惊喜奖励,-1表示未获取
+	if showType == -1 then return end
+
+	if IsNil(treasureBigResultShowObj) then return end
+	treasureBigResultShowObj.gameObject:SetActive(true)
+	
+	if not resultShowNameBigObj.activeSelf then
+		resultShowNameBigObj:SetActive(true)
+	end
+	if resultShowNameSpObj.activeSelf then
+		resultShowNameSpObj:SetActive(false)
+	end
+
+	if showType == 2 then
+		isBig = not type2FirstFlyDone
+	end
+
+	local theItemId = 
+		isBig and m_doc:GetBigRewardItemId() or m_doc:GetSpecialRewardItemId()
+
+	bigRewardFxObj.gameObject:SetActive(isBig)
+	Hotfix.DrawItemView(resultItemObj, theItemId, 1, true)
+
+	local spr = resultItemObj.transform:Find("Icon"):GetComponent("UISprite")
+	spr.sid = theItemId	
+
+	M:SetLockSateWaitingFx(false)
+end
+
+local m_drawCostNum = 0
+--刷新单次挖宝的消耗
+local function RefreshOnceDigCost()
+	if IsNil(m_drawCostIcon) or IsNil(m_drawCostNumLb) then return end
+	
+	m_drawCostNum = m_doc:GetNextDrawNeedCostNum()
+	print("单抽消耗个数："..m_drawCostNum)
+	m_drawCostNumLb.text = "x"..m_drawCostNum
+
+	if m_doc:IsNeedShowTipsCostNeedMore() then
+		local theTip = Hotfix.GetStringTable("RelicCostIncreaseNotice", m_drawCostNum)
+		Hotfix.LuaShowSystemTip(theTip)
+	end
+
+	local itemRow = Hotfix.CallDocumentStaticMethod("XBagDocument", true, "GetItemConf",m_drawCostItemId)
+	print("m_drawCostItemId: "..m_drawCostItemId)
+	if itemRow ~= nil then
+		m_drawCostIcon:SetAtlas("atlas/UI/"..itemRow.ItemAtlas1[0])
+		m_drawCostIcon.spriteName = itemRow.ItemIcon1[0]
+	end
+end
+--刷新页签选中态
+local function RefreshTabListFocus()
+	if relicProcessLbList == nil then return end
+	local lbListCount = #relicProcessLbList
+	
+	lastTabId = targetTabId
+	targetTabId = toTargetTabId
+
+	if lastTabId >0 and lastTabId <= lbListCount then
+		local mParent = relicProcessLbList[lastTabId].transform.parent
+		local hSpr = mParent:Find("hightLight"):GetComponent("UISprite")
+		hSpr.alpha = tabHLAlphaHideV
+		mParent.localScale = normalScale
+	end
+
+	if targetTabId > 0 and targetTabId <= lbListCount then
+		local mParent = relicProcessLbList[targetTabId].transform.parent
+		local hSpr = mParent:Find("hightLight"):GetComponent("UISprite")
+		hSpr.alpha = tabHLAlphaShowV
+		mParent.localScale = bigScale
+	end
+
+	lastTabId = targetTabId
+	needPreRewardRefresh = true
+end
+--刷新所有遗迹页签当前挖取进度
+local function RefreshAllRelicTabProcess()
+	if relicProcessLbList == nil then return end
+
+	local rSummaryList = m_doc:GetRelicSummaryList()
+	if rSummaryList == nil then return end
+
+	local lbListCount = #relicProcessLbList
+	local rSListCount = #rSummaryList
+
+	if lbListCount ~= rSListCount then
+		-- print("lbListCount: "..lbListCount)
+		-- print("rSListCount: "..rSListCount)
+		return 
+	end
+
+	for i = 1, lbListCount do
+		local tempLb = relicProcessLbList[i]
+		local tempData = rSummaryList[i]
+		-- print("tempData.opengridnum: "..tempData.opengridnum)
+		-- print("tempData.gridnum: "..tempData.gridnum)
+		if not IsNil(tempLb) then
+			local maxgridNum = tempData.gridnum
+			local remaingridNum = maxgridNum - tempData.opengridnum
+			tempLb.text = remaingridNum.."/"..maxgridNum
+		end
+	end
+
+	-- print("<color=green>1111</color>")
+	RefreshTabListFocus()
+end
+--刷新遗迹点列表
+function M:RefreshRelicPointList()
+	print "RefreshRelicPList"
+	local rprTableCount =  m_doc:GetRelicPointListCount()
+	print ("rprTableCount: "..rprTableCount)
+	Hotfix.SetWrapContentCount(m_uiWrapContentObj, rprTableCount, true)
+
+	--遗迹点列表点击领奖有可能会配置泰坦条上的道具，领取之后需要对应的刷新
+	--物品变换的事件监听在c#侧，lua这边还没有做兼容，目前只能自己手动刷新
+	refreshDrawCostTitan() 	
+end
+--大奖和特殊奖励的抽奖进度
+local function RefreshDrawRewardProcess()
+	local hadBigReward = m_doc:GetHadBigReward()
+	m_bigRewardProcessLb.text = hadBigReward and "0/1" or "1/1"
+
+	local bigRewardIcon = m_bigRewardGo.transform:Find("Icon"):GetComponent("UISprite")
+	-- print("<color=red>hadBigReward: "..tostring(hadBigReward).."</color>")
+	bigRewardIcon.color = hadBigReward and Color.white or Color.black
+
+	local spRewardChips = m_doc:GetSpRewardList()
+	local chipsCount = #spRewardChips
+	local remainNotDig = 6 - chipsCount
+	local remainRewardNum = remainNotDig == 0 and 0 or 1
+	m_spRewardProcessLb.text = remainRewardNum.."/1"	
+end
+--激活特殊奖励对应的6张拼图
+local function ActivSpecialSprList()
+	local spRewardChips = m_doc:GetSpRewardList()
+	local chipsCount = #spRewardChips
+
+	local theColor = Color.black
+	
+	for i = 1 ,#spSprList do
+		-- print("spr need gray: "..i)
+		local spr = spSprList[i]
+		theColor = Color.black
+		for j = 1 ,chipsCount do 
+			local tempdata = spRewardChips[j]
+			if tempdata.theIndex == i then
+				theColor = Color.white
+			end
+		end
+	
+		spr.color = theColor
+	end
+end
+local function RerfershOthers()
+	RefreshOnceDigCost()
+	RefreshAllRelicTabProcess()
+	M:RefreshRelicPointList()
+	RefreshDrawRewardProcess()	
+	ActivSpecialSprList()
+	refreshDrawCostTitan()
+	refreshResetCostTitan()
+end
+
+--刷新整个界面
+function M:RefreshDlg( )
+	if m_isVisible == false then return end
+	print("<color=yellow>LuaRelicTreasureDlg.Refresh</color>")	
+	RefreshAllCell()
+	RefreshResetType()
+	RefreshTopRewardIdAndIcon()
+
+	RerfershOthers()
+	M:SetLockSateWaitingFx(false)
+end
+
+--翻牌后刷新单个格子界面, 同时激活十字相邻格子为可点击状态,同时刷新遗迹点数列表
+function M:RefreshSingleCell(cellIndex)
+	RerfershOthers()
+	if type(cellIndex) ~= "number" then return end
+
+	local curAllGridData = m_doc:GetAllGridSeverData()
+	if curAllGridData == nil then return end
+
+	local gridDataCount = #curAllGridData
+
+	if gridDataCount ~= #cellTransList then return end
+
+	--targetCell
+	if cellIndex < 0 or cellIndex > gridDataCount then return end
+	local cellData =  curAllGridData[cellIndex]
+	local cellPosY = cellData.y
+	local cellTrans = cellTransList[cellIndex]
+
+	if cellData.isfirsttreasure and cellData.issptreasure then  --tips：先飞大奖，后飞惊喜所以需要记录一下
+		-- print("<color=yellow>isfirsttreasure: "..tostring(cellData.isfirsttreasure).."</color>")
+		-- print("<color=yellow>isSptreasure: "..tostring(cellData.issptreasure).."</color>")
+		--大奖伪随机，特殊奖励真随机，极端情况会出现重叠
+		local iconSpr = cellTrans:Find("Stone"):GetComponent("UISprite")
+		local theLength = #spRewardCellSprList + 1
+		spRewardCellSprList[theLength] = iconSpr
+		RecodeAtlasPath, RecodeSprName = SpecialRewardIconDeal(cellIndex, cellTrans)
+	else
+		RecodeAtlasPath, RecodeSprName = stringEmpty, stringEmpty
+	end
+
+	--0表示大奖,1表示惊喜奖励,2表示先大奖后惊喜奖励,-1表示未获取
+	M:DealWithResultShow(cellTrans)
+
+	-- print("<color=yellow>当前格子是否大奖："..tostring(cellData.isfirsttreasure).."</color>")
+	-- print("<color=yellow>当前格子是否特殊奖励："..tostring(cellData.issptreasure).."</color>")
+	FillCellByData(cellIndex, cellData, cellTrans)
+
+	--leftCell
+	local leftIndex = cellIndex - 1
+	if leftIndex > 0 then
+		local leftData = curAllGridData[leftIndex]
+		if not leftData.isopen and leftData.y == cellPosY then
+			local leftCellTrans = cellTransList[leftIndex]
+			local blackSpr = leftCellTrans:Find("Black"):GetComponent("UISprite") 
+			blackSpr.alpha = blackShowV
+		end
+	end 
+
+	--rightCell
+	local rightIndex = cellIndex + 1
+	if rightIndex <= gridDataCount then
+		local rightData = curAllGridData[rightIndex]
+		if not rightData.isopen and rightData.y == cellPosY then
+			local rightCellTrans = cellTransList[rightIndex]
+			local blackSpr = rightCellTrans:Find("Black"):GetComponent("UISprite") 
+			blackSpr.alpha = blackShowV
+		end
+	end
+
+	--topCell
+	local topIndex = cellIndex - 7
+	if topIndex > 0 and not curAllGridData[topIndex].isopen then
+		local topCellTrans = cellTransList[topIndex]
+		local blackSpr = topCellTrans:Find("Black"):GetComponent("UISprite") 
+		blackSpr.alpha = blackShowV
+	end 
+
+	--bottomCell
+	local bottomIndex = cellIndex + 7
+	if bottomIndex <= gridDataCount and not curAllGridData[bottomIndex].isopen then
+		local bottomCellTrans = cellTransList[bottomIndex]
+		local blackSpr = bottomCellTrans:Find("Black"):GetComponent("UISprite") 
+		blackSpr.alpha = blackShowV
+	end
+end
+
+
+--------------------------------------------------------------------------- Fx  ----------------------------------------------------------------------
+--类开心爱消除的挖奖飞翔特效
+local function TweenRewardFlyAwayShow()
+	if IsNil(FlyAwayTweenObj) or IsNil(flyAwaySpr) then return end
+	if IsNil(FlyTweenScaleComp) or IsNil(FlyTweenPosComp) then return end
+
+	vanishObj:SetActive(true)
+
+	if showType == 2 then
+		isBig = not type2FirstFlyDone
+	end
+	
+	print("<color=yellow> isBig: "..tostring(isBig).."</color>")
+
+	local theTargetPos = isBig and flyToBigRewardLocalPos or flyToSpecialRewardLocalPos
+	print("<color=yellow>theTargetPos: "..tostring(theTargetPos.x).." "..tostring(theTargetPos.y).."</color>")
+	local theCurPos =  UnityVector3(0,0,0)
+	if isBig then
+		theCurPos = UnityVector3(curCellTransLocalPosX, curCellTransLocalPosY, 0)
+	else
+		theCurPos = UnityVector3(spBoxStartLocalPosX, spBoxStartLocalPosY, 0)
+	end
+	print("<color=yellow>theCurPos: "..tostring(theCurPos.x).." "..tostring(theCurPos.y).."</color>")
+
+	if isBig then
+		if not FlyAwayTweenObj.activeSelf then
+			FlyAwayTweenObj:SetActive(true)
+		end
+
+		if itemBigData ~= nil then
+			flyAwaySpr:SetAtlas("atlas/UI/"..itemBigData.ItemAtlas[0])
+			flyAwaySpr.spriteName = itemBigData.ItemIcon[0]
+		end
+
+		--挖掉感
+		if bigRewardCellSpr ~= nil then
+			bigRewardCellSpr.spriteName = stringEmpty
+		end
+
+		FlyTweenPosComp:SetPublicField("from",theCurPos);
+		FlyTweenPosComp:SetPublicField("to",theTargetPos);
+
+		FlyTweenScaleComp.enabled = true
+		FlyTweenScaleComp:ResetToBeginning(true)
+		
+		FlyTweenPosComp.enabled = true
+		FlyTweenPosComp:ResetToBeginning(true)
+	else
+
+		if not flyAwaySpRObj.activeSelf then
+			flyAwaySpRObj:SetActive(true)
+		end
+
+		--挖掉感
+		if spRewardCellSprList ~= nil then
+			for i = 1, #spRewardCellSprList do
+				local tempSpr = spRewardCellSprList[i]
+				tempSpr.spriteName = stringEmpty
+			end
+		end
+
+		FlyTweenPosComp2:SetPublicField("from",theCurPos)
+		FlyTweenPosComp2:SetPublicField("to",theTargetPos)
+
+		FlyTweenScaleComp2.enabled = true
+		FlyTweenScaleComp2:ResetToBeginning(true)
+		
+		FlyTweenPosComp2.enabled = true
+		FlyTweenPosComp2:ResetToBeginning(true)
+	end
+end
+
+--一定是在格子破掉的烟雾特效播放完毕后开始的
+local function DoPlayTweenFx()
+	print("<clolor=red>开始播放动画</color>")
+	Hotfix.RemoveTimer(m_token)
+	m_token = Hotfix.LuaWait(600, M.OnTimerDelyFly)
+end
+
+function M.OnTimerDelyFly(o)
+	Hotfix.RemoveTimer(m_token)
+	TweenRewardFlyAwayShow()
+	m_token = Hotfix.LuaWait(3000, M.OnTimerDelyResultShow)
+end
+
+function M.OnTimerDelyResultShow(o)
+	Hotfix.RemoveTimer(m_token)
+
+	-- print("<color=yellow>isBig: "..tostring(isBig).."</color>")
+	-- print("<color=yellow>RecodeAtlasPath: "..RecodeAtlasPath.."</color>")
+	-- print("<color=yellow>RecodeSprName: "..RecodeSprName.."</color>")
+	if isBig then  --大奖伪随机，特殊奖励真随机，极端情况会出现重叠
+		if bigRewardCellSpr ~= nil then
+			if RecodeAtlasPath ~= stringEmpty then
+				bigRewardCellSpr:SetAtlas(RecodeAtlasPath)
+			end
+			bigRewardCellSpr.spriteName = RecodeSprName
+		end
+	end
+
+	DoBigRewardResultShow()	
+	-- m_doc:SetInputFreeze(false)
+end
+
+--格子翻开砖块破碎的烟雾特效
+local function CellBreakFxShow(cellTrans)
+	if IsNil(cellTrans) then return end
+
+	-- print("<color=yellow>cell name: "..cellTrans.gameObject.name.."</color>")
+
+	local breakFxObj = cellTrans:Find("bgBreak_fx").gameObject
+	
+	breakFxObj:SetActive(false)
+	breakFxObj:SetActive(true)
+
+	if showType == -1 then return end
+
+	vanishObj = cellTrans:Find("bgVanish_fx").gameObject
+	if vanishObj.activeSelf then vanishObj:SetActive(false) end
+
+	DoPlayTweenFx()
+end
+
+local function SetStartFlyCenterPos(cellTrans, isbig)
+	if isbig then
+		curCellTransLocalPosX = cellTrans.localPosition.x
+		curCellTransLocalPosY = cellTrans.localPosition.y
+	else
+		local theGridIndex = m_doc:GetGridIndexByThe5SpIndex()
+		if theGridIndex > 0 and theGridIndex < #cellTransList then
+			local targetCellTrans = cellTransList[theGridIndex]
+			local targetCellPosX = targetCellTrans.localPosition.x
+			local targetCellPosY = targetCellTrans.localPosition.y
+			local theCurPosX, theCurPosY = m_doc:GetSpRCenterPos(targetCellPosX, targetCellPosY)
+			spBoxStartLocalPosX = theCurPosX
+			spBoxStartLocalPosY = theCurPosY
+		end
+	end
+end
+--飞翔动画特效开始的地方
+function M:DealWithResultShow(cellTrans)
+	--0表示大奖,1表示惊喜奖励,2表示先大奖后惊喜奖励,-1表示未获取
+	showType = m_doc:GetIsShowResultType()
+	-- print("<color=yellow>showType: </color>"..showType)
+	if showType == 2 then
+		type2FirstFlyDone = false
+		SetStartFlyCenterPos(cellTrans, true)
+		SetStartFlyCenterPos(cellTrans, false)
+	elseif showType ~= -1 then
+		isBig = showType == 0
+		SetStartFlyCenterPos(cellTrans, isBig)
+	else
+		M:SetLockSateWaitingFx(false)
+	end
+
+	-- print("<color=yellow>准备是否展示特效</color>")
+	CellBreakFxShow(cellTrans)
+end
+
+function M:SetLockSateWaitingFx(theState)
+	waitingFx = theState
+end
+
+---------------------------------------------------------------------------   click		---------------------------------------------------------------
+--关闭
+function M.OnClosed(go)
+	if IsWaitingFx() then return end
+	LuaUIManager.Instance:Destroy("UI/GameSystem/RelicTreasure/RelicTreasureDlg")
+end
+--帮助
+function M.OnClickHelp(go)
+	if IsWaitingFx() then return end
+	Hotfix.CallSingleMethod("UI.XCommonHelpTipView", true, false, "ShowHelp", XSys_RelicTreasure)
+end
+
+--预览奖励
+function M.OnPreviewRewardBtnClick(go)
+	if IsWaitingFx() then return end
+
+	local theDic = m_doc:GetPreviewRewardDic()
+	if theDic == nil then return end
+
+	-- print("rewardPreTipsStr: "..rewardPreTipsStr)
+	-- print("rewardPreTipsStr: "..rewardPreTipsStr)
+	
+	m_rewardPreviewData:SetTipsAndTitle(rewardPreTipsStr, rewardPreTitleStr, theDic)
+	m_rewardPreviewData:LoadDlg(needPreRewardRefresh)
+end
+
+--前往商店
+function M.OnGotoShopBtnClick(go)
+	if IsWaitingFx() then return end
+
+	local sysId = Hotfix.GetGlobalString("RelicShop")
+	if sysId == nil or sysId == stringEmpty then
+		sysId = Hotfix.GetGlobalString("BopuShop")
+	end
+	--print("sysId = "..tostring(sysId))
+	Hotfix.CallSingleMethod("XGameSysMgr",true,false,"Opensystem",tonumber(sysId))
+	M.OnClosed()
+end
+
+--关闭拍脸图
+function M.OnHideResultShowBtnClick(go)
+	if IsWaitingFx() then return end
+
+	if IsNil(treasureBigResultShowObj) then return end
+
+	--tips:处理同时获得大奖和惊喜奖励的情况,先大奖后惊喜奖励
+	if showType == 2 and not type2FirstFlyDone then
+		type2FirstFlyDone = true
+		DoPlayTweenFx()
+		M:SetLockSateWaitingFx(true)
+	end
+
+	treasureBigResultShowObj.gameObject:SetActive(false)
+end
+
+--重置按钮
+function M.OnResetBtnClick(go)
+	if IsWaitingFx() then return end
+
+	local curRelicRowData = m_doc:GetCurRelicRowData()
+	local curDigTimes = m_doc:GetCurDigTimes()
+
+	-- m_doc:ReqRelicReset()
+
+	--多少抽之前不能重置
+	local limitTimes = curRelicRowData.resetlimit
+	if curDigTimes < limitTimes then
+		local theTip = Hotfix.GetStringTable("RelicResetLimit", limitTimes)
+		Hotfix.LuaShowSystemTip(theTip)
+		return 
+	end
+
+	local curResetNum = m_doc:GetCurResetNum()
+	local curRelicRowData = m_doc:GetCurRelicRowData()
+	if curResetNum == nil or curRelicRowData == nil then return end
+	
+	local resetType = curRelicRowData.resettype
+	if resetType == nil or type(resetType) ~= "table" and #resetType ~= 4 then
+		return
+	end
+
+	--重置次数不足
+	local resetMaxNum = resetType[2]
+	local theNum = resetMaxNum - curResetNum
+	if theNum <=0 then
+		local theTip = Hotfix.GetStringTable("ERR_LUCKTOY_RESET_MAX")
+		Hotfix.LuaShowSystemTip(theTip)
+		return
+	end
+
+	--重置消耗物品数量不足
+	if m_resetItemId > 0 then
+		local hadResetItemcount = 
+			Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount", m_resetItemId)
+		print("hadResetItemcount: "..hadResetItemcount)
+		if curRelicResetCostNum > hadResetItemcount then 
+			local notEnoughTips = Hotfix.GetStringTable("RelicResetItemNotEnough")
+			Hotfix.LuaShowSystemTip(notEnoughTips)
+			return 
+		end
+	end
+
+	local makeSureTip = stringEmpty
+	if m_resetItemId >0 then
+		-- print("<color=yellow>重置道具名字："..curRelicResetCostName.."</color>")
+		makeSureTip =
+			Hotfix.GetStringTable("TreasureBuyReset",curRelicResetCostNum, curRelicResetCostName)
+	else
+		makeSureTip = Hotfix.GetStringTable("MakeSureFreeReset")
+	end
+
+	Hotfix.LuaMessageBoxConfirm(makeSureTip, M.ResetClickOK, M.OnCancel)
+	M.ChangeModleLabText("确认","取消")
+end
+function M.ResetClickOK()
+	m_doc:ReqRelicReset()
+	M.OnCancel()
+end
+
+--Itemtips
+function M.OnClickItem(go)
+	if IsWaitingFx() then return end
+
+	local spr = go:GetComponent("UISprite") 	--.transform:GetComponent("UISprite")
+	if spr.sid == nil then return end
+
+	local itemid = tonumber(spr.sid)
+	print("itemid: "..itemid)
+	Hotfix.LuaShowDetailTooltipDialog(itemid, go)
+	-- Hotfix.LuaShowItemTooltipDialog(itemid, go)
+end
+
+--遗迹点数奖励领取
+function M.OnClickRelicPointReward(go)
+	if IsWaitingFx() then return end
+
+	local spr = go.transform:GetComponent("UISprite")
+	local thepoint = tonumber(spr.sid)
+	print("thepoint: "..thepoint)
+
+	local ownRelicPoint = m_doc:GetOwnRelicPoint()
+	if ownRelicPoint < thepoint then 
+		return 
+	end
+
+	m_doc:ReqRelicRewardGet(thepoint)
+end
+
+--泰坦条获取途径
+function M.OnTiTanAccessClick(go)
+	if IsWaitingFx() then return end
+
+	local spr = go:GetComponent("UISprite")--.transform:GetComponent("UISprite")
+	local taitanItemid = tonumber(spr.sid)
+	Hotfix.CallSingleMethod("UI.UiUtility", true, false, "ShowItemAccess",taitanItemid)
+end
+
+--左侧页签点击事件
+function M.OnRelicTabClick(go)
+	if IsWaitingFx() then return end
+
+	if M.IsInnerCd(m_cdTime) then return end
+
+	local spr = go.transform:Find("Icon"):GetComponent("UISprite")
+	toTargetTabId = tonumber(spr.sid)
+	print("<color=red>当前点中的哪个页签id: "..toTargetTabId.."</color>")
+	print("lastTabId: "..lastTabId)
+	if toTargetTabId == lastTabId then return end
+
+	m_doc:SetCurRelicId(toTargetTabId)
+	m_doc:ReqRelicInfo()
+end
+
+
+--格子点击事件
+function M.OnCellClick(go)
+	if IsWaitingFx() then return end
+	if M.IsInnerCd(m_cdTime) then return end
+
+	local spr = go.transform:Find("Stone"):GetComponent("UISprite")
+	local cellIndex = tonumber(spr.sid)
+	if cellIndex == nil or cellIndex <= 0 then return end
+	print("cellIndex: "..cellIndex)
+
+	--格子已开启
+	local curAllGridData = m_doc:GetAllGridSeverData()
+	if curAllGridData == nil then return end
+	if cellIndex > #curAllGridData then return end
+	if curAllGridData[cellIndex].isopen then return end
+
+	--格子未激活
+	local IsCanDig = IsCanDigCell(cellIndex)
+	local isAnyCellOpen = m_doc:GetIsAnyCellOpen()
+	if isAnyCellOpen and not IsCanDig then
+		local canNotDigTip = Hotfix.GetStringTable("RelicCanNotDig")
+		Hotfix.LuaShowSystemTip(canNotDigTip)
+		return
+	end
+
+	--消耗品不足
+	local hadItemCount = 
+		Hotfix.CallDocumentMethod("XBagDocument",false,"GetItemCount", m_drawCostItemId)
+	if m_drawCostNum > hadItemCount then 
+		local notEnoughTips = Hotfix.GetStringTable("RelicDigItemNotEnough")
+		Hotfix.LuaShowSystemTip(notEnoughTips)
+		return 
+	end
+	
+	--首挖位置确认
+	curTargetCellIndex = cellIndex
+	if not isAnyCellOpen then
+		local tipsStr = Hotfix.GetStringTable("RelicDigMakeSure")
+		m_doc:SetType2NeedRefreshAll(true)
+		Hotfix.LuaMessageBoxConfirm(tipsStr, M.CellClickOnOk, M.OnCancel)
+		M.ChangeModleLabText("确认","取消")
+		return 
+	end
+
+	M:SetLockSateWaitingFx(true)
+	m_doc:ReqRelicDrawCell(curTargetCellIndex)
+end
+function M.ChangeModleLabText(text1,text2)
+	local modal = Hotfix.GetSingleMember("UI.ModalDlg","uiBehaviour",true,false,false)
+	local oklable = modal.gameObject.transform:Find("Bg/OK/Label"):GetComponent("UILabel")
+	local canlable = modal.gameObject.transform:Find("Bg/Cancel/Label"):GetComponent("UILabel")
+	oklable.text = text1
+	canlable.text = text2
+end
+--确定
+function M.CellClickOnOk()
+	M:SetLockSateWaitingFx(true)
+	m_doc:ReqRelicDrawCell(curTargetCellIndex)
+	M.OnCancel()
+end
+--取消
+function M.OnCancel()
+	Hotfix.CallSingleMethod("UI.ModalDlg",true,false,"SetVisible",false)
+end
+
+function M.IsInnerCd(cdTime)
+	if timeS.realtimeSinceStartup - m_startTime < cdTime then
+		return true
+	end
+	m_startTime = timeS.realtimeSinceStartup
+	return false
+end
+
+function M.OnClickNil(go)
+	print("LuaRelicTreasure.OnClickNil")
+end
+------------------------------------------------------------------------	ui manager	-----------------------------------------------------------------------
+function M.OnHide()
+	Hotfix.RemoveTimer(m_token)
+	if m_itemPool ~= nil then
+		m_itemPool:ReturnAll()
+	end
+	m_isVisible = false
+	-- m_doc:SetInputFreeze(false)
+end
+
+function M.OnShow()
+	print("LuaRelicTreasureDlg.OnShow")
+	-- if m_isVisible == true then return end
+	m_isVisible = true
+end
+---------------------------------------------------- Unity MonoBehaviour 生命周期 -------------------------------------------------
+function M.Awake(go)
+	m_Trans = go.transform 	--:Find("Bg")
+	Init()
+	RegisterEvent()
+end
+function M.Start()
+end
+function M.OnEnable()
+end
+function M.OnDisable()
+	Hotfix.RemoveTimer(m_token)
+	-- m_doc:SetInputFreeze(false)
+end
+local function DestroyLimit60UpValue()
+	m_tabScollView, relicProcessLbList = nil, nil, nil	
+	normalScale, bigScale = nil, nil
+	relicTabGridTrans = nil
+	cellGridTrans, cellTransList = nil, nil, nil
+	BoxUpV3, BoxLeftV3, BoxRightV3 = nil, nil, nil
+	stringEmpty, m_cellAtlasPath = nil
+	m_backCellSprName, m_backCellSprName2, m_bottomCellSprName = nil, nil
+
+	m_titanIcon1,m_titanIcon2 = nil, nil
+	m_titanLab1,m_titanLab2 = nil, nil
+	m_titanAdd1,m_titanAdd2 = nil, nil 
+	treasureBigResultShowObj, bigRewardFxObj = nil, nil
+	resultShowNameBigObj, resultShowNameSpObj = nil, nil
+	resultItemObj, hideResultBtn = nil, nil
+
+	flyToBigRewardLocalPos = nil
+	flyToSpecialRewardLocalPos = nil
+
+	itemBigData = nil
+	itemSpSprName = nil, nil
+
+	brickAtlas = nil
+	brickIconList = nil
+end
+function M.OnDestroy()
+	print ("LuaRelicTreasureDlg On Destroy")
+
+	Hotfix.RemoveTimer(m_token)
+
+	mBigRewardId = 0
+	mSpRewardId = 0
+
+	if m_cellPool ~= nil then
+		m_cellPool:ReturnAll()
+		m_cellPool = nil
+	end
+	if m_relicTabPool ~= nil then 
+		m_relicTabPool:ReturnAll() 
+		m_relicTabPool = nil
+	end
+	if m_itemPool ~= nil then 
+		m_itemPool:ReturnAll()
+		m_itemPool = nil
+	end
+
+	m_Trans = nil
+	m_closedGo, m_helpGo, m_rewardPreGo, m_gotoShopGo = nil, nil, nil, nil
+	rewardPreTitleStr, rewardPreTipsStr = nil, nil
+	m_duringTimeLb, m_tipsLb = nil, nil
+	m_drawCostIcon, m_drawCostNumLb = nil, nil
+	m_resetIcon, m_resetCostLb, m_resetGo = nil, nil, nil
+	m_resetRemainLb, todayRRemainStr, activityRRmainStr = nil, nil, nil
+	m_bigRewardGo, m_bigRewardProcessLb = nil, nil
+	m_spRewardGo, m_spRewardProcessLb = nil, nil
+	m_spSprName, spSprList = nil, nil
+	m_relicPointDesLb, m_relicPRewardPool, m_uiWrapContentObj = nil, nil, nil
+
+	FlyTweenScaleComp2, FlyTweenPosComp2 = nil, nil
+	FlyAwayTweenObj, flyAwaySpr, flyAwaySpRObj = nil, nil, nil
+	FlyTweenScaleComp, FlyTweenPosComp = nil, nil
+	
+	DestroyLimit60UpValue()
+	m_doc:SetDlg(nil)
+	m_doc:DoHallDlgRedPointShow()
+	-- m_doc:SetInputFreeze(false)
+	m_rewardPreviewData:OnDestroy()
+	
+	print("after set dlg false")
+end
+
+return M
