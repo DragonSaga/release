@@ -1,10 +1,10 @@
-µß §vþ¡	Ap¿
-ÌÛTôàíï»¿<?xml version="1.0" encoding="utf-8"?>
+ˆ~[‡m×oÇ­ÚÈì½²
+f²üï»¿<?xml version="1.0" encoding="utf-8"?>
 <XVersionNewData>
   <Major_Version>1</Major_Version>
   <Build_Version>44</Build_Version>
   <Minor_Version>40</Minor_Version>
-  <KeyValues  />
+  <KeyValues />
   <m_res_list>
     <XVersionNewItem>
       <download>an/AssetBundles/3134088109.ab</download>
@@ -8745,8 +8745,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/32112597.ab</download>
       <save_path>AssetBundles/32112597.ab</save_path>
-      <hash>7eaccedd12a3c1bbead8c08aeb0c1819d2b645d1</hash>
-      <size>108460</size>
+      <hash>014873eb235d0005acdd61300ee3a35c2a081d9d</hash>
+      <size>108114</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -10894,8 +10894,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/2565959865.ab</download>
       <save_path>AssetBundles/2565959865.ab</save_path>
-      <hash>47078f5a0f5a62b7801ab13f56aeb6b289f0c0c4</hash>
-      <size>290274</size>
+      <hash>a387f8f74e30bc2d39ef16046a1308ac8696daaf</hash>
+      <size>124901</size>
       <version>1.44.18</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -13547,8 +13547,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/4213077194.ab</download>
       <save_path>AssetBundles/4213077194.ab</save_path>
-      <hash>6d610371c3990543ccd49e7a26a92036889d9db3</hash>
-      <size>5790</size>
+      <hash>7ccfa07a4e2055bcc0a03d41d50f25c40e01e7ad</hash>
+      <size>5479</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -13568,8 +13568,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/1182857718.ab</download>
       <save_path>AssetBundles/1182857718.ab</save_path>
-      <hash>5715077c07d0841add3af97b9211abfc0ebc0465</hash>
-      <size>3349</size>
+      <hash>3deb01e1a77e097dd817dc913983ca0667526f6f</hash>
+      <size>3857</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -13750,8 +13750,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/1144429442.ab</download>
       <save_path>AssetBundles/1144429442.ab</save_path>
-      <hash>1d51239c736becf01b98268f085a9150ebbdc2e5</hash>
-      <size>5415</size>
+      <hash>a86a0ec389b2228fab7898fa04336b3b86f07e29</hash>
+      <size>5440</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -14394,8 +14394,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/270697866.ab</download>
       <save_path>AssetBundles/270697866.ab</save_path>
-      <hash>2f39b02b214de4a516e459ec9fd5397e460f39e4</hash>
-      <size>41081</size>
+      <hash>2e2040e880cea9556f9e3d1ae178af2d994f85a0</hash>
+      <size>40192</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -14408,15 +14408,15 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/769509000.ab</download>
       <save_path>AssetBundles/769509000.ab</save_path>
-      <hash>0b74c156c8332122ed56d00a17faf65a4c0ed0de</hash>
-      <size>14632</size>
+      <hash>4ddbe824bb72c6eba3fd430b106cacb2db1e8d31</hash>
+      <size>14377</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
       <download>/an/AssetBundles/2026689779.ab</download>
       <save_path>AssetBundles/2026689779.ab</save_path>
-      <hash>5b6f42f912515a28c76851a5b97d2348ac862113</hash>
-      <size>28869</size>
+      <hash>4086b85a567b7a4f29ed9359c48527b777192f8e</hash>
+      <size>29780</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -14436,8 +14436,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/2263044474.ab</download>
       <save_path>AssetBundles/2263044474.ab</save_path>
-      <hash>d23b4032d515e81ecce3327a80fc2c19efaf73d2</hash>
-      <size>22776</size>
+      <hash>b10265d87b59c10d6efb7335a1f4b3d95ba8b310</hash>
+      <size>23699</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -14478,8 +14478,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/88710304.ab</download>
       <save_path>AssetBundles/88710304.ab</save_path>
-      <hash>68703a17aa3ab2a9fa2a895fe78a09727620f661</hash>
-      <size>2576</size>
+      <hash>571ae1315fa5e3ebb2b3a0d3ef0de2366bda8a2d</hash>
+      <size>3142</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -14667,8 +14667,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/3125943561.ab</download>
       <save_path>AssetBundles/3125943561.ab</save_path>
-      <hash>5f41b73e701b5087967d7d8deba6e6c002af3be4</hash>
-      <size>4813</size>
+      <hash>6284cd8a6718ce3d5d9862a3a5f45dee20f10242</hash>
+      <size>5587</size>
       <version>1.44.37</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -14765,8 +14765,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/3797267229.ab</download>
       <save_path>AssetBundles/3797267229.ab</save_path>
-      <hash>9ee311597c8105c92235368461eb4070559f213c</hash>
-      <size>1716</size>
+      <hash>6eb243def1239c6d6ed1c4bd06b02dc477ae3d96</hash>
+      <size>3566</size>
       <version>1.44.37</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -15423,8 +15423,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/1755162592.ab</download>
       <save_path>AssetBundles/1755162592.ab</save_path>
-      <hash>18b25221b606c47ad8e017d6eb7461e68dc7808b</hash>
-      <size>51247</size>
+      <hash>19a2616a2af6d3fe10af584d1defe96020d0ddcb</hash>
+      <size>76358</size>
       <version>1.44.38</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -15437,29 +15437,29 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/4129507999.ab</download>
       <save_path>AssetBundles/4129507999.ab</save_path>
-      <hash>c045c656fa03a063f880f0db1d53b779331f103e</hash>
-      <size>219459</size>
+      <hash>91c6169ef2769d5380d7f342915ce9b874d77cb2</hash>
+      <size>275777</size>
       <version>1.44.38</version>
     </XVersionNewItem>
     <XVersionNewItem>
       <download>/an/AssetBundles/118733404.ab</download>
       <save_path>AssetBundles/118733404.ab</save_path>
-      <hash>9d676e599a5f05ea7ba548ae9124cd8f2f3e0874</hash>
-      <size>59372</size>
+      <hash>942acc43adac36dec4c6e47a2489dd3f580409a5</hash>
+      <size>59357</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
       <download>/an/AssetBundles/2060383968.ab</download>
       <save_path>AssetBundles/2060383968.ab</save_path>
-      <hash>26e5dfb51090371b36a9c25a862d12e3158bad10</hash>
-      <size>1093609</size>
+      <hash>6d7fd1ef8969ed70c8b1ec5ed1ffc560e73d3720</hash>
+      <size>1094405</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
       <download>/an/AssetBundles/2542404047.ab</download>
       <save_path>AssetBundles/2542404047.ab</save_path>
-      <hash>02ae2edfb2219e8bbdd31faacf668e1f44e9ad50</hash>
-      <size>176653</size>
+      <hash>7ce14afe3580b332d1374ea78ef0cf54500b926e</hash>
+      <size>173957</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
@@ -15528,8 +15528,8 @@
     <XVersionNewItem>
       <download>/an/AssetBundles/3023072709.ab</download>
       <save_path>AssetBundles/3023072709.ab</save_path>
-      <hash>2c22ca2791bfe39f5ba54269100a5c106eb83d17</hash>
-      <size>1396</size>
+      <hash>90e0f265d7422fe091050f7bb64e6f56070dc6e1</hash>
+      <size>1727</size>
       <version>1.44.40</version>
     </XVersionNewItem>
     <XVersionNewItem>
